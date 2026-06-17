@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     DEBUG: bool = True
     # Em produção (HTTPS) defina COOKIE_SECURE=true para enviar cookies só por TLS.
     COOKIE_SECURE: bool = False
+    # Lembretes via Telegram (opcional). Só envia se ambos estiverem preenchidos.
+    TELEGRAM_BOT_TOKEN: str = ""
+    TELEGRAM_CHAT_ID: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

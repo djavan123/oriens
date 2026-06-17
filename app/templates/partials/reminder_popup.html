@@ -1,0 +1,20 @@
+{# Toasts de lembrete. O container em base_app.html faz o polling a cada 60s. #}
+{% for task in reminders %}
+<div id="reminder-toast-{{ task.id }}"
+     class="bg-oriens-surface border border-oriens-accent rounded-lg shadow-2xl p-4 w-72 flex items-start gap-3">
+  <span class="text-lg leading-none flex-shrink-0">🔔</span>
+  <div class="flex-1 min-w-0">
+    <p class="text-oriens-primary text-sm font-medium leading-snug">{{ task.title }}</p>
+    {% if task.remind_at %}
+    <p class="text-oriens-muted text-xs mt-0.5 font-mono">{{ task.remind_at.strftime('%d/%m %H:%M') }}</p>
+    {% endif %}
+  </div>
+  <button
+    hx-post="/api/reminders/{{ task.id }}/ack"
+    hx-target="#reminder-toast-{{ task.id }}"
+    hx-swap="outerHTML"
+    class="text-oriens-accent text-xs font-semibold hover:text-oriens-accent-hover transition-colors flex-shrink-0">
+    OK
+  </button>
+</div>
+{% endfor %}

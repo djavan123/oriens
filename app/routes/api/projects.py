@@ -77,6 +77,11 @@ async def create_project(
             '<p id="project-form-error" class="text-oriens-alert text-sm mt-2">Nome do projeto é obrigatório.</p>',
             status_code=422,
         )
+    if _parse_int(context_id) is None:
+        return HTMLResponse(
+            '<p id="project-form-error" class="text-oriens-alert text-sm mt-2">Contexto é obrigatório.</p>',
+            status_code=422,
+        )
     service = ProjectService(db)
     project = await service.create(
         user_id=current_user.id,
@@ -129,8 +134,11 @@ async def update_project(
         updates["notes"] = notes.strip() or None
     if deadline is not None:
         updates["deadline"] = _parse_date(deadline)
+    # Contexto é obrigatório: nunca apagar (ignora valor vazio).
     if context_id is not None:
-        updates["context_id"] = _parse_int(context_id)
+        cid = _parse_int(context_id)
+        if cid is not None:
+            updates["context_id"] = cid
     if tags is not None:
         updates["tags"] = tags.strip() or None
     if proxima_acao is not None:

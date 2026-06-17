@@ -53,3 +53,7 @@ class Task(Base):
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     tags:     Mapped[Optional[str]]      = mapped_column(String, nullable=True)
+    # Lembrete (sem recorrência)
+    remind_at:               Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    reminder_telegram_sent:  Mapped[bool]               = mapped_column(Boolean, default=False, nullable=False)
+    reminder_acked:          Mapped[bool]               = mapped_column(Boolean, default=False, nullable=False)

@@ -196,10 +196,10 @@
               class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
           </div>
           <div>
-            <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Contexto</label>
-            <select name="context_id"
+            <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Contexto *</label>
+            <select name="context_id" required
               class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-              <option value="">— nenhum —</option>
+              <option value="" disabled {% if not project.context_id %}selected{% endif %}>Selecione...</option>
               {% for ctx in contexts %}
               <option value="{{ ctx.id }}" {% if project.context_id == ctx.id %}selected{% endif %}>{{ ctx.name }}</option>
               {% endfor %}
@@ -298,11 +298,20 @@
       </form>
     </div>
 
-    <!-- Cronologia -->
-    <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Cronologia</h2>
+    <!-- Atividade Recente -->
+    <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4" x-data="{ showHistory: false }">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Atividade Recente</h2>
+        {% if timeline %}
+        <button @click="showHistory = true"
+          class="text-oriens-link text-xs hover:text-[#8fc1ff] transition-colors cursor-pointer">
+          Ver histórico completo →
+        </button>
+        {% endif %}
+      </div>
+
       <div>
-        {% for event in timeline %}
+        {% for event in timeline[:5] %}
         <div class="flex items-start gap-3 py-2.5 border-b border-oriens-divider last:border-0">
           <span class="text-oriens-muted text-xs font-mono w-12 flex-shrink-0 pt-0.5">
             {{ event.created_at.strftime('%d/%m') }}
@@ -312,6 +321,35 @@
         {% else %}
         <p class="text-oriens-empty text-sm italic">Nenhum evento registrado.</p>
         {% endfor %}
+      </div>
+
+      <!-- Modal: histórico completo -->
+      <div x-show="showHistory" x-transition
+           @keydown.escape.window="showHistory = false"
+           class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;">
+        <div class="absolute inset-0 bg-black/70" @click="showHistory = false"></div>
+        <div class="bg-oriens-surface border border-oriens-border rounded-xl shadow-2xl relative w-full max-w-lg max-h-[80vh] flex flex-col">
+          <div class="flex items-center justify-between p-5 border-b border-oriens-border">
+            <h3 class="text-oriens-primary text-sm font-semibold">Histórico completo</h3>
+            <button @click="showHistory = false" class="text-oriens-secondary hover:text-oriens-primary transition-colors">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+          <div class="p-5 overflow-y-auto">
+            {% for event in timeline %}
+            <div class="flex items-start gap-3 py-2.5 border-b border-oriens-divider last:border-0">
+              <span class="text-oriens-muted text-xs font-mono w-20 flex-shrink-0 pt-0.5">
+                {{ event.created_at.strftime('%d/%m %H:%M') }}
+              </span>
+              <span class="text-oriens-primary text-sm">{{ event.description }}</span>
+            </div>
+            {% else %}
+            <p class="text-oriens-empty text-sm italic">Nenhum evento registrado.</p>
+            {% endfor %}
+          </div>
+        </div>
       </div>
     </div>
 

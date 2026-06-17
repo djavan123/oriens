@@ -30,6 +30,17 @@ def _parse_int(v: Optional[str]) -> Optional[int]:
     except ValueError:
         return None
 
+
+def _parse_remind(date_str: Optional[str], time_str: Optional[str]) -> Optional[datetime]:
+    """Combina Data + Hora num datetime. Sem data → None. Sem hora → 09:00."""
+    if not date_str or not date_str.strip():
+        return None
+    t = (time_str or "").strip() or "09:00"
+    try:
+        return datetime.strptime(f"{date_str.strip()} {t}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        return None
+
 router = APIRouter(prefix="/api/tasks", tags=["api:tasks"])
 
 
@@ -79,9 +90,17 @@ async def create_task(
             headers={"HX-Retarget": "#task-form-error", "HX-Reswap": "innerHTML"},
         )
     extra = {}
-    cid = _parse_int(context_id)
-    if cid is not None:
-        extra["context_id"] = cid
+    proj_id = _parse_int(project_id)
+    # Herança de contexto: tarefa dentro de um projeto herda o contexto dele.
+    if proj_id is not None:
+        from app.services.project_service import ProjectService
+        project = await ProjectService(db).get_by_id(proj_id, current_user.id)
+        if project is not None:
+            extra["context_id"] = project.context_id
+    else:
+        cid = _parse_int(context_id)
+        if cid is not None:
+            extra["context_id"] = cid
     pid = _parse_int(parent_id)
     if pid is not None:
         extra["parent_id"] = pid
@@ -100,7 +119,7 @@ async def create_task(
         task = await service.create(
             user_id=current_user.id,
             title=title,
-            project_id=_parse_int(project_id),
+            project_id=proj_id,
             energy=energy,
             is_quick_win=is_quick_win,
             **extra,
@@ -203,6 +222,7 @@ async def edit_form(
     if not task:
         raise HTTPException(status_code=404)
     contexts = await ContextRepository(db).get_all_by_user(current_user.id)
+    context_labels = {c.id: c.name for c in contexts}
     user_labels = await LabelRepository(db).get_all_by_user(current_user.id)
     from sqlalchemy import select
     from app.models.user import User as UserModel
@@ -211,7 +231,8 @@ async def edit_form(
     return templates.TemplateResponse(
         request,
         "partials/task_edit_form.html",
-        {"task": task, "contexts": contexts, "user_labels": user_labels, "users": users},
+        {"task": task, "contexts": contexts, "context_labels": context_labels,
+         "user_labels": user_labels, "users": users},
     )
 
 
@@ -226,6 +247,8 @@ async def update_task(
     responsavel_id: Optional[str] = Form(None),
     context_id: Optional[str] = Form(None),
     tags: Optional[str] = Form(None),
+    remind_date: Optional[str] = Form(None),
+    remind_time: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -235,18 +258,29 @@ async def update_task(
             '<p class="text-oriens-alert text-xs">Título é obrigatório.</p>',
             headers={"HX-Retarget": f"#task-edit-error-{task_id}", "HX-Reswap": "innerHTML"},
         )
+    service = TaskService(db)
+    existing = await service.get_by_id(task_id, current_user.id)
+    if not existing:
+        raise HTTPException(status_code=404)
+
     kwargs: dict = {"title": title, "is_quick_win": is_quick_win, "deadline": _parse_date(deadline)}
     if energy and energy in {e.value for e in EnergyLevel}:
         kwargs["energy"] = EnergyLevel(energy)
     rid = _parse_int(responsavel_id)
     if rid is not None:
         kwargs["responsavel_id"] = rid
-    # context_id: None = field absent (don't touch), "" = clear, "123" = set
-    if context_id is not None:
+    # Contexto: tarefa de projeto herda do projeto (travado) → ignora o que vier.
+    if existing.project_id is None and context_id is not None:
         kwargs["context_id"] = _parse_int(context_id)
     if tags is not None:
         kwargs["tags"] = tags.strip() or None
-    service = TaskService(db)
+    # Lembrete: ao mudar, reseta os flags para poder disparar de novo.
+    new_remind = _parse_remind(remind_date, remind_time)
+    if new_remind != existing.remind_at:
+        kwargs["remind_at"] = new_remind
+        kwargs["reminder_telegram_sent"] = False
+        kwargs["reminder_acked"] = False
+
     try:
         task = await service.update(task_id, current_user.id, **kwargs)
     except TaskVerbError as e:

@@ -41,7 +41,15 @@
         </select>
       </div>
 
-      {% if contexts is defined and contexts %}
+      {% if task.project_id %}
+      <div class="flex items-center gap-2">
+        <label class="text-oriens-secondary text-xs">Contexto</label>
+        <span class="bg-oriens-card border border-oriens-border text-oriens-muted rounded-lg px-2 py-1 text-xs">
+          {{ context_labels.get(task.context_id, 'Independente') if context_labels is defined else 'herdado' }}
+          <span class="text-oriens-empty">· herdado do projeto</span>
+        </span>
+      </div>
+      {% elif contexts is defined and contexts %}
       <div class="flex items-center gap-2">
         <label class="text-oriens-secondary text-xs">Contexto</label>
         <select name="context_id"
@@ -82,6 +90,19 @@
       {% endif %}
     </div>
 
+    <!-- Lembrete (data + hora) -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <label class="text-oriens-secondary text-xs">🔔 Lembrete</label>
+      <input type="date" name="remind_date"
+        value="{{ task.remind_at.strftime('%Y-%m-%d') if task.remind_at else '' }}"
+        class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+      <input type="time" name="remind_time"
+        value="{{ task.remind_at.strftime('%H:%M') if task.remind_at else '' }}"
+        class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+      <span class="text-oriens-empty text-xs">deixe a data vazia para remover</span>
+    </div>
+
+    <!-- Etiquetas -->
     <div class="flex items-center gap-2 flex-wrap" x-data="{ tagsVal: '{{ task.tags or '' }}' }">
       <label class="text-oriens-secondary text-xs">Etiquetas</label>
       <input type="text" name="tags" x-model="tagsVal"

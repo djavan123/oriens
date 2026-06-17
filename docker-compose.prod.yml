@@ -20,6 +20,8 @@ services:
     build: .
     restart: always
     env_file: .env
+    environment:
+      TZ: America/Sao_Paulo
     depends_on:
       db:
         condition: service_healthy

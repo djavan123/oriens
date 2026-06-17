@@ -41,13 +41,13 @@
       </select>
     </div>
     <div>
-      <label class="block text-oriens-secondary text-xs font-medium uppercase tracking-wider mb-1.5">Contexto</label>
-      <select name="context_id"
+      <label class="block text-oriens-secondary text-xs font-medium uppercase tracking-wider mb-1.5">Contexto *</label>
+      <select name="context_id" required
         class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-        <option value="">— nenhum —</option>
+        <option value="" disabled selected>Selecione...</option>
         {% if contexts is defined %}
         {% for ctx in contexts %}
-        <option value="{{ ctx.id }}">{{ ctx.label }}</option>
+        <option value="{{ ctx.id }}">{{ ctx.name }}</option>
         {% endfor %}
         {% endif %}
       </select>

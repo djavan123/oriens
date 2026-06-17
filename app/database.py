@@ -48,6 +48,9 @@ _ENSURE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("parent_id", "INTEGER"),
         ("responsavel_id", "INTEGER"),
         ("tags", "TEXT"),
+        ("remind_at", "DATETIME"),
+        ("reminder_telegram_sent", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("reminder_acked", "BOOLEAN NOT NULL DEFAULT 0"),
     ],
     "contexts": [
         ("user_id", "INTEGER"),
@@ -74,6 +77,27 @@ def _ensure_columns(conn) -> None:
                 conn.exec_driver_sql(
                     f'ALTER TABLE "{table}" ADD COLUMN {name} {ddl}'
                 )
+
+
+# Migrações aditivas para PostgreSQL (prod). Usa ADD COLUMN IF NOT EXISTS
+# (idempotente, PG 9.6+). Tipos em sintaxe PostgreSQL.
+_ENSURE_COLUMNS_PG: dict[str, list[tuple[str, str]]] = {
+    "tasks": [
+        ("remind_at", "TIMESTAMP"),
+        ("reminder_telegram_sent", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("reminder_acked", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ],
+}
+
+
+def _ensure_columns_postgres(conn) -> None:
+    if conn.dialect.name != "postgresql":
+        return
+    for table, columns in _ENSURE_COLUMNS_PG.items():
+        for name, ddl in columns:
+            conn.exec_driver_sql(
+                f'ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS {name} {ddl}'
+            )
 
 
 def _migrate_data(conn) -> None:
@@ -116,4 +140,5 @@ async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_ensure_columns)
+        await conn.run_sync(_ensure_columns_postgres)
         await conn.run_sync(_migrate_data)

@@ -52,6 +52,9 @@
       {% if t %}<span class="text-xs px-1.5 py-0.5 rounded leading-none bg-oriens-surface text-oriens-muted">{{ t }}</span>{% endif %}
       {% endfor %}
       {% endif %}
+      {% if task.remind_at and task.status.value != 'done' %}
+      <span class="text-xs leading-none text-oriens-accent">🔔 {{ task.remind_at.strftime('%d/%m %H:%M') }}</span>
+      {% endif %}
       {% if task.deadline %}
       <span class="text-xs
         {% if task.deadline.date() < now().date() %}text-oriens-alert{% else %}text-oriens-muted{% endif %}">

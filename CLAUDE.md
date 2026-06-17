@@ -44,62 +44,48 @@ Se a resposta for "mais difícil", a escolha está errada.
 | CSS | TailwindCSS | CDN |
 | Templates | Jinja2 | 3.1.4 |
 | Auth | PyJWT + bcrypt | 2.9.0 + 4.2.0 |
-| Banco | SQLite (aiosqlite) | → PostgreSQL |
+| Banco | SQLite (dev) / PostgreSQL (prod) | aiosqlite 0.20 / asyncpg 0.29 |
 | Testes | pytest + pytest-asyncio | 8.3.3 + 0.24.0 |
 | IA (opcional) | Anthropic / OpenAI | ≥0.40.0 / ≥1.50.0 |
-| Deploy | Docker Compose | — |
+| Deploy | Docker Compose (prod) | VPS Ubuntu 24.04 |
 
-> **Migrations:** gerenciadas via `database.py` → `init_db()` com `Base.metadata.create_all` + `_ensure_columns()` (idempotente, ALTER TABLE por coluna) + `_migrate_data()` (seed e migrações de dados). **Alembic não está em uso ativo.**
+> **Banco único, dois ambientes:** o mesmo código roda em **SQLite no dev** e **PostgreSQL na produção**, controlado só pela `DATABASE_URL`.
+> **Migrations:** gerenciadas via `database.py` → `init_db()` com `Base.metadata.create_all` + `_ensure_columns()` (ALTER TABLE por coluna) + `_migrate_data()` (seed e migrações de dados). **`_ensure_columns()` e `_migrate_data()` rodam apenas em SQLite** (guard por `conn.dialect.name`). Para **migrações aditivas em PostgreSQL** (prod já no ar), use `_ensure_columns_postgres()` — `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (idempotente) no dict `_ENSURE_COLUMNS_PG`. `init_db()` roda **sempre** no startup (lifespan), inclusive com `DEBUG=false`. **Alembic não está em uso ativo.**
 
 ---
 
-## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS SCRIPT 2)
+## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS SCRIPT 3 + DEPLOY)
 
 ```
 C:\Projetos\Sistema tarefas\
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                        # FastAPI app, routers, lifespan, exception handlers
-│   ├── config.py                      # Pydantic Settings (DATABASE_URL, SECRET_KEY, AI_*)
-│   ├── database.py                    # Engine async, session, init_db(), get_db()
+│   ├── main.py                        # FastAPI app, routers, lifespan (init_db sempre), settings router
+│   ├── config.py                      # Pydantic Settings (DATABASE_URL, SECRET_KEY, AI_*, COOKIE_SECURE)
+│   ├── database.py                    # Engine async, init_db(); _ensure_columns/_migrate_data só em SQLite
 │   ├── templates_env.py               # Jinja2 env global (função `now`, `fmt_size`)
 │   ├── models/
-│   │   ├── __init__.py                # Exporta todos os models
+│   │   ├── __init__.py                # Exporta todos os models (+ Label)
 │   │   ├── user.py
 │   │   ├── project.py                 # + proxima_acao, premissas, responsavel_id; status: nao_iniciado/em_andamento/concluido
-│   │   ├── task.py                    # EnergyLevel aqui; + responsavel_id
+│   │   ├── task.py                    # EnergyLevel aqui; + responsavel_id; + tags
 │   │   ├── note.py
 │   │   ├── capture.py
-│   │   ├── context.py
+│   │   ├── context.py                 # type → String(50) nullable; + user_id (contextos dinâmicos)
 │   │   ├── weekly_directive.py
 │   │   ├── project_comment.py
-│   │   ├── project_attachment.py
+│   │   ├── project_attachment.py      # anexos em DISCO: /app/data/attachments/{project_id}/
 │   │   ├── project_milestone.py
 │   │   ├── project_risk.py
 │   │   ├── project_audit.py
-│   │   └── project_timeline.py        # TimelineEventType enum + ProjectTimeline model
+│   │   ├── project_timeline.py        # TimelineEventType enum + ProjectTimeline model
+│   │   └── label.py                   # Label (etiquetas por usuário) — SCRIPT 3
 │   ├── schemas/
-│   │   ├── __init__.py
-│   │   ├── project.py
-│   │   ├── task.py
-│   │   └── capture.py
 │   ├── repositories/
-│   │   ├── __init__.py
-│   │   ├── user_repo.py
-│   │   ├── project_repo.py            # get_last_activity() lê de project_timeline
-│   │   ├── task_repo.py
-│   │   ├── note_repo.py
-│   │   ├── capture_repo.py
-│   │   ├── context_repo.py
-│   │   ├── weekly_directive_repo.py
-│   │   ├── project_comment_repo.py
-│   │   ├── project_attachment_repo.py
-│   │   ├── project_milestone_repo.py
-│   │   ├── project_risk_repo.py
-│   │   ├── project_audit_repo.py
-│   │   └── project_timeline_repo.py   # record(), get_by_project(), get_last_activity()
+│   │   ├── ... (user, project, task, note, capture, weekly, comment, attachment, milestone, risk, audit, timeline)
+│   │   ├── context_repo.py            # + get_all_by_user/get_by_id/create/delete (SCRIPT 3)
+│   │   └── label_repo.py              # CRUD de etiquetas — SCRIPT 3
 │   ├── services/
-│   │   ├── __init__.py
 │   │   ├── project_service.py         # audit trail + timeline (project_created, status_changed)
 │   │   ├── task_service.py            # verb validation, priority_score + timeline (task_created, task_done)
 │   │   ├── capture_service.py         # process_as_task/project/note/discard
@@ -107,72 +93,63 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── weekly_directive_service.py
 │   │   └── ai_service.py              # Protocol + ClaudeProvider + OpenAIProvider + NullProvider
 │   ├── routes/
-│   │   ├── __init__.py
-│   │   ├── auth.py
-│   │   ├── dashboard.py
-│   │   ├── projects.py                # passa users, responsavel_map, timeline ao contexto
-│   │   ├── capture.py
-│   │   ├── weekly.py                  # projetos_sem_atualizacao por atividade real (timeline)
+│   │   ├── auth.py                    # cookies com secure=COOKIE_SECURE
+│   │   ├── dashboard.py               # usa resolve_active_context()
+│   │   ├── projects.py                # usa resolve_active_context()
+│   │   ├── capture.py                 # usa resolve_active_context()
+│   │   ├── weekly.py                  # usa resolve_active_context()
+│   │   ├── settings.py               # GET /settings (etiquetas + contextos) — SCRIPT 3
 │   │   └── api/
-│   │       ├── __init__.py
-│   │       ├── tasks.py               # aceita responsavel_id
-│   │       ├── projects.py            # aceita responsavel_id
+│   │       ├── tasks.py               # aceita responsavel_id, context_id, tags
+│   │       ├── projects.py            # aceita responsavel_id; anexos em disco
 │   │       ├── capture.py
 │   │       ├── ai.py
-│   │       └── context.py
+│   │       ├── context.py             # cookie agora guarda context_id (int) — SCRIPT 3
+│   │       └── settings.py            # CRUD etiquetas + contextos — SCRIPT 3
 │   ├── templates/
-│   │   ├── base.html                  # tokens oriens-*, Inter, Tailwind CDN, HTMX, Alpine.js
-│   │   ├── base_app.html              # sidebar "Oriens"
-│   │   ├── dashboard.html
+│   │   ├── base.html                  # tokens oriens-*, Inter, Tailwind, HTMX, Alpine + PWA (manifest, SW)
+│   │   ├── base_app.html              # sidebar RESPONSIVA (hambúrguer no mobile) + contextos dinâmicos
+│   │   ├── dashboard.html             # grid-cols-1 md:grid-cols-2 (responsivo)
 │   │   ├── capture.html
 │   │   ├── process.html
-│   │   ├── weekly.html                # seção "Projetos sem atualização"
-│   │   ├── auth/
-│   │   │   ├── login.html
-│   │   │   └── setup.html
+│   │   ├── weekly.html
+│   │   ├── settings.html              # etiquetas + contextos (SCRIPT 3)
+│   │   ├── auth/ (login.html, setup.html)
 │   │   ├── projects/
-│   │   │   ├── list.html
-│   │   │   ├── detail.html            # proxima_acao, premissas, responsavel, seção Cronologia
+│   │   │   ├── list.html              # kanban grid-cols-1 md:grid-cols-3 (responsivo)
+│   │   │   ├── detail.html            # flex-col lg:flex-row (responsivo) + Cronologia
 │   │   │   └── reports.html
 │   │   └── partials/
-│   │       ├── task_item.html
-│   │       ├── task_form.html         # select responsavel_id (condicional)
-│   │       ├── task_edit_form.html    # select responsavel_id (condicional)
-│   │       ├── task_with_subtasks.html
-│   │       ├── project_card.html      # exibe primeiro nome do responsável no footer
-│   │       ├── project_form.html      # select responsavel_id (condicional)
-│   │       ├── project_comment.html
-│   │       ├── project_attachment.html
-│   │       ├── project_milestone.html
-│   │       ├── project_risk.html
-│   │       ├── capture_item.html
-│   │       ├── process_item.html
-│   │       └── ai_result.html
-│   ├── static/
+│   │       ├── task_item.html         # + badge de contexto e chips de etiquetas
+│   │       ├── task_form.html         # + contexto ("Independente (todos)"), etiquetas, responsavel_id
+│   │       ├── task_edit_form.html    # + contexto, etiquetas, responsavel_id
+│   │       └── ... (subtasks, project_card/form/comment/attachment/milestone/risk, capture, process, ai_result)
+│   ├── static/                        # PWA: manifest.webmanifest, sw.js, icon.svg
 │   └── utils/
-│       ├── __init__.py
 │       ├── auth.py                    # cookie: oriens_token
 │       ├── verb_validator.py
-│       └── overload_detector.py       # score = (proj*2) + tasks
+│       ├── overload_detector.py       # score = (proj*2) + tasks
+│       └── context_utils.py           # resolve_active_context() — SCRIPT 3
 ├── tests/
-│   ├── __init__.py
-│   ├── conftest.py
-│   ├── test_utils.py
-│   ├── test_services.py
-│   ├── test_routes.py
-│   └── test_repositories.py
-├── data/                              # oriens.db
+├── data/                              # SQLite (dev) + anexos (/app/data/attachments)
 ├── scripts/
-├── docker-compose.yml
-├── Dockerfile
-├── .env
-├── requirements.txt
+│   ├── backup.sh                      # pg_dump + anexos (.tar.gz), retenção 7 dias
+│   └── migrate_to_postgres.py         # cópia SQLite → PostgreSQL (opcional) — exige PYTHONPATH=/app
+├── nginx/
+│   └── oriens.conf                    # proxy reverso (uso futuro com domínio)
+├── docker-compose.yml                 # DEV (SQLite + --reload)
+├── docker-compose.prod.yml            # PROD (app + PostgreSQL + volumes pgdata/appdata)
+├── Dockerfile                         # produção (sem --reload)
+├── .dockerignore  /  .gitignore
+├── .env  /  .env.example              # .env.example tem blocos DEV e PROD
+├── DEPLOY.md                          # guia completo (domínio + HTTPS + Nginx + backup)
+├── requirements.txt                   # + asyncpg
 └── README.md
 ```
 
 ---
 
-## BANCO DE DADOS (ESTADO ATUAL — PÓS SCRIPT 2)
+## BANCO DE DADOS (ESTADO ATUAL — PÓS SCRIPT 3)
 
 **users:** `id, email (unique), password (bcrypt), name, created_at`
 
@@ -180,9 +157,14 @@ C:\Projetos\Sistema tarefas\
 - status: `nao_iniciado | em_andamento | concluido`
 - Todo projeto novo nasce com `nao_iniciado`
 
-**tasks:** `id, user_id, responsavel_id (nullable, FK users), project_id (nullable), parent_id (nullable, self-ref), context_id (nullable), title, status, energy, is_quick_win (bool), cognitive_load, financial_impact, operational_risk, strategic_impact, task_urgency, effort, priority_score (indexed), archived (bool), deadline, created_at, done_at`
+**tasks:** `id, user_id, responsavel_id (nullable, FK users), project_id (nullable), parent_id (nullable, self-ref), context_id (nullable), title, status, energy, is_quick_win (bool), cognitive_load, financial_impact, operational_risk, strategic_impact, task_urgency, effort, priority_score (indexed), archived (bool), deadline, tags (text), remind_at (datetime, nullable), reminder_telegram_sent (bool), reminder_acked (bool), created_at, done_at`
 - status: `pending | done | blocked`
 - energy: `high | medium | low` (EnergyLevel enum em `task.py`)
+- `tags`: etiquetas separadas por vírgula (SCRIPT 3)
+- `context_id` NULL = tarefa "Independente (todos os contextos)" — aparece em qualquer contexto
+
+**labels:** `id, user_id (FK cascade), name, color (hex, nullable)`  *(SCRIPT 3)*
+- Etiquetas predefinidas pelo usuário, gerenciadas em `/settings`
 
 **project_timeline:** `id, project_id (FK cascade), user_id (FK cascade), event_type (string), description (string), created_at (indexed)`
 - event_type: `project_created | status_changed | task_created | task_done`
@@ -193,8 +175,10 @@ C:\Projetos\Sistema tarefas\
 
 **notes:** `id, user_id, project_id (nullable), content, created_at`
 
-**contexts:** `id, name, type`
-- type: `work | home_recovery | home_operational | gym`
+**contexts:** `id, name, type (String(50) nullable), user_id (nullable, FK users)`  *(alterado no SCRIPT 3)*
+- 4 contextos padrão (`user_id = NULL`): type `work | home_recovery | home_operational | gym`
+- Contextos do usuário (`user_id` preenchido): criados/excluídos em `/settings`
+- `type` deixou de ser enum fixo → string livre (preserva os padrões e permite contextos dinâmicos)
 
 **weekly_directives:** `id, user_id, week_start (date), weekly_theme, top_1, top_2, top_3, ignore_list, major_risk, physiological_priority, created_at, updated_at`
 
@@ -223,6 +207,13 @@ C:\Projetos\Sistema tarefas\
     - `task_service.create()` com project_id → `task_created`
     - `task_service.mark_done()` com project_id → `task_done`
 12. **Responsável:** `responsavel_id` (FK → users) em projetos e tarefas. Exibido no detalhe do projeto e no footer dos cards. Select dropdown condicional nos formulários (só aparece quando `users` está no contexto).
+13. **Contextos dinâmicos:** deixaram de ser enum fixo. Cookie `oriens_context` agora guarda o **`context_id` (inteiro)**. `resolve_active_context()` (`app/utils/context_utils.py`) é o helper único usado por todas as rotas HTML; retorna `(context_id, active_context_obj, all_contexts)` e ainda lê cookies legados por `type`. A sidebar lista os contextos dinamicamente; a transição "Sair do trabalho" é decidida por `active_context_obj.type == "work"`.
+14. **Tarefa independente de contexto:** `context_id = NULL` significa "Independente (todos os contextos)" — a tarefa aparece em qualquer contexto ativo (filtro: `context_id IS NULL OR context_id == ativo`).
+15. **Etiquetas (labels):** CRUD em `/settings`. Campo `tasks.tags` (texto, vírgula). No formulário de tarefa, chips das etiquetas do usuário preenchem o campo `tags` (Alpine). Badges de contexto e tags aparecem no `task_item`.
+16. **Lembretes de tarefa:** `remind_at` (data+hora, sem recorrência). Dois canais: (a) **Telegram** — loop de fundo em `main.py` (a cada 60s) chama `reminder_service.process_due_telegram()`; só envia se `TELEGRAM_BOT_TOKEN`+`TELEGRAM_CHAT_ID` estiverem no `.env`; marca `reminder_telegram_sent`. (b) **Popup no app** — `base_app.html` faz polling de `GET /api/reminders/due` (60s); `POST /api/reminders/{id}/ack` seta `reminder_acked`. Ao editar o lembrete, ambos os flags são resetados. Hora local depende de `TZ=America/Sao_Paulo`.
+17. **Herança de contexto:** toda tarefa criada dentro de um projeto herda `context_id` do projeto (forçado em `api/tasks.create_task`). No `task_edit_form`, o contexto fica **somente leitura** para tarefas de projeto; editável só para tarefas avulsas.
+18. **Contexto obrigatório no projeto:** `create_project` e `update_project` exigem `context_id`; o select é `required` e nunca permite valor vazio. Projetos antigos sem contexto devem recebê-lo ao serem editados.
+19. **Criação de tarefa só com título** (GTD "capturar primeiro, organizar depois"): o `task_form` pede apenas o título; energia, prazo, responsável, etiquetas, quick win e lembrete são ajustados depois via "editar".
 
 ---
 
@@ -274,16 +265,32 @@ Rotas: `POST /api/ai/break-task/{task_id}`, `/api/ai/suggest-actions/{project_id
 
 ## CONFIGURAÇÃO
 
-**.env**
+**.env — DESENVOLVIMENTO (SQLite)**
 ```env
 DATABASE_URL=sqlite+aiosqlite:///./data/oriens.db
 SECRET_KEY=troque-isso-em-producao
+DEBUG=true
+COOKIE_SECURE=false
 AI_ENABLED=false
 AI_PROVIDER=null
-ANTHROPIC_API_KEY=
-OPENAI_API_KEY=
-DEBUG=true
 ```
+
+**.env — PRODUÇÃO (PostgreSQL)**
+```env
+DATABASE_URL=postgresql+asyncpg://oriens:SENHA@db:5432/oriens
+POSTGRES_PASSWORD=SENHA          # idêntica à senha da DATABASE_URL
+SECRET_KEY=<openssl rand -hex 32>
+DEBUG=false
+COOKIE_SECURE=false              # HTTP por IP. Vira `true` quando houver HTTPS
+AI_ENABLED=false
+AI_PROVIDER=null
+TELEGRAM_BOT_TOKEN=              # opcional — lembretes via Telegram
+TELEGRAM_CHAT_ID=               # opcional
+```
+
+> **Fuso horário:** containers usam `TZ=America/Sao_Paulo` (Dockerfile instala `tzdata`; compose define `TZ`). Necessário para os lembretes dispararem na hora local.
+
+> ⚠️ **`COOKIE_SECURE`:** com `true`, o navegador só envia o cookie de sessão por HTTPS. Em acesso `http://IP:8000` (sem TLS) **deve ser `false`**, senão o login entra em loop. Só passe para `true` ao colocar domínio + HTTPS.
 
 ---
 
@@ -307,6 +314,9 @@ DEBUG=true
 | GET | `/process` | Processar capturas pendentes |
 | GET | `/weekly` | Revisão semanal |
 | POST | `/weekly` | Salvar diretiva semanal |
+| GET | `/settings` | Configurações: etiquetas + contextos (SCRIPT 3) |
+| GET | `/api/reminders/due` | Lembretes vencidos do usuário (popup HTMX, polling 60s) |
+| POST | `/api/reminders/{id}/ack` | Confirmar/dispensar lembrete (popup) |
 | GET | `/health` | Health check JSON |
 
 ### API (fragmentos HTMX)
@@ -339,8 +349,12 @@ DEBUG=true
 | POST | `/api/ai/break-task/{id}` | IA: quebrar tarefa |
 | POST | `/api/ai/suggest-actions/{id}` | IA: sugerir ações |
 | POST | `/api/ai/overload-context` | IA: análise de overload |
-| POST | `/api/context/switch` | Trocar contexto ativo |
-| POST | `/api/context/transition` | Transição + captura pendências |
+| POST | `/api/context/switch` | Trocar contexto ativo (campo `context_id` inteiro) |
+| POST | `/api/context/transition` | Transição + captura pendências (campo `context_id`) |
+| POST | `/api/settings/labels` | Criar etiqueta (name, color) |
+| DELETE | `/api/settings/labels/{id}` | Excluir etiqueta |
+| POST | `/api/settings/contexts` | Criar contexto do usuário |
+| DELETE | `/api/settings/contexts/{id}` | Excluir contexto do usuário (não apaga padrões) |
 
 ---
 
@@ -380,19 +394,72 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - `get_last_activity()` migrado para ler de `project_timeline`
 - Seed automático em `_migrate_data()` para projetos existentes
 
+### ✅ SCRIPT 3 — Contextos, Etiquetas e Configurações
+- **Contexto em tarefas:** seletor de contexto no formulário de edição; badge no `task_item`; opção "Independente (todos)".
+- **Contextos dinâmicos:** `contexts.type` → `String(50)` + `contexts.user_id`; cookie passa a guardar `context_id` (int); helper `resolve_active_context()` compartilhado; sidebar lista contextos dinamicamente.
+- **Etiquetas:** model `Label`, `label_repo`, campo `tasks.tags`, chips no formulário.
+- **Página `/settings`:** criar/excluir etiquetas e contextos (`routes/settings.py` + `routes/api/settings.py`).
+
+### ✅ PRODUÇÃO — Preparação para deploy
+- **PostgreSQL:** driver `asyncpg`; `_ensure_columns()`/`_migrate_data()` com guard só-SQLite; `init_db()` roda sempre no lifespan (corrige tabelas não criadas com `DEBUG=false`).
+- **`COOKIE_SECURE`** (config) aplicado em todos os `set_cookie` (login, setup, contexto, energia).
+- **Docker:** `Dockerfile` de produção (sem `--reload`); `docker-compose.yml` (dev) com `--reload`; `docker-compose.prod.yml` (app + PostgreSQL + volumes `pgdata`/`appdata`).
+- **PWA:** `manifest.webmanifest`, `sw.js`, `icon.svg` + meta tags e registro do service worker em `base.html`.
+- **Responsividade:** sidebar off-canvas (hambúrguer) no mobile; grids do dashboard/projetos/detalhe adaptativos.
+- **Infra/docs:** `nginx/oriens.conf`, `scripts/backup.sh`, `scripts/migrate_to_postgres.py`, `.dockerignore`, `.gitignore`, `DEPLOY.md`.
+
+### ✅ DEPLOY — Oriens online na VPS Hostinger (acesso por IP)
+- Código versionado no GitHub: **github.com/djavan123/oriens** (público).
+- VPS Ubuntu 24.04: Docker instalado; repo em `/opt/oriens`.
+- `.env` de produção (PostgreSQL, `DEBUG=false`, `COOKIE_SECURE=false`).
+- Porta exposta como `8000:8000` (acesso direto por `http://IP:8000`).
+- App + PostgreSQL no ar via `docker-compose.prod.yml`; conta criada e em uso.
+- **Migração dos dados antigos do SQLite foi abandonada** — começou-se com banco limpo (o `pos.db` antigo tinha schema pré-SCRIPT 1; a migração foi testada e funcionava, mas optou-se por conta nova).
+- **Pendente (futuro):** domínio + HTTPS (Nginx + Certbot), quando então reverter porta para `127.0.0.1:8000:8000` e `COOKIE_SECURE=true` (ver `DEPLOY.md`); ativar cron de backup.
+
+### ✅ SCRIPT 4 — Melhorias na tela de detalhe do projeto
+- **Lembretes de tarefa** (`remind_at`, sem recorrência) → Telegram (loop de fundo em `main.py` + `services/reminder_service.py`) + popup no app (`api/reminders.py`, `partials/reminder_popup.html`, polling em `base_app.html`). Config `TELEGRAM_*`; fuso `TZ=America/Sao_Paulo` (tzdata no Dockerfile).
+- **Cronologia → "Atividade Recente"** (5 últimos) + modal "Ver histórico completo" no `detail.html`. Auditoria e `project_timeline` preservados.
+- **Herança automática de contexto** nas tarefas de projeto (campo travado no edit).
+- **Contexto obrigatório** ao criar/editar projeto.
+- **Criação de tarefa só com título** (`task_form` reduzido) — o resto edita-se depois.
+- Migração PG aditiva via `_ensure_columns_postgres()` (`ADD COLUMN IF NOT EXISTS`).
+
+---
+
+## PRODUÇÃO E OPERAÇÃO (VPS)
+
+**Local na VPS:** `/opt/oriens` · **Acesso atual:** `http://IP_DA_VPS:8000`
+
+**Comandos do dia a dia** (na VPS, em `/opt/oriens`):
+```bash
+docker compose -f docker-compose.prod.yml ps               # status
+docker compose -f docker-compose.prod.yml logs -f app      # logs
+docker compose -f docker-compose.prod.yml restart          # reiniciar
+git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualizar
+```
+
+**Regra de ouro:** ⚠️ **nunca** use `down -v` — o `-v` apaga o volume `pgdata` (perde conta/projetos/tarefas). Os dados sobrevivem a `restart`, `up -d --build` e reboot da VPS.
+
+**Persistência:** banco em `pgdata`; anexos em `appdata` (`/app/data/attachments`).
+
+**Backup:** `bash scripts/backup.sh` (pg_dump + anexos, retém 7 dias). Agendar:
+`0 3 * * * cd /opt/oriens && bash scripts/backup.sh >> /var/log/oriens-backup.log 2>&1`
+
 ---
 
 ## ESTATÍSTICAS DO PROJETO (ATUAL)
 
 | Item | Quantidade |
 |---|---|
-| Tabelas no banco | 13 |
-| Models SQLAlchemy | 13 |
-| Repositories | 13 |
+| Tabelas no banco | 14 (+ `labels`) |
+| Models SQLAlchemy | 14 |
+| Repositories | 14 (+ `label_repo`) |
 | Services | 6 |
-| Rotas principais | 5 arquivos |
-| Rotas API | 5 arquivos |
-| Endpoints totais | ~32 |
-| Templates HTML | ~24 |
+| Rotas principais | 6 arquivos (+ `settings.py`) |
+| Rotas API | 6 arquivos (+ `api/settings.py`) |
+| Endpoints totais | ~38 |
+| Templates HTML | ~25 (+ `settings.html`) |
+| Ambiente | Dev (SQLite) + Produção (PostgreSQL na VPS) |
 
 ---

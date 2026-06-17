@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
@@ -14,7 +16,22 @@ from app.routes.api.capture import router as api_capture_router
 from app.routes.api.ai import router as api_ai_router
 from app.routes.api.context import router as api_context_router
 from app.routes.api.settings import router as api_settings_router
+from app.routes.api.reminders import router as api_reminders_router
 from app.routes.weekly import router as weekly_router
+
+
+async def _reminder_loop():
+    """Verifica lembretes vencidos a cada 60s e dispara o Telegram.
+    Premissa: 1 worker uvicorn (Dockerfile padrão) — evita envios duplicados."""
+    from app.database import AsyncSessionLocal
+    from app.services.reminder_service import process_due_telegram
+    while True:
+        try:
+            async with AsyncSessionLocal() as db:
+                await process_due_telegram(db)
+        except Exception:
+            pass
+        await asyncio.sleep(60)
 
 
 @asynccontextmanager
@@ -26,7 +43,13 @@ async def lifespan(app: FastAPI):
     from app.repositories.context_repo import ContextRepository
     async with AsyncSessionLocal() as db:
         await ContextRepository(db).seed_defaults()
-    yield
+    task = asyncio.create_task(_reminder_loop())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 app = FastAPI(title="Oriens", lifespan=lifespan)
@@ -44,6 +67,7 @@ app.include_router(api_capture_router)
 app.include_router(api_ai_router)
 app.include_router(api_context_router)
 app.include_router(api_settings_router)
+app.include_router(api_reminders_router)
 app.include_router(weekly_router)
 
 

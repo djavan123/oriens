@@ -157,5 +157,12 @@
     {% block content %}{% endblock %}
   </main>
 
+  <!-- Lembretes (popup): verifica vencidos a cada 60s -->
+  <div id="reminder-popups"
+       class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"
+       hx-get="/api/reminders/due"
+       hx-trigger="load, every 60s"
+       hx-swap="innerHTML"></div>
+
 </div>
 {% endblock %}
