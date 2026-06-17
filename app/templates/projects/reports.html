@@ -1,0 +1,60 @@
+﻿{% extends "base_app.html" %}
+{% block title %}Relatório de Projetos — Oriens{% endblock %}
+
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+  <div class="flex items-center gap-2 text-oriens-secondary text-xs">
+    <a href="/projects" class="hover:text-oriens-primary transition-colors">Projetos</a>
+    <span>/</span>
+    <span class="text-oriens-primary">Relatório</span>
+  </div>
+</div>
+
+<h1 class="text-3xl font-bold text-[#f2f2f2] tracking-tight mb-8">Relatório de Projetos</h1>
+
+{% if rows %}
+<div class="overflow-x-auto border border-oriens-border rounded-xl">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="text-oriens-secondary text-xs uppercase tracking-wider border-b border-oriens-border">
+        <th class="text-left font-medium px-4 py-3">Projeto</th>
+        <th class="text-left font-medium px-4 py-3 w-48">Progresso</th>
+        <th class="text-right font-medium px-4 py-3">Restantes</th>
+        <th class="text-right font-medium px-4 py-3">Atrasadas</th>
+        <th class="text-right font-medium px-4 py-3">Riscos abertos</th>
+        <th class="text-right font-medium px-4 py-3">Marcos</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="border-b border-oriens-border last:border-0 hover:bg-oriens-card/40 transition-colors">
+        <td class="px-4 py-3">
+          <a href="/projects/{{ row.project.id }}" class="text-oriens-primary hover:text-oriens-accent transition-colors">
+            {{ row.project.name }}
+          </a>
+          <span class="text-oriens-secondary text-xs ml-2">{{ row.project.status.value }}</span>
+        </td>
+        <td class="px-4 py-3">
+          <div class="flex items-center gap-2">
+            <div class="flex-1 h-1.5 rounded-full bg-oriens-surface overflow-hidden">
+              <div class="h-full rounded-full {% if row.pct == 100 %}bg-oriens-success{% else %}bg-oriens-btn{% endif %}"
+                   style="width: {{ row.pct }}%;"></div>
+            </div>
+            <span class="text-oriens-secondary text-xs font-mono w-16 text-right">{{ row.done }}/{{ row.total }} · {{ row.pct }}%</span>
+          </div>
+        </td>
+        <td class="px-4 py-3 text-right text-oriens-primary font-mono">{{ row.remaining }}</td>
+        <td class="px-4 py-3 text-right font-mono {% if row.overdue %}text-oriens-alert{% else %}text-oriens-secondary{% endif %}">{{ row.overdue }}</td>
+        <td class="px-4 py-3 text-right font-mono {% if row.open_risks %}text-oriens-alert{% else %}text-oriens-secondary{% endif %}">{{ row.open_risks }}</td>
+        <td class="px-4 py-3 text-right text-oriens-secondary font-mono">{{ row.milestones_done }}/{{ row.milestones_total }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<p class="text-oriens-empty text-sm italic">Nenhum projeto para reportar.</p>
+{% endif %}
+
+{% endblock %}

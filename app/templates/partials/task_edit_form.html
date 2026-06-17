@@ -1,0 +1,103 @@
+{% set energy_labels = {'high': 'Alta', 'medium': 'Média', 'low': 'Baixa'} %}
+
+<div id="task-{{ task.id }}" class="group py-2.5 border-b border-oriens-divider last:border-0">
+  <form
+    hx-patch="/api/tasks/{{ task.id }}"
+    hx-target="#task-{{ task.id }}"
+    hx-swap="outerHTML"
+    class="flex flex-col gap-2">
+
+    <div id="task-edit-error-{{ task.id }}"></div>
+
+    <div class="flex items-center gap-2">
+      <input
+        type="text"
+        name="title"
+        value="{{ task.title }}"
+        required
+        autofocus
+        class="flex-1 bg-oriens-card border border-oriens-accent text-oriens-primary rounded-lg px-3 py-1.5 text-sm focus:outline-none transition-colors">
+      <button type="submit"
+        class="bg-oriens-btn hover:bg-oriens-accent-hover text-white rounded-md px-3 py-1.5 text-xs font-semibold transition-colors flex-shrink-0">
+        salvar
+      </button>
+      <button type="button"
+        hx-get="/api/tasks/{{ task.id }}/cancel-edit"
+        hx-target="#task-{{ task.id }}"
+        hx-swap="outerHTML"
+        class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors flex-shrink-0">
+        cancelar
+      </button>
+    </div>
+
+    <div class="flex items-center gap-4 flex-wrap">
+      <div class="flex items-center gap-2">
+        <label class="text-oriens-secondary text-xs">Energia</label>
+        <select name="energy"
+          class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+          {% for val, label in [('high','Alta'),('medium','Média'),('low','Baixa')] %}
+          <option value="{{ val }}" {% if task.energy.value == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if contexts is defined and contexts %}
+      <div class="flex items-center gap-2">
+        <label class="text-oriens-secondary text-xs">Contexto</label>
+        <select name="context_id"
+          class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="">Independente (todos)</option>
+          {% for ctx in contexts %}
+          <option value="{{ ctx.id }}" {% if task.context_id == ctx.id %}selected{% endif %}>{{ ctx.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" name="is_quick_win" value="true"
+          {% if task.is_quick_win %}checked{% endif %}
+          class="w-3 h-3 rounded border-oriens-border bg-oriens-card">
+        <span class="text-oriens-secondary text-xs">Quick win</span>
+      </label>
+
+      <div class="flex items-center gap-2">
+        <label class="text-oriens-secondary text-xs">Prazo</label>
+        <input type="date" name="deadline"
+          value="{{ task.deadline.strftime('%Y-%m-%d') if task.deadline else '' }}"
+          class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+      </div>
+
+      {% if users is defined and users %}
+      <div class="flex items-center gap-2">
+        <label class="text-oriens-secondary text-xs">Responsável</label>
+        <select name="responsavel_id"
+          class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="">—</option>
+          {% for u in users %}
+          <option value="{{ u.id }}" {% if task.responsavel_id == u.id %}selected{% endif %}>{{ u.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="flex items-center gap-2 flex-wrap" x-data="{ tagsVal: '{{ task.tags or '' }}' }">
+      <label class="text-oriens-secondary text-xs">Etiquetas</label>
+      <input type="text" name="tags" x-model="tagsVal"
+        placeholder="ex: urgente, cliente..."
+        class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors w-40">
+      {% if user_labels is defined and user_labels %}
+      {% for lbl in user_labels %}
+      <button type="button"
+        @click="tagsVal = tagsVal ? tagsVal.split(',').map(t=>t.trim()).filter(t=>t!='{{ lbl.name }}').concat(['{{ lbl.name }}']).join(', ') : '{{ lbl.name }}'"
+        class="text-xs px-2 py-0.5 rounded leading-none"
+        style="background: {{ lbl.color or '#2a2a2a' }}; color: #e8edf1;">
+        {{ lbl.name }}
+      </button>
+      {% endfor %}
+      {% endif %}
+    </div>
+
+  </form>
+</div>

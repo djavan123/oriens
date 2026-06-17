@@ -1,0 +1,57 @@
+﻿{% set lvl = {'low': 1, 'medium': 2, 'high': 3} %}
+{% set lvl_label = {'low': 'Baixo', 'medium': 'Médio', 'high': 'Alto'} %}
+{% set severity = lvl.get(r.impact.value, 2) * lvl.get(r.probability.value, 2) %}
+{% set status_label = {'open': 'Aberto', 'mitigated': 'Mitigado', 'closed': 'Fechado'} %}
+
+<div id="risk-{{ r.id }}"
+     class="group border border-oriens-border rounded-lg p-3 mb-2
+       {% if r.status.value == 'closed' %}opacity-50{% endif %}">
+
+  <div class="flex items-start gap-3">
+    <!-- Badge de severidade -->
+    <span class="flex-shrink-0 mt-0.5 text-xs font-mono px-2 py-0.5 rounded
+      {% if severity >= 6 %}text-oriens-alert bg-oriens-alert/10
+      {% elif severity >= 3 %}text-oriens-accent bg-oriens-accent/10
+      {% else %}text-oriens-secondary bg-oriens-surface{% endif %}"
+      title="Impacto × Probabilidade">{{ severity }}</span>
+
+    <div class="flex-1 min-w-0">
+      <p class="text-oriens-primary text-sm leading-snug {% if r.status.value == 'closed' %}line-through{% endif %}">
+        {{ r.description }}
+      </p>
+      <div class="flex items-center gap-3 mt-1 text-xs text-oriens-secondary">
+        <span>Impacto: {{ lvl_label.get(r.impact.value) }}</span>
+        <span>Probabilidade: {{ lvl_label.get(r.probability.value) }}</span>
+      </div>
+      {% if r.mitigation %}
+      <p class="text-oriens-secondary text-xs mt-1.5 leading-relaxed">
+        <span class="uppercase tracking-wider text-oriens-muted">Mitigação:</span> {{ r.mitigation }}
+      </p>
+      {% endif %}
+    </div>
+
+    <button
+      hx-delete="/api/projects/{{ r.project_id }}/risks/{{ r.id }}"
+      hx-target="#risk-{{ r.id }}"
+      hx-swap="outerHTML"
+      hx-confirm="Remover risco?"
+      title="Remover"
+      class="flex-shrink-0 text-oriens-secondary text-xs opacity-0 group-hover:opacity-100 hover:text-oriens-alert transition-all">
+      ✕
+    </button>
+  </div>
+
+  <!-- Status -->
+  <div class="flex items-center gap-2 mt-2 pl-9">
+    <select name="status"
+      hx-patch="/api/projects/{{ r.project_id }}/risks/{{ r.id }}"
+      hx-target="#risk-{{ r.id }}"
+      hx-swap="outerHTML"
+      hx-trigger="change"
+      class="bg-oriens-card border border-oriens-border text-oriens-secondary rounded-md px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+      {% for s in ['open', 'mitigated', 'closed'] %}
+      <option value="{{ s }}" {% if r.status.value == s %}selected{% endif %}>{{ status_label[s] }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>

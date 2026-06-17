@@ -1,0 +1,204 @@
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import HTMLResponse
+from app.templates_env import templates
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.config import get_settings
+from app.database import get_db
+from app.models.task import TaskStatus
+from app.models.user import User
+from sqlalchemy import select
+from app.repositories.task_repo import TaskRepository
+from app.repositories.project_comment_repo import ProjectCommentRepository
+from app.repositories.project_attachment_repo import ProjectAttachmentRepository
+from app.repositories.project_milestone_repo import ProjectMilestoneRepository
+from app.repositories.project_risk_repo import ProjectRiskRepository
+from app.repositories.project_audit_repo import ProjectAuditRepository
+from app.repositories.project_timeline_repo import ProjectTimelineRepository
+from app.repositories.label_repo import LabelRepository
+from app.services.project_service import ProjectService
+from app.utils.auth import get_current_user
+from app.utils.context_utils import resolve_active_context
+
+
+def _fmt_size(size: int) -> str:
+    if size < 1024:
+        return f"{size} B"
+    if size < 1024 * 1024:
+        return f"{size // 1024} KB"
+    return f"{size / (1024 * 1024):.1f} MB"
+
+router = APIRouter(prefix="/projects", tags=["projects"])
+
+
+@router.get("", response_class=HTMLResponse)
+async def projects_list(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    context_id, active_context_obj, all_contexts = await resolve_active_context(
+        request, db, current_user.id
+    )
+    context_labels = {ctx.id: ctx.label for ctx in all_contexts}
+
+    service = ProjectService(db)
+    projects = await service.get_all(current_user.id, context_id=context_id)
+
+    raw = await TaskRepository(db).progress_by_project(
+        current_user.id, [p.id for p in projects]
+    )
+    progress = {
+        pid: {"done": done, "total": total, "pct": round(done * 100 / total) if total else 0}
+        for pid, (done, total) in raw.items()
+    }
+
+    users_result = await db.execute(select(User).order_by(User.name))
+    users = list(users_result.scalars().all())
+    responsavel_map = {u.id: u.name for u in users}
+
+    return templates.TemplateResponse(
+        request,
+        "projects/list.html",
+        {
+            "user": current_user,
+            "projects": projects,
+            "contexts": all_contexts,
+            "context_labels": context_labels,
+            "active_context_obj": active_context_obj,
+            "all_contexts": all_contexts,
+            "progress": progress,
+            "users": users,
+            "responsavel_map": responsavel_map,
+        },
+    )
+
+
+@router.get("/reports", response_class=HTMLResponse)
+async def projects_reports(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _, active_context_obj, all_contexts = await resolve_active_context(
+        request, db, current_user.id
+    )
+
+    service = ProjectService(db)
+    projects = await service.get_all(current_user.id)
+    ids = [p.id for p in projects]
+
+    task_repo = TaskRepository(db)
+    progress_raw = await task_repo.progress_by_project(current_user.id, ids)
+    overdue_raw = await task_repo.overdue_by_project(current_user.id, ids)
+
+    milestone_repo = ProjectMilestoneRepository(db)
+    risk_repo = ProjectRiskRepository(db)
+
+    rows = []
+    for p in projects:
+        done, total = progress_raw.get(p.id, (0, 0))
+        milestones = await milestone_repo.get_by_project(p.id)
+        m_done = sum(1 for m in milestones if m.done)
+        rows.append({
+            "project": p,
+            "done": done,
+            "total": total,
+            "pct": round(done * 100 / total) if total else 0,
+            "remaining": total - done,
+            "overdue": overdue_raw.get(p.id, 0),
+            "open_risks": await risk_repo.count_open(p.id),
+            "milestones_done": m_done,
+            "milestones_total": len(milestones),
+        })
+
+    return templates.TemplateResponse(
+        request,
+        "projects/reports.html",
+        {
+            "user": current_user,
+            "rows": rows,
+            "active_context_obj": active_context_obj,
+            "all_contexts": all_contexts,
+        },
+    )
+
+
+@router.get("/{project_id}", response_class=HTMLResponse)
+async def project_detail(
+    project_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = ProjectService(db)
+    project = await service.get_by_id(project_id, current_user.id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    task_repo = TaskRepository(db)
+    all_tasks = await task_repo.get_all_by_user(current_user.id, project_id=project_id)
+    pending_tasks = [t for t in all_tasks if t.status == TaskStatus.pending]
+    blocked_tasks = [t for t in all_tasks if t.status == TaskStatus.blocked]
+    done_tasks = [t for t in all_tasks if t.status == TaskStatus.done]
+
+    subtasks = await task_repo.get_children_map(
+        current_user.id, [t.id for t in all_tasks]
+    )
+
+    _, active_context_obj, all_contexts = await resolve_active_context(
+        request, db, current_user.id
+    )
+    context_labels = {ctx.id: ctx.label for ctx in all_contexts}
+
+    user_labels = await LabelRepository(db).get_all_by_user(current_user.id)
+
+    comments = await ProjectCommentRepository(db).get_by_project(project_id)
+    attachments = await ProjectAttachmentRepository(db).get_by_project(project_id)
+    milestones = await ProjectMilestoneRepository(db).get_by_project(project_id)
+    risks = await ProjectRiskRepository(db).get_by_project(project_id)
+    audit = await ProjectAuditRepository(db).get_by_project(project_id)
+    timeline = await ProjectTimelineRepository(db).get_by_project(project_id)
+
+    raw = await task_repo.progress_by_project(current_user.id, [project_id])
+    done, total = raw.get(project_id, (0, 0))
+    progress = {
+        "done": done,
+        "total": total,
+        "pct": round(done * 100 / total) if total else 0,
+    }
+
+    users_result = await db.execute(select(User).order_by(User.name))
+    users = list(users_result.scalars().all())
+    responsavel_map = {u.id: u.name for u in users}
+
+    return templates.TemplateResponse(
+        request,
+        "projects/detail.html",
+        {
+            "user": current_user,
+            "project": project,
+            "pending_tasks": pending_tasks,
+            "blocked_tasks": blocked_tasks,
+            "done_tasks": done_tasks,
+            "contexts": all_contexts,
+            "context_labels": context_labels,
+            "active_context_obj": active_context_obj,
+            "all_contexts": all_contexts,
+            "user_labels": user_labels,
+            "ai_enabled": get_settings().AI_ENABLED,
+            "comments": comments,
+            "attachments": attachments,
+            "fmt_size": _fmt_size,
+            "progress": progress,
+            "milestones": milestones,
+            "subtasks": subtasks,
+            "risks": risks,
+            "audit": audit,
+            "timeline": timeline,
+            "users": users,
+            "responsavel_map": responsavel_map,
+        },
+    )

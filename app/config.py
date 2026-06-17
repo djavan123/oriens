@@ -1,0 +1,21 @@
+from functools import lru_cache
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    DATABASE_URL: str = "sqlite+aiosqlite:///./data/oriens.db"
+    SECRET_KEY: str = "troque-isso-em-producao"
+    AI_ENABLED: bool = False
+    AI_PROVIDER: str = "null"
+    ANTHROPIC_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
+    DEBUG: bool = True
+    # Em produção (HTTPS) defina COOKIE_SECURE=true para enviar cookies só por TLS.
+    COOKIE_SECURE: bool = False
+
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

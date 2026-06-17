@@ -1,0 +1,22 @@
+﻿<div id="capture-{{ capture.id }}"
+     class="py-3 border-b border-oriens-divider flex items-start justify-between gap-4 group">
+
+  <p class="text-sm flex-1 leading-relaxed
+    {% if capture.processed %}line-through text-oriens-empty{% else %}text-oriens-primary{% endif %}">
+    {{ capture.content }}
+  </p>
+
+  <div class="flex items-center gap-3 flex-shrink-0 mt-0.5">
+    <span class="text-oriens-muted text-xs">
+      {{ capture.created_at.strftime('%d/%m %H:%M') }}
+    </span>
+    {% if not capture.processed %}
+    <a href="/process" class="text-oriens-link text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:text-[#8fc1ff]">
+      processar →
+    </a>
+    {% else %}
+    <span class="text-oriens-empty text-xs">processado</span>
+    {% endif %}
+  </div>
+
+</div>

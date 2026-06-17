@@ -1,0 +1,14 @@
+﻿<div id="comment-{{ comment.id }}" class="group flex gap-3 py-3 border-b border-oriens-divider last:border-0">
+  <div class="flex-1 min-w-0">
+    <p class="text-oriens-primary text-sm leading-relaxed whitespace-pre-wrap">{{ comment.content }}</p>
+    <p class="text-oriens-muted text-xs mt-1">{{ comment.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+  </div>
+  <button
+    hx-delete="/api/projects/{{ comment.project_id }}/comments/{{ comment.id }}"
+    hx-target="#comment-{{ comment.id }}"
+    hx-swap="outerHTML"
+    hx-confirm="Apagar comentário?"
+    class="flex-shrink-0 text-oriens-muted text-xs opacity-0 group-hover:opacity-100 hover:text-oriens-alert transition-all">
+    apagar
+  </button>
+</div>

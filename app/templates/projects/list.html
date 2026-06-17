@@ -1,0 +1,88 @@
+﻿{% extends "base_app.html" %}
+{% block title %}Projetos — Oriens{% endblock %}
+
+{% block content %}
+
+{% set active_projects = projects | selectattr('status.value', 'equalto', 'em_andamento') | list %}
+{% set paused_projects = projects | selectattr('status.value', 'equalto', 'nao_iniciado') | list %}
+{% set done_projects   = projects | selectattr('status.value', 'equalto', 'concluido')   | list %}
+
+<div class="flex items-center justify-between mb-8">
+  <h1 class="text-3xl font-bold text-[#f2f2f2] tracking-tight">Projetos</h1>
+  <div class="flex items-center gap-3">
+    <a href="/projects/reports"
+      class="text-oriens-link text-xs hover:text-[#8fc1ff] transition-colors">
+      Relatório →
+    </a>
+    <button
+      onclick="document.getElementById('project-form-wrapper').classList.toggle('hidden')"
+      class="px-4 py-2 bg-oriens-btn hover:bg-oriens-accent-hover text-white text-xs font-semibold rounded-md transition-colors">
+      + Novo projeto
+    </button>
+  </div>
+</div>
+
+<!-- Form -->
+<div id="project-form-wrapper" class="hidden mb-6 max-w-lg">
+  {% include "partials/project_form.html" %}
+</div>
+
+<!-- Kanban board -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+
+  <!-- Em andamento -->
+  <div class="bg-oriens-card rounded-xl overflow-hidden flex flex-col">
+    <div class="flex items-center gap-2 px-3 py-2.5" style="background-color: rgba(0,0,0,.24); border-top: 2px solid #5b8def;">
+      <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: #5b8def;"></span>
+      <h2 class="text-xs font-semibold uppercase tracking-wider flex-1" style="color: #e8edf1;">Em andamento</h2>
+      <span class="text-xs font-mono rounded px-1.5 py-0.5" style="background-color: #191919; color: #9a9a9a;">{{ active_projects | length }}</span>
+    </div>
+    <div id="projects-active" class="flex flex-col gap-2 p-2">
+      {% for project in active_projects %}
+        {% include "partials/project_card.html" %}
+      {% endfor %}
+    </div>
+    <div class="px-2 pb-2">
+      <button
+        onclick="document.getElementById('project-form-wrapper').classList.remove('hidden')"
+        class="flex items-center gap-1.5 w-full px-3 py-2 text-oriens-secondary text-xs rounded-lg hover:bg-oriens-surface hover:text-oriens-primary transition-colors">
+        <span class="text-sm leading-none">+</span> Adicionar projeto
+      </button>
+    </div>
+  </div>
+
+  <!-- Não iniciado -->
+  <div class="bg-oriens-card rounded-xl overflow-hidden flex flex-col">
+    <div class="flex items-center gap-2 px-3 py-2.5" style="background-color: rgba(0,0,0,.24); border-top: 2px solid #767676;">
+      <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: #767676;"></span>
+      <h2 class="text-xs font-semibold uppercase tracking-wider flex-1" style="color: #e8edf1;">Não iniciado</h2>
+      <span class="text-xs font-mono rounded px-1.5 py-0.5" style="background-color: #191919; color: #9a9a9a;">{{ paused_projects | length }}</span>
+    </div>
+    <div class="flex flex-col gap-2 p-2">
+      {% for project in paused_projects %}
+        {% include "partials/project_card.html" %}
+      {% else %}
+      <p class="text-oriens-empty text-xs italic px-2 py-3">Nenhum projeto aqui.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Concluído -->
+  <div class="bg-oriens-card rounded-xl overflow-hidden flex flex-col">
+    <div class="flex items-center gap-2 px-3 py-2.5" style="background-color: rgba(0,0,0,.24); border-top: 2px solid #4BCE97;">
+      <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: #4BCE97;"></span>
+      <h2 class="text-xs font-semibold uppercase tracking-wider flex-1" style="color: #e8edf1;">Concluído</h2>
+      <span class="text-xs font-mono rounded px-1.5 py-0.5" style="background-color: #191919; color: #9a9a9a;">{{ done_projects | length }}</span>
+    </div>
+    <div class="flex flex-col gap-2 p-2">
+      {% for project in done_projects %}
+        {% include "partials/project_card.html" %}
+      {% else %}
+      <p class="text-oriens-empty text-xs italic px-2 py-3">Nenhum projeto concluído.</p>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}

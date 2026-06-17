@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>{% block title %}Oriens{% endblock %}</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.webmanifest">
+  <meta name="theme-color" content="#191919">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/icon.svg">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Oriens">
+  <meta name="mobile-web-app-capable" content="yes">
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'oriens-bg':        '#191919',
+            'oriens-surface':   '#202020',
+            'oriens-card':      '#1a1a1a',
+            'oriens-card-hover':'#262626',
+            'oriens-border':    '#2a2a2a',
+            'oriens-divider':   '#232323',
+            'oriens-primary':   '#e8edf1',
+            'oriens-secondary': '#9a9a9a',
+            'oriens-tertiary':  '#767676',
+            'oriens-muted':     '#767676',
+            'oriens-empty':     '#565656',
+            'oriens-accent':    '#5b8def',
+            'oriens-accent-hover': '#4a7adf',
+            'oriens-link':      '#6fa8f5',
+            'oriens-btn':       '#5b8def',
+            'oriens-alert':     '#F87462',
+            'oriens-success':   '#4BCE97',
+            'oriens-warning':   '#E2B203',
+          },
+          fontFamily: {
+            sans: [
+              '"Inter"',
+              'ui-sans-serif',
+              '-apple-system',
+              'BlinkMacSystemFont',
+              '"Segoe UI"',
+              'Ubuntu',
+              '"Helvetica Neue"',
+              'sans-serif',
+            ],
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+  <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+
+  <style>
+    :root {
+      --font-base: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, "Helvetica Neue", sans-serif;
+
+      /* CAMADAS DE FUNDO */
+      --bg-app:        #191919;
+      --bg-sidebar:    #141414;
+      --bg-surface:    #202020;
+      --bg-card:       #1a1a1a;
+      --bg-card-hover: #262626;
+
+      /* BORDAS */
+      --border-default: 1px solid #2a2a2a;
+      --border-hover:   1px solid #5b8def;
+      --divider:        #232323;
+      --radius-card: 10px;
+      --radius-col:  12px;
+
+      /* TEXTO */
+      --text-primary:   #e8edf1;  /* títulos, valores — quase branco */
+      --text-secondary: #9a9a9a;  /* labels de seção (MARCOS, RISCOS, STATUS) */
+      --text-tertiary:  #767676;  /* texto neutro auxiliar (ex: "Criado em") */
+      --text-empty:     #565656;  /* estados vazios, propositalmente discreto */
+
+      /* DESTAQUE — reservado SÓ para links/ações clicáveis reais */
+      --accent:       #5b8def;
+      --accent-hover: #4a7adf;
+      --link:         #6fa8f5;
+    }
+
+    body {
+      font-family: var(--font-base);
+      background: var(--bg-app);
+      color: var(--text-primary);
+      font-size: 14px;
+    }
+
+    * { box-sizing: border-box; }
+    input, textarea, select { color-scheme: dark; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg-app); }
+    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+    .htmx-indicator { display: none; }
+    .htmx-request .htmx-indicator { display: inline; }
+    .htmx-request.htmx-indicator { display: inline; }
+
+    /* CARTÃO */
+    .card {
+      background: var(--bg-card);
+      border: var(--border-default);
+      border-radius: var(--radius-card);
+      padding: 12px 14px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .card:hover {
+      background: var(--bg-card-hover);
+      border: var(--border-hover);
+    }
+    .card-title {
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.4;
+    }
+    .card-meta {
+      color: var(--text-tertiary);
+      font-size: 12px;
+    }
+
+    /* COLUNA KANBAN */
+    .column {
+      background: var(--bg-card);
+      border-radius: var(--radius-col);
+      padding: 10px 8px;
+    }
+    .column-title {
+      color: var(--text-primary);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+      background: var(--bg-sidebar);
+      border-right: 1px solid #2a2a2a;
+    }
+
+    /* NAV ITEMS */
+    .nav-item {
+      display: flex;
+      align-items: center;
+      color: var(--text-tertiary);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 14px;
+      text-decoration: none;
+      transition: background 0.12s, color 0.12s;
+    }
+    .nav-item:hover {
+      background: #202020;
+      color: var(--text-primary);
+    }
+    .nav-item.active {
+      background: #202020;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    /* BOTÃO PRIMÁRIO */
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      padding: 9px 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-size: 14px;
+    }
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    /* LABEL DE SEÇÃO (ex: "MARCOS", "RISCOS", "ANEXOS", "TAREFAS") */
+    .section-label {
+      color: var(--text-secondary);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    /* TEXTO NEUTRO AUXILIAR (ex: "Criado em", "Nenhum arquivo selecionado") */
+    .text-neutral {
+      color: var(--text-tertiary);
+    }
+
+    /* LINK / AÇÃO REAL (ex: "active", "Editar →", "+ registrar risco") */
+    .text-link {
+      color: var(--link);
+      cursor: pointer;
+    }
+
+    /* ESTADO VAZIO (ex: "Nenhum marco definido.") */
+    .text-empty {
+      color: var(--text-empty);
+      font-style: italic;
+    }
+  </style>
+
+  {% block head %}{% endblock %}
+</head>
+<body class="antialiased min-h-screen">
+
+  {% block body %}{% endblock %}
+
+  <script>
+    // Registro do service worker (PWA). Só em contexto seguro (HTTPS ou localhost).
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("/static/sw.js").catch(function () {});
+      });
+    }
+  </script>
+</body>
+</html>

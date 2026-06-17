@@ -1,0 +1,166 @@
+<div id="process-item-{{ capture.id }}"
+     x-data="{ action: '' }"
+     class="py-6 border-b border-oriens-divider">
+
+  <!-- Content + date -->
+  <div class="flex items-start justify-between gap-4 mb-4">
+    <p class="text-oriens-primary text-sm flex-1 leading-relaxed">{{ capture.content }}</p>
+    <span class="text-oriens-muted text-xs flex-shrink-0 mt-0.5">
+      {{ capture.created_at.strftime('%d/%m %H:%M') }}
+    </span>
+  </div>
+
+  <!-- Action selector -->
+  <div class="flex items-center gap-1.5 flex-wrap mb-4">
+    <button @click="action = action === 'task' ? '' : 'task'"
+            :class="action === 'task' ? 'bg-oriens-accent text-white border-oriens-accent' : 'bg-transparent text-oriens-secondary border-oriens-border hover:text-oriens-primary'"
+            class="px-3 py-1.5 border rounded-md text-xs transition-colors">
+      Tarefa
+    </button>
+    <button @click="action = action === 'project' ? '' : 'project'"
+            :class="action === 'project' ? 'bg-oriens-accent text-white border-oriens-accent' : 'bg-transparent text-oriens-secondary border-oriens-border hover:text-oriens-primary'"
+            class="px-3 py-1.5 border rounded-md text-xs transition-colors">
+      Projeto
+    </button>
+    <button @click="action = action === 'note' ? '' : 'note'"
+            :class="action === 'note' ? 'bg-oriens-accent text-white border-oriens-accent' : 'bg-transparent text-oriens-secondary border-oriens-border hover:text-oriens-primary'"
+            class="px-3 py-1.5 border rounded-md text-xs transition-colors">
+      Nota
+    </button>
+    <button
+      hx-post="/api/process/{{ capture.id }}"
+      hx-vals='{"action": "discard"}'
+      hx-target="#process-item-{{ capture.id }}"
+      hx-swap="outerHTML"
+      class="px-3 py-1.5 border border-oriens-border rounded-md bg-transparent text-oriens-secondary text-xs hover:border-[#a32d2d] hover:text-[#e24b4a] transition-colors ml-2">
+      Descartar
+    </button>
+  </div>
+
+  <!-- Tarefa form -->
+  <form x-show="action === 'task'" x-transition
+        hx-post="/api/process/{{ capture.id }}"
+        hx-target="#process-item-{{ capture.id }}"
+        hx-swap="outerHTML"
+        class="bg-oriens-surface border border-oriens-border rounded-lg px-4 py-4 space-y-3">
+
+    <input type="hidden" name="action" value="task">
+    <div id="process-task-error-{{ capture.id }}"></div>
+
+    <div>
+      <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Título</label>
+      <input type="text" name="title"
+             value="{{ capture.content }}"
+             required
+             class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Projeto</label>
+        <select name="task_project_id"
+          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="">Sem projeto</option>
+          {% for p in active_projects %}
+          <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Energia</label>
+        <select name="task_energy"
+          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="high">Alta</option>
+          <option value="medium" selected>Média</option>
+          <option value="low">Baixa</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between">
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" name="is_quick_win" value="true" class="w-3 h-3">
+        <span class="text-oriens-secondary text-xs">Quick win</span>
+      </label>
+      <button type="submit"
+        class="bg-oriens-btn hover:bg-oriens-accent-hover text-white rounded-md px-4 py-2 text-sm font-semibold transition-colors">
+        Criar tarefa
+      </button>
+    </div>
+  </form>
+
+  <!-- Projeto form -->
+  <form x-show="action === 'project'" x-transition
+        hx-post="/api/process/{{ capture.id }}"
+        hx-target="#process-item-{{ capture.id }}"
+        hx-swap="outerHTML"
+        class="bg-oriens-surface border border-oriens-border rounded-lg px-4 py-4 space-y-3">
+
+    <input type="hidden" name="action" value="project">
+    <div id="process-project-error-{{ capture.id }}"></div>
+
+    <div>
+      <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Nome</label>
+      <input type="text" name="project_name"
+             value="{{ capture.content }}"
+             required
+             class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+    </div>
+
+    <div>
+      <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Objetivo</label>
+      <input type="text" name="project_objective"
+             placeholder="Qual é o resultado esperado?"
+             class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
+    </div>
+
+    <div class="flex items-center justify-between">
+      <select name="project_priority"
+        class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+        <option value="1">P1 — Alta</option>
+        <option value="2" selected>P2 — Média</option>
+        <option value="3">P3 — Baixa</option>
+      </select>
+      <button type="submit"
+        class="bg-oriens-btn hover:bg-oriens-accent-hover text-white rounded-md px-4 py-2 text-sm font-semibold transition-colors">
+        Criar projeto
+      </button>
+    </div>
+  </form>
+
+  <!-- Nota form -->
+  <form x-show="action === 'note'" x-transition
+        hx-post="/api/process/{{ capture.id }}"
+        hx-target="#process-item-{{ capture.id }}"
+        hx-swap="outerHTML"
+        class="bg-oriens-surface border border-oriens-border rounded-lg px-4 py-4 space-y-3">
+
+    <input type="hidden" name="action" value="note">
+    <div id="process-note-error-{{ capture.id }}"></div>
+
+    <div>
+      <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Conteúdo</label>
+      <textarea name="note_content" rows="3"
+                class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors resize-none">{{ capture.content }}</textarea>
+    </div>
+
+    <div>
+      <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Projeto</label>
+      <select name="note_project_id"
+        class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+        <option value="">Sem projeto</option>
+        {% for p in active_projects %}
+        <option value="{{ p.id }}">{{ p.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="flex justify-end">
+      <button type="submit"
+        class="bg-oriens-btn hover:bg-oriens-accent-hover text-white rounded-md px-4 py-2 text-sm font-semibold transition-colors">
+        Salvar nota
+      </button>
+    </div>
+  </form>
+
+</div>

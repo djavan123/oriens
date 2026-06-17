@@ -1,0 +1,90 @@
+﻿<form
+  id="new-project-form"
+  hx-post="/api/projects"
+  hx-target="#projects-active"
+  hx-swap="afterbegin"
+  hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); document.getElementById('project-form-wrapper').classList.add('hidden'); }"
+  class="bg-oriens-surface border border-oriens-border rounded-xl p-5 space-y-4">
+
+  <h3 class="text-oriens-primary text-sm font-semibold">Novo projeto</h3>
+
+  <div id="project-form-error" class="text-oriens-alert text-xs"></div>
+
+  <div>
+    <label class="block text-oriens-secondary text-xs font-medium uppercase tracking-wider mb-1.5">Nome</label>
+    <input
+      type="text"
+      name="name"
+      required
+      autofocus
+      placeholder="Nome do projeto"
+      class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
+  </div>
+
+  <div>
+    <label class="block text-oriens-secondary text-xs font-medium uppercase tracking-wider mb-1.5">Objetivo</label>
+    <input
+      type="text"
+      name="objective"
+      placeholder="Qual é o resultado esperado?"
+      class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
+  </div>
+
+  <div class="grid grid-cols-2 gap-3">
+    <div>
+      <label class="block text-oriens-secondary text-xs font-medium uppercase tracking-wider mb-1.5">Prioridade</label>
+      <select name="priority"
+        class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+        <option value="1">P1 — Alta</option>
+        <option value="2" selected>P2 — Média</option>
+        <option value="3">P3 — Baixa</option>
+      </select>
+    </div>
+    <div>
+      <label class="block text-oriens-secondary text-xs font-medium uppercase tracking-wider mb-1.5">Contexto</label>
+      <select name="context_id"
+        class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+        <option value="">— nenhum —</option>
+        {% if contexts is defined %}
+        {% for ctx in contexts %}
+        <option value="{{ ctx.id }}">{{ ctx.label }}</option>
+        {% endfor %}
+        {% endif %}
+      </select>
+    </div>
+  </div>
+
+  {% if users is defined and users %}
+  <div>
+    <label class="block text-oriens-secondary text-xs font-medium uppercase tracking-wider mb-1.5">Responsável</label>
+    <select name="responsavel_id"
+      class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+      <option value="">— nenhum —</option>
+      {% for u in users %}
+      <option value="{{ u.id }}">{{ u.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
+  <div>
+    <label class="block text-oriens-secondary text-xs font-medium uppercase tracking-wider mb-1.5">Prazo (opcional)</label>
+    <input
+      type="date"
+      name="deadline"
+      class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+  </div>
+
+  <div class="flex items-center gap-3 pt-1">
+    <button type="submit"
+      class="px-4 py-2 bg-oriens-btn hover:bg-oriens-accent-hover text-white text-sm font-semibold rounded-md transition-colors">
+      Criar
+    </button>
+    <button type="button"
+      onclick="document.getElementById('project-form-wrapper').classList.add('hidden')"
+      class="text-oriens-secondary text-sm hover:text-oriens-primary transition-colors">
+      Cancelar
+    </button>
+  </div>
+
+</form>

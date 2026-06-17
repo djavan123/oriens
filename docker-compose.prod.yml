@@ -1,0 +1,36 @@
+# docker-compose.prod.yml — PRODUÇÃO (PostgreSQL)
+# Subir com:  docker compose -f docker-compose.prod.yml up -d --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: oriens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: oriens
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oriens -d oriens"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    restart: always
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Persiste os anexos enviados (gravados em /app/data/attachments).
+      - appdata:/app/data
+    ports:
+      # Acesso direto pelo IP da VPS (http://IP:8000).
+      # Quando entrar Nginx + domínio, voltar para "127.0.0.1:8000:8000".
+      - "8000:8000"
+
+volumes:
+  pgdata:
+  appdata:

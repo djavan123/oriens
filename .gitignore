@@ -1,0 +1,39 @@
+# Segredos e ambiente
+.env
+.env.*
+!.env.example
+
+# Banco e dados locais
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Backups
+backups/
+*.sql.gz
+*.tar.gz
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Editores / SO
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Ferramentas locais
+.claude/
+settings.json
+laudesettings.json
+.txt
+
+# Documentos pessoais (não fazem parte do deploy)
+*.docx
+*.rtf
+*.png

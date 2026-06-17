@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block body %}
+<div class="flex min-h-screen" x-data="{ sidebarOpen: false }">
+
+  <!-- Top bar (somente mobile) -->
+  <header class="md:hidden fixed top-0 left-0 right-0 h-14 z-20 flex items-center gap-3 px-4"
+          style="background: var(--bg-sidebar); border-bottom: 1px solid #2a2a2a;">
+    <button @click="sidebarOpen = true" aria-label="Abrir menu"
+      class="text-oriens-primary p-1 -ml-1">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+    <span class="text-sm font-semibold tracking-[0.25em] uppercase select-none" style="color: var(--text-primary);">Oriens</span>
+  </header>
+
+  <!-- Overlay (somente mobile, quando aberto) -->
+  <div x-show="sidebarOpen" x-transition.opacity @click="sidebarOpen = false"
+       class="md:hidden fixed inset-0 z-30 bg-black/60" style="display: none;"></div>
+
+  <!-- Sidebar -->
+  <aside
+    class="sidebar w-48 flex-shrink-0 flex flex-col fixed top-0 left-0 h-full z-40
+           transform transition-transform duration-200 -translate-x-full md:translate-x-0"
+    :class="sidebarOpen ? 'translate-x-0' : ''">
+
+    <!-- Logo -->
+    <div class="px-5 py-5 flex items-center justify-between" style="border-bottom: 1px solid #2a2a2a;">
+      <span class="text-sm font-semibold tracking-[0.25em] uppercase select-none" style="color: var(--text-primary);">Oriens</span>
+      <button @click="sidebarOpen = false" aria-label="Fechar menu" class="md:hidden text-oriens-secondary">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
+      {% set path = request.url.path %}
+
+      {% macro nav_link(href, label, active_check) %}
+      <a href="{{ href }}" @click="sidebarOpen = false" class="nav-item {% if active_check %}active{% endif %}">
+        {{ label }}
+      </a>
+      {% endmacro %}
+
+      {{ nav_link('/dashboard', 'Dashboard', path == '/dashboard') }}
+      {{ nav_link('/weekly', 'Semanal', path == '/weekly') }}
+      {{ nav_link('/projects', 'Projetos', path.startswith('/projects')) }}
+      {{ nav_link('/capture', 'Captura', path == '/capture') }}
+      {{ nav_link('/process', 'Processar', path == '/process') }}
+      {{ nav_link('/settings', 'Configurações', path == '/settings') }}
+    </nav>
+
+    <!-- Transition panel: work → recovery -->
+    {% if active_context_obj and active_context_obj.type == "work" %}
+    {% set recovery_ns = namespace(id='') %}
+    {% if all_contexts is defined %}
+      {% for ctx in all_contexts %}
+        {% if ctx.type == 'home_recovery' %}{% set recovery_ns.id = ctx.id %}{% endif %}
+      {% endfor %}
+    {% endif %}
+    <div x-data="{ open: false }" style="border-top: 1px solid #2a2a2a;">
+      <button @click="open = true"
+        class="w-full text-left px-5 py-3 text-xs hover:opacity-70 transition-opacity"
+        style="color: var(--accent);">
+        Sair do trabalho →
+      </button>
+
+      <div x-show="open" x-transition
+        @keydown.escape.window="open = false"
+        class="fixed inset-0 z-50 flex"
+        style="display: none;">
+        <div class="absolute inset-0 bg-black/70" @click="open = false"></div>
+        <div class="sidebar relative w-full max-w-sm md:ml-48 md:w-72 h-full flex flex-col p-6 shadow-2xl" style="border-right: var(--border-default);">
+          <p class="text-sm font-medium mb-1" style="color: var(--text-primary);">Encerrando trabalho</p>
+          <p class="text-xs mb-5 leading-relaxed" style="color: var(--text-secondary);">
+            Registre pendências para processar depois.<br>Uma por linha.
+          </p>
+          <form hx-post="/api/context/transition" hx-swap="none" class="flex-1 flex flex-col">
+            <input type="hidden" name="context_id" value="{{ recovery_ns.id }}">
+            <textarea name="pending_items" rows="7"
+              placeholder="Enviar e-mail para João&#10;Revisar proposta&#10;Ligar para cliente..."
+              class="flex-1 w-full rounded-lg px-3 py-2.5 text-xs focus:outline-none resize-none transition-colors"
+              style="background: var(--bg-card); border: var(--border-default); color: var(--text-primary);"
+              onfocus="this.style.borderColor='#5b8def'" onblur="this.style.borderColor='#2a2a2a'"></textarea>
+            <div class="mt-4 space-y-2">
+              <button type="submit" class="btn-primary w-full py-2.5 text-xs rounded-lg">
+                Confirmar saída
+              </button>
+              <button type="button" @click="open = false"
+                class="w-full py-2 text-xs transition-colors"
+                style="color: var(--text-secondary);">
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    {% elif active_context_obj and active_context_obj.type == "home_recovery" %}
+    {% set operational_ns = namespace(id='') %}
+    {% if all_contexts is defined %}
+      {% for ctx in all_contexts %}
+        {% if ctx.type == 'home_operational' %}{% set operational_ns.id = ctx.id %}{% endif %}
+      {% endfor %}
+    {% endif %}
+    <div style="border-top: 1px solid #2a2a2a;">
+      <form hx-post="/api/context/transition" hx-swap="none">
+        <input type="hidden" name="context_id" value="{{ operational_ns.id }}">
+        <button type="submit"
+          class="w-full text-left px-5 py-3 text-xs transition-colors"
+          style="color: var(--text-secondary);"
+          onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">
+          Encerrar recuperação →
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    <!-- Context picker -->
+    <div class="px-2 py-3" style="border-top: 1px solid #2a2a2a;">
+      <p class="section-label px-3 mb-2">Contexto</p>
+      {% if all_contexts is defined %}
+      {% for ctx in all_contexts %}
+      <form method="POST" action="/api/context/switch"
+            hx-post="/api/context/switch" hx-swap="none">
+        <input type="hidden" name="context_id" value="{{ ctx.id }}">
+        <button type="submit"
+          class="w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors mb-0.5
+          {% if active_context_obj and ctx.id == active_context_obj.id %}font-medium{% endif %}"
+          style="color: {% if active_context_obj and ctx.id == active_context_obj.id %}var(--accent){% else %}var(--text-secondary){% endif %}; background: {% if active_context_obj and ctx.id == active_context_obj.id %}var(--bg-surface){% else %}transparent{% endif %};">
+          {{ ctx.name }}
+        </button>
+      </form>
+      {% endfor %}
+      {% endif %}
+    </div>
+
+    <!-- User -->
+    <div class="px-4 py-4" style="border-top: 1px solid #2a2a2a;">
+      <p class="text-xs truncate mb-1.5" style="color: var(--text-secondary);">{{ user.name }}</p>
+      <form method="POST" action="/auth/logout">
+        <button type="submit"
+          class="text-xs transition-colors"
+          style="color: var(--text-secondary);"
+          onmouseover="this.style.color='#F87462'" onmouseout="this.style.color='var(--text-secondary)'">
+          Sair
+        </button>
+      </form>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 md:ml-48 px-4 py-6 pt-20 md:px-12 md:py-10 md:pt-10 min-h-screen">
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+{% endblock %}

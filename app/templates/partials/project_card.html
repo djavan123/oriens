@@ -1,0 +1,128 @@
+{% set priority_label = {1: 'P1', 2: 'P2', 3: 'P3'} %}
+{% set tag_color = {
+  'em_andamento': 'bg-oriens-btn',
+  'nao_iniciado': 'bg-oriens-secondary',
+  'concluido':    'bg-oriens-success',
+} %}
+
+<div id="project-{{ project.id }}"
+     class="bg-oriens-surface rounded-lg p-3 group hover:bg-oriens-card-hover transition-colors">
+
+  <!-- Tag colorida por status -->
+  <div class="h-1.5 rounded-full {{ tag_color.get(project.status.value, 'bg-oriens-secondary') }} w-10 mb-3"></div>
+
+  <a href="/projects/{{ project.id }}" class="block">
+    <p class="text-oriens-primary text-sm font-medium leading-snug mb-1
+      {% if project.status.value == 'concluido' %}line-through opacity-60{% endif %}">
+      {{ project.name }}
+    </p>
+    {% if project.objective %}
+    <p class="text-oriens-secondary text-xs leading-relaxed line-clamp-2">{{ project.objective }}</p>
+    {% endif %}
+    {% if project.proxima_acao %}
+    <p class="text-oriens-muted text-xs mt-1 truncate">→ {{ project.proxima_acao }}</p>
+    {% endif %}
+  </a>
+
+  <!-- Progresso -->
+  {% set prog = progress.get(project.id) if progress is defined and progress else None %}
+  {% if prog and prog.total %}
+  <div class="mt-3">
+    <div class="flex items-center justify-between mb-1">
+      <span class="text-oriens-secondary text-xs leading-none">{{ prog.done }}/{{ prog.total }}</span>
+      <span class="text-oriens-secondary text-xs leading-none font-mono">{{ prog.pct }}%</span>
+    </div>
+    <div class="h-1 rounded-full bg-oriens-bg overflow-hidden">
+      <div class="h-full rounded-full {% if prog.pct == 100 %}bg-oriens-success{% else %}bg-oriens-btn{% endif %}"
+           style="width: {{ prog.pct }}%;"></div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Footer -->
+  <div class="flex items-center justify-between mt-3">
+    <div class="flex items-center gap-1.5 flex-wrap">
+      {% if project.context_id is defined and project.context_id and context_labels is defined and context_labels.get(project.context_id) %}
+      <span class="text-oriens-secondary text-xs bg-oriens-card rounded px-1.5 py-0.5 leading-none">
+        {{ context_labels[project.context_id] }}
+      </span>
+      {% endif %}
+      <span class="text-oriens-secondary text-xs bg-oriens-card rounded px-1.5 py-0.5 leading-none">
+        {{ priority_label.get(project.priority, 'P2') }}
+      </span>
+      {% if project.responsavel_id is defined and project.responsavel_id and responsavel_map is defined and responsavel_map.get(project.responsavel_id) %}
+      <span class="text-oriens-muted text-xs leading-none">
+        {{ responsavel_map[project.responsavel_id].split()[0] }}
+      </span>
+      {% endif %}
+      {% if project.deadline %}
+      {% set overdue = project.deadline.date() < now().date() and project.status.value != 'concluido' %}
+      <span class="text-xs px-1.5 py-0.5 rounded leading-none
+        {% if overdue %}text-oriens-alert bg-oriens-alert/10{% else %}text-oriens-secondary bg-oriens-card{% endif %}">
+        {{ project.deadline.strftime('%d/%m/%y') }}
+      </span>
+      {% if overdue %}
+      <span class="text-xs px-1.5 py-0.5 rounded leading-none text-oriens-alert bg-oriens-alert/10">Atrasado</span>
+      {% endif %}
+      {% endif %}
+    </div>
+
+    <!-- Quick actions on hover -->
+    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+      {% if project.status.value == 'em_andamento' %}
+      <button
+        hx-patch="/api/projects/{{ project.id }}"
+        hx-vals='{"status": "nao_iniciado"}'
+        hx-target="#project-{{ project.id }}"
+        hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful) window.location.reload()"
+        title="Pausar"
+        class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors">
+        pausar
+      </button>
+      <span class="text-oriens-border text-xs">·</span>
+      <button
+        hx-patch="/api/projects/{{ project.id }}"
+        hx-vals='{"status": "concluido"}'
+        hx-target="#project-{{ project.id }}"
+        hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful) window.location.reload()"
+        title="Concluir"
+        class="text-oriens-secondary text-xs hover:text-oriens-success transition-colors">
+        concluir
+      </button>
+      {% elif project.status.value == 'nao_iniciado' %}
+      <button
+        hx-patch="/api/projects/{{ project.id }}"
+        hx-vals='{"status": "em_andamento"}'
+        hx-target="#project-{{ project.id }}"
+        hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful) window.location.reload()"
+        class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">
+        iniciar
+      </button>
+      <span class="text-oriens-border text-xs">·</span>
+      <button
+        hx-patch="/api/projects/{{ project.id }}"
+        hx-vals='{"status": "concluido"}'
+        hx-target="#project-{{ project.id }}"
+        hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful) window.location.reload()"
+        class="text-oriens-secondary text-xs hover:text-oriens-success transition-colors">
+        concluir
+      </button>
+      {% elif project.status.value == 'concluido' %}
+      <button
+        hx-patch="/api/projects/{{ project.id }}"
+        hx-vals='{"status": "em_andamento"}'
+        hx-target="#project-{{ project.id }}"
+        hx-swap="outerHTML"
+        hx-on::after-request="if(event.detail.successful) window.location.reload()"
+        class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">
+        reabrir
+      </button>
+      {% endif %}
+    </div>
+  </div>
+
+</div>

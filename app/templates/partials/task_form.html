@@ -1,0 +1,95 @@
+<form
+  id="new-task-form"
+  hx-post="/api/tasks"
+  hx-target="#task-list-pending"
+  hx-swap="afterbegin"
+  hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); document.getElementById('task-form-error').innerHTML=''; }"
+  class="space-y-3">
+
+  {% if project_id %}
+  <input type="hidden" name="project_id" value="{{ project_id }}">
+  {% endif %}
+
+  <div id="task-form-error"></div>
+
+  <div class="flex items-start gap-2">
+    <input
+      type="text"
+      name="title"
+      required
+      placeholder="Criar, implementar, revisar..."
+      class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
+    <button type="submit"
+      class="bg-oriens-btn hover:bg-oriens-accent-hover text-white rounded-md px-4 py-2.5 text-sm font-semibold transition-colors flex-shrink-0">
+      +
+    </button>
+  </div>
+
+  <div class="flex items-center gap-4 flex-wrap">
+    <div class="flex items-center gap-2">
+      <label class="text-oriens-secondary text-xs">Energia</label>
+      <select name="energy"
+        class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+        <option value="high">Alta</option>
+        <option value="medium" selected>Média</option>
+        <option value="low">Baixa</option>
+      </select>
+    </div>
+
+    {% if contexts %}
+    <div class="flex items-center gap-2">
+      <label class="text-oriens-secondary text-xs">Contexto</label>
+      <select name="context_id"
+        class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+        <option value="">Independente (todos)</option>
+        {% for ctx in contexts %}
+        <option value="{{ ctx.id }}">{{ ctx.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" name="is_quick_win" value="true"
+        class="w-3 h-3 rounded border-oriens-border bg-oriens-card">
+      <span class="text-oriens-secondary text-xs">Quick win</span>
+    </label>
+
+    <div class="flex items-center gap-2">
+      <label class="text-oriens-secondary text-xs">Prazo</label>
+      <input type="date" name="deadline"
+        class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+    </div>
+
+    {% if users is defined and users %}
+    <div class="flex items-center gap-2">
+      <label class="text-oriens-secondary text-xs">Responsável</label>
+      <select name="responsavel_id"
+        class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+        <option value="">—</option>
+        {% for u in users %}
+        <option value="{{ u.id }}">{{ u.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="flex items-center gap-2 flex-wrap" x-data="{ tagsVal: '' }">
+    <label class="text-oriens-secondary text-xs">Etiquetas</label>
+    <input type="text" name="tags" x-model="tagsVal"
+      placeholder="ex: urgente, cliente..."
+      class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:border-oriens-accent transition-colors w-40">
+    {% if user_labels is defined and user_labels %}
+    {% for lbl in user_labels %}
+    <button type="button"
+      @click="tagsVal = tagsVal ? tagsVal.split(',').map(t=>t.trim()).filter(t=>t!='{{ lbl.name }}').concat(['{{ lbl.name }}']).join(', ') : '{{ lbl.name }}'"
+      class="text-xs px-2 py-0.5 rounded leading-none"
+      style="background: {{ lbl.color or '#2a2a2a' }}; color: #e8edf1;">
+      {{ lbl.name }}
+    </button>
+    {% endfor %}
+    {% endif %}
+  </div>
+
+</form>

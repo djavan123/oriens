@@ -1,0 +1,106 @@
+{% extends "base_app.html" %}
+
+{% block content %}
+<div class="max-w-2xl">
+
+  <h1 class="text-oriens-primary text-2xl font-semibold mb-8">Configurações</h1>
+
+  <!-- Etiquetas -->
+  <section class="bg-oriens-surface border border-oriens-border rounded-xl p-6 mb-6">
+    <h2 class="text-oriens-secondary text-xs font-semibold uppercase tracking-widest mb-5">Etiquetas</h2>
+
+    <div id="labels-list">
+      {% for label in labels %}
+      <div id="label-{{ label.id }}" class="flex items-center gap-3 py-2.5 border-b border-oriens-divider last:border-0">
+        <span class="w-3 h-3 rounded-full flex-shrink-0" style="background: {{ label.color or '#2a2a2a' }}"></span>
+        <span class="text-oriens-primary text-sm flex-1">{{ label.name }}</span>
+        <button
+          hx-delete="/api/settings/labels/{{ label.id }}"
+          hx-target="#label-{{ label.id }}"
+          hx-swap="outerHTML"
+          class="text-oriens-secondary text-xs hover:text-oriens-alert transition-colors">
+          excluir
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+
+    <form
+      hx-post="/api/settings/labels"
+      hx-target="#labels-list"
+      hx-swap="afterbegin"
+      hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+      class="flex items-center gap-3 mt-4 pt-4 border-t border-oriens-border">
+      <input
+        type="color"
+        name="color"
+        value="#5b8def"
+        class="w-7 h-7 rounded cursor-pointer bg-transparent border-0 p-0">
+      <input
+        type="text"
+        name="name"
+        required
+        placeholder="Nome da etiqueta"
+        class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
+      <button
+        type="submit"
+        class="bg-oriens-btn hover:bg-oriens-accent-hover text-white rounded-md px-4 py-2 text-sm font-semibold transition-colors flex-shrink-0">
+        Criar
+      </button>
+    </form>
+  </section>
+
+  <!-- Contextos -->
+  <section class="bg-oriens-surface border border-oriens-border rounded-xl p-6">
+    <h2 class="text-oriens-secondary text-xs font-semibold uppercase tracking-widest mb-5">Contextos</h2>
+
+    {% if default_contexts %}
+    <p class="text-oriens-muted text-xs uppercase tracking-wider mb-2">Padrão</p>
+    <div class="mb-5">
+      {% for ctx in default_contexts %}
+      <div class="flex items-center gap-3 py-2.5 border-b border-oriens-divider last:border-0">
+        <span class="text-oriens-primary text-sm flex-1">{{ ctx.name }}</span>
+        <span class="text-oriens-empty text-xs">padrão</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <p class="text-oriens-muted text-xs uppercase tracking-wider mb-2">Personalizados</p>
+    <div id="user-contexts-list">
+      {% for ctx in user_contexts %}
+      <div id="ctx-{{ ctx.id }}" class="flex items-center gap-3 py-2.5 border-b border-oriens-divider last:border-0">
+        <span class="text-oriens-primary text-sm flex-1">{{ ctx.name }}</span>
+        <button
+          hx-delete="/api/settings/contexts/{{ ctx.id }}"
+          hx-target="#ctx-{{ ctx.id }}"
+          hx-swap="outerHTML"
+          hx-confirm="Excluir contexto '{{ ctx.name }}'?"
+          class="text-oriens-secondary text-xs hover:text-oriens-alert transition-colors">
+          excluir
+        </button>
+      </div>
+      {% endfor %}
+    </div>
+
+    <form
+      hx-post="/api/settings/contexts"
+      hx-swap="none"
+      hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+      class="flex items-center gap-3 mt-4 pt-4 border-t border-oriens-border">
+      <input
+        type="text"
+        name="name"
+        required
+        placeholder="Nome do contexto"
+        class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
+      <button
+        type="submit"
+        class="bg-oriens-btn hover:bg-oriens-accent-hover text-white rounded-md px-4 py-2 text-sm font-semibold transition-colors flex-shrink-0">
+        Criar
+      </button>
+    </form>
+  </section>
+
+</div>
+{% endblock %}
