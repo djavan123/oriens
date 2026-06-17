@@ -60,9 +60,9 @@ Se a resposta for "mais difícil", a escolha está errada.
 C:\Projetos\Sistema tarefas\
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                        # FastAPI app, routers, lifespan (init_db sempre), settings router
-│   ├── config.py                      # Pydantic Settings (DATABASE_URL, SECRET_KEY, AI_*, COOKIE_SECURE)
-│   ├── database.py                    # Engine async, init_db(); _ensure_columns/_migrate_data só em SQLite
+│   ├── main.py                        # FastAPI app, routers, lifespan (init_db sempre) + loop de lembretes (SCRIPT 4)
+│   ├── config.py                      # Pydantic Settings (DATABASE_URL, SECRET_KEY, AI_*, COOKIE_SECURE, TELEGRAM_*)
+│   ├── database.py                    # init_db(); _ensure_columns/_migrate_data (SQLite) + _ensure_columns_postgres (PG)
 │   ├── templates_env.py               # Jinja2 env global (função `now`, `fmt_size`)
 │   ├── models/
 │   │   ├── __init__.py                # Exporta todos os models (+ Label)
@@ -91,7 +91,8 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── capture_service.py         # process_as_task/project/note/discard
 │   │   ├── dashboard_service.py       # DashboardData: tasks + weekly_theme
 │   │   ├── weekly_directive_service.py
-│   │   └── ai_service.py              # Protocol + ClaudeProvider + OpenAIProvider + NullProvider
+│   │   ├── ai_service.py              # Protocol + ClaudeProvider + OpenAIProvider + NullProvider
+│   │   └── reminder_service.py        # lembretes: send_telegram, process_due_telegram, get_due_popups — SCRIPT 4
 │   ├── routes/
 │   │   ├── auth.py                    # cookies com secure=COOKIE_SECURE
 │   │   ├── dashboard.py               # usa resolve_active_context()
@@ -105,7 +106,8 @@ C:\Projetos\Sistema tarefas\
 │   │       ├── capture.py
 │   │       ├── ai.py
 │   │       ├── context.py             # cookie agora guarda context_id (int) — SCRIPT 3
-│   │       └── settings.py            # CRUD etiquetas + contextos — SCRIPT 3
+│   │       ├── settings.py            # CRUD etiquetas + contextos — SCRIPT 3
+│   │       └── reminders.py           # GET /due (popup) + POST /{id}/ack — SCRIPT 4
 │   ├── templates/
 │   │   ├── base.html                  # tokens oriens-*, Inter, Tailwind, HTMX, Alpine + PWA (manifest, SW)
 │   │   ├── base_app.html              # sidebar RESPONSIVA (hambúrguer no mobile) + contextos dinâmicos
@@ -117,12 +119,13 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── auth/ (login.html, setup.html)
 │   │   ├── projects/
 │   │   │   ├── list.html              # kanban grid-cols-1 md:grid-cols-3 (responsivo)
-│   │   │   ├── detail.html            # flex-col lg:flex-row (responsivo) + Cronologia
+│   │   │   ├── detail.html            # responsivo + "Atividade Recente" + modal histórico; contexto obrigatório — SCRIPT 4
 │   │   │   └── reports.html
 │   │   └── partials/
-│   │       ├── task_item.html         # + badge de contexto e chips de etiquetas
-│   │       ├── task_form.html         # + contexto ("Independente (todos)"), etiquetas, responsavel_id
-│   │       ├── task_edit_form.html    # + contexto, etiquetas, responsavel_id
+│   │       ├── task_item.html         # badge de contexto, etiquetas e 🔔 lembrete
+│   │       ├── task_form.html         # CRIAÇÃO só com título (SCRIPT 4)
+│   │       ├── task_edit_form.html    # energia/prazo/resp/etiquetas/quick win/lembrete; contexto travado se for de projeto
+│   │       ├── reminder_popup.html    # toasts de lembrete (SCRIPT 4)
 │   │       └── ... (subtasks, project_card/form/comment/attachment/milestone/risk, capture, process, ai_result)
 │   ├── static/                        # PWA: manifest.webmanifest, sw.js, icon.svg
 │   └── utils/
@@ -137,9 +140,9 @@ C:\Projetos\Sistema tarefas\
 │   └── migrate_to_postgres.py         # cópia SQLite → PostgreSQL (opcional) — exige PYTHONPATH=/app
 ├── nginx/
 │   └── oriens.conf                    # proxy reverso (uso futuro com domínio)
-├── docker-compose.yml                 # DEV (SQLite + --reload)
-├── docker-compose.prod.yml            # PROD (app + PostgreSQL + volumes pgdata/appdata)
-├── Dockerfile                         # produção (sem --reload)
+├── docker-compose.yml                 # DEV (SQLite + --reload + TZ)
+├── docker-compose.prod.yml            # PROD (app + PostgreSQL + volumes pgdata/appdata + TZ)
+├── Dockerfile                         # produção (sem --reload; instala tzdata, TZ=America/Sao_Paulo)
 ├── .dockerignore  /  .gitignore
 ├── .env  /  .env.example              # .env.example tem blocos DEV e PROD
 ├── DEPLOY.md                          # guia completo (domínio + HTTPS + Nginx + backup)
@@ -455,11 +458,11 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualiza
 | Tabelas no banco | 14 (+ `labels`) |
 | Models SQLAlchemy | 14 |
 | Repositories | 14 (+ `label_repo`) |
-| Services | 6 |
+| Services | 7 (+ `reminder_service`) |
 | Rotas principais | 6 arquivos (+ `settings.py`) |
-| Rotas API | 6 arquivos (+ `api/settings.py`) |
-| Endpoints totais | ~38 |
-| Templates HTML | ~25 (+ `settings.html`) |
+| Rotas API | 7 arquivos (+ `api/settings.py`, `api/reminders.py`) |
+| Endpoints totais | ~40 |
+| Templates HTML | ~26 (+ `settings.html`, `reminder_popup.html`) |
 | Ambiente | Dev (SQLite) + Produção (PostgreSQL na VPS) |
 
 ---
