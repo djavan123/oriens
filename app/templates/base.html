@@ -203,6 +203,15 @@
       color: var(--text-empty);
       font-style: italic;
     }
+
+    /* TAREFA SENDO CONCLUÍDA — feedback de fade + strikethrough antes de sair da lista */
+    .task-completing {
+      opacity: .35;
+      transition: opacity .4s ease;
+    }
+    .task-completing p {
+      text-decoration: line-through;
+    }
   </style>
 
   {% block head %}{% endblock %}

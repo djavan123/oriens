@@ -1,14 +1,15 @@
-﻿{% set energy_dot = {'high': 'bg-oriens-alert', 'medium': 'bg-oriens-btn', 'low': 'bg-oriens-secondary'} %}
+{% set energy_dot = {'high': 'bg-oriens-alert', 'medium': 'bg-oriens-btn', 'low': 'bg-oriens-secondary'} %}
 
 <div id="task-{{ task.id }}"
-     class="group flex items-start gap-3 py-2.5 border-b border-oriens-divider last:border-0">
+     class="group flex items-start gap-3 p-3 mb-2 rounded-lg bg-oriens-card border border-oriens-border">
 
   <!-- Checkbox / status indicator -->
   {% if task.status.value == 'pending' %}
   <button
     hx-patch="/api/tasks/{{ task.id }}/done"
-    hx-target="#task-{{ task.id }}"
-    hx-swap="outerHTML"
+    hx-swap="none"
+    hx-on:click="document.getElementById('task-{{ task.id }}').classList.add('task-completing')"
+    hx-on::after-request="if(event.detail.successful){ setTimeout(function(){ var el=document.getElementById('task-{{ task.id }}'); if(el) el.remove(); }, 450) }"
     title="Marcar como feito"
     class="flex-shrink-0 mt-0.5 w-4 h-4 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors">
   </button>
@@ -31,18 +32,28 @@
 
   <!-- Content -->
   <div class="flex-1 min-w-0">
-    <p class="text-sm leading-snug
-      {% if task.status.value == 'done' %}text-oriens-empty line-through
-      {% elif task.status.value == 'blocked' %}text-oriens-alert
-      {% else %}text-oriens-primary{% endif %}">
-      {{ task.title }}
-    </p>
+    <div class="flex items-start gap-2">
+      <p class="flex-1 min-w-0 text-sm leading-snug
+        {% if task.status.value == 'done' %}text-oriens-empty line-through
+        {% elif task.status.value == 'blocked' %}text-oriens-alert
+        {% else %}text-oriens-primary{% endif %}">
+        {{ task.title }}
+      </p>
+      {% if allow_subtask %}
+      <button type="button"
+        onclick="var f=document.getElementById('subtask-form-{{ task.id }}'); if(f){var open=f.style.display==='flex'; f.style.display=open?'none':'flex'; if(!open){var i=document.getElementById('subtask-input-{{ task.id }}'); if(i) i.focus();}}"
+        title="Adicionar subtarefa"
+        class="flex-shrink-0 mt-0.5 w-5 h-5 flex items-center justify-center rounded text-oriens-muted hover:text-oriens-accent hover:bg-oriens-surface text-base leading-none transition-colors">
+        +
+      </button>
+      {% endif %}
+    </div>
     <div class="flex items-center gap-2 mt-0.5 flex-wrap">
       {% if task.is_quick_win and task.status.value != 'done' %}
       <span class="text-oriens-success text-xs font-medium">quick win</span>
       {% endif %}
       {% if task.context_id and context_labels is defined and context_labels.get(task.context_id) %}
-      <span class="text-xs px-1.5 py-0.5 rounded leading-none bg-oriens-card text-oriens-secondary">
+      <span class="text-xs px-1.5 py-0.5 rounded leading-none bg-oriens-surface border border-oriens-border text-oriens-secondary">
         {{ context_labels[task.context_id] }}
       </span>
       {% endif %}

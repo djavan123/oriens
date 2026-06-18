@@ -101,10 +101,10 @@
       <!-- Static view -->
       <div x-show="!editing" class="space-y-3">
         <div class="flex items-center gap-3">
-          <span class="text-oriens-secondary text-xs w-20">Status</span>
-          <span class="text-oriens-primary text-sm">{{ status_label.get(project.status.value, project.status.value) }}</span>
+          <span class="text-oriens-primary text-sm font-medium">{{ status_label.get(project.status.value, project.status.value) }}</span>
+          <span class="text-oriens-muted text-xs ml-auto">criado em {{ project.created_at.strftime('%d/%m/%y') }}</span>
           <button @click="editing = true"
-            class="ml-auto text-oriens-link text-xs hover:opacity-80 transition-colors cursor-pointer">
+            class="text-oriens-link text-xs hover:opacity-80 transition-colors cursor-pointer">
             Editar →
           </button>
         </div>
@@ -114,16 +114,6 @@
           <span class="text-oriens-primary text-sm">{{ responsavel_map[project.responsavel_id] }}</span>
         </div>
         {% endif %}
-        {% if project.deadline %}
-        <div class="flex items-center gap-3">
-          <span class="text-oriens-secondary text-xs w-20">Prazo</span>
-          <span class="text-oriens-primary text-sm">{{ project.deadline.strftime('%d/%m/%Y') }}</span>
-        </div>
-        {% endif %}
-        <div class="flex items-center gap-3">
-          <span class="text-oriens-secondary text-xs w-20">Criado em</span>
-          <span class="text-oriens-tertiary text-sm">{{ project.created_at.strftime('%d/%m/%Y') }}</span>
-        </div>
         {% if project.done_at %}
         <div class="flex items-center gap-3">
           <span class="text-oriens-secondary text-xs w-20">Concluído em</span>
@@ -327,18 +317,9 @@
         {% endif %}
       </div>
 
-      <div>
-        {% for event in timeline[:5] %}
-        <div class="flex items-start gap-3 py-2.5 border-b border-oriens-divider last:border-0">
-          <span class="text-oriens-muted text-xs font-mono w-12 flex-shrink-0 pt-0.5">
-            {{ event.created_at.strftime('%d/%m') }}
-          </span>
-          <span class="text-oriens-primary text-sm">{{ event.description }}</span>
-        </div>
-        {% else %}
-        <p class="text-oriens-empty text-sm italic">Nenhum evento registrado.</p>
-        {% endfor %}
-      </div>
+      {% if not timeline %}
+      <p class="text-oriens-empty text-sm italic">Sem atividade ainda.</p>
+      {% endif %}
 
       <!-- Modal: histórico completo -->
       <div x-show="showHistory" x-transition
@@ -370,7 +351,8 @@
       </div>
     </div>
 
-    <!-- Riscos -->
+    <!-- Riscos — OCULTO da UI por opção (backend/model/rota intactos). Trocar false→true para reativar. -->
+    {% if false %}
     <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4" x-data="{ adding: false }">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Riscos</h2>
@@ -427,6 +409,7 @@
         </button>
       </form>
     </div>
+    {% endif %}
 
     <!-- Anexos -->
     <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
@@ -520,6 +503,39 @@
         + definir um objetivo claro pra esse projeto
       </button>
       {% endif %}
+
+      <!-- Prazo -->
+      <div class="mb-6 pt-5 border-t border-oriens-border">
+        <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-2">Prazo</h2>
+        {% if project.deadline %}
+          {% set dias = (project.deadline.date() - now().date()).days %}
+          {% if project.status.value == 'concluido' %}
+          <p class="text-oriens-primary text-sm">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+          <p class="text-oriens-muted text-xs mt-0.5">projeto concluído</p>
+          {% elif dias < 0 %}
+          <p class="text-oriens-urgent text-2xl font-bold leading-none">{{ -dias }}<span class="text-sm font-medium"> dia{{ 's' if -dias != 1 else '' }} em atraso</span></p>
+          <p class="text-oriens-muted text-xs mt-1.5">era {{ project.deadline.strftime('%d/%m/%Y') }}</p>
+          {% elif dias == 0 %}
+          <p class="text-oriens-today text-2xl font-bold leading-none">Vence hoje</p>
+          <p class="text-oriens-muted text-xs mt-1.5">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+          {% elif dias <= 3 %}
+          <p class="text-oriens-today text-2xl font-bold leading-none">{{ dias }}<span class="text-sm font-medium"> dia{{ 's' if dias != 1 else '' }} restante{{ 's' if dias != 1 else '' }}</span></p>
+          <p class="text-oriens-muted text-xs mt-1.5">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+          {% else %}
+          <p class="text-oriens-primary text-2xl font-bold leading-none">{{ dias }}<span class="text-oriens-secondary text-sm font-medium"> dias restantes</span></p>
+          <p class="text-oriens-muted text-xs mt-1.5">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+          {% endif %}
+          <button type="button" @click="$dispatch('abrir-edicao')"
+            class="text-oriens-link text-xs hover:opacity-80 transition-opacity cursor-pointer mt-2">
+            Editar →
+          </button>
+        {% else %}
+        <button type="button" @click="$dispatch('abrir-edicao')"
+          class="text-oriens-accent text-sm text-left hover:opacity-80 transition-opacity cursor-pointer block">
+          + definir prazo previsto
+        </button>
+        {% endif %}
+      </div>
 
       <!-- Comentários -->
       <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-3 pt-5 border-t border-oriens-border">Comentários</h2>

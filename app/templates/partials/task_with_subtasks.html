@@ -1,20 +1,22 @@
-﻿{% set parent = task %}
-{% include "partials/task_item.html" %}
+{% set parent = task %}
+{% with allow_subtask = true %}{% include "partials/task_item.html" %}{% endwith %}
 <div class="ml-7 border-l border-oriens-border pl-3">
   <div id="subtasks-{{ parent.id }}">
     {% for sub in (subtasks.get(parent.id) if subtasks is defined and subtasks else None) or [] %}
-      {% with task = sub %}{% include "partials/task_item.html" %}{% endwith %}
+      {% with task = sub, allow_subtask = false %}{% include "partials/task_item.html" %}{% endwith %}
     {% endfor %}
   </div>
   <form
+    id="subtask-form-{{ parent.id }}"
     hx-post="/api/tasks"
     hx-target="#subtasks-{{ parent.id }}"
     hx-swap="afterbegin"
     hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); }"
+    style="display:none"
     class="flex items-center gap-2 mt-1 py-1">
     <input type="hidden" name="parent_id" value="{{ parent.id }}">
     <input type="hidden" name="project_id" value="{{ project.id }}">
-    <input type="text" name="title" placeholder="+ subtarefa (verbo...)"
-      class="flex-1 bg-transparent border-b border-transparent hover:border-oriens-border focus:border-oriens-accent text-oriens-secondary text-xs px-1 py-1 focus:outline-none focus:text-oriens-primary transition-colors placeholder-oriens-muted">
+    <input type="text" name="title" id="subtask-input-{{ parent.id }}" placeholder="Nova subtarefa (verbo...)"
+      class="flex-1 bg-transparent border-b border-oriens-border focus:border-oriens-accent text-oriens-secondary text-xs px-1 py-1 focus:outline-none focus:text-oriens-primary transition-colors placeholder-oriens-muted">
   </form>
 </div>
