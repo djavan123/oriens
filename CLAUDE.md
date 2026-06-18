@@ -63,7 +63,7 @@ C:\Projetos\Sistema tarefas\
 │   ├── main.py                        # FastAPI app, routers, lifespan (init_db sempre) + loop de lembretes (SCRIPT 4)
 │   ├── config.py                      # Pydantic Settings (DATABASE_URL, SECRET_KEY, AI_*, COOKIE_SECURE, TELEGRAM_*)
 │   ├── database.py                    # init_db(); _ensure_columns/_migrate_data (SQLite) + _ensure_columns_postgres (PG)
-│   ├── templates_env.py               # Jinja2 env global (função `now`, `fmt_size`)
+│   ├── templates_env.py               # Jinja2 env global (`now`, `fmt_size`, `due_status` — SCRIPT 6)
 │   ├── models/
 │   │   ├── __init__.py                # Exporta todos os models (+ Label)
 │   │   ├── user.py
@@ -109,8 +109,8 @@ C:\Projetos\Sistema tarefas\
 │   │       ├── settings.py            # CRUD etiquetas + contextos — SCRIPT 3
 │   │       └── reminders.py           # GET /due (popup) + POST /{id}/ack — SCRIPT 4
 │   ├── templates/
-│   │   ├── base.html                  # tokens oriens-*, Inter, Tailwind, HTMX, Alpine + PWA (manifest, SW)
-│   │   ├── base_app.html              # sidebar RESPONSIVA (hambúrguer no mobile) + contextos dinâmicos
+│   │   ├── base.html                  # tokens oriens-*→var(); theme.css; init de tema sem flash; x-data theme no <html> (SCRIPT 6)
+│   │   ├── base_app.html              # sidebar RESPONSIVA + contextos dinâmicos + seletor de tema "Aparência" (SCRIPT 6)
 │   │   ├── dashboard.html             # grid-cols-1 md:grid-cols-2 (responsivo)
 │   │   ├── capture.html
 │   │   ├── process.html
@@ -122,14 +122,15 @@ C:\Projetos\Sistema tarefas\
 │   │   │   ├── detail.html            # próxima ação em destaque no topo; Decisões; arquivar/desarquivar; "Atividade Recente" (SCRIPT 5)
 │   │   │   └── reports.html           # coluna "Decisões" (era "Marcos") — SCRIPT 5
 │   │   └── partials/
-│   │       ├── task_item.html         # badge de contexto, etiquetas e 🔔 lembrete
+│   │       ├── task_item.html         # badge de contexto, etiquetas, 🔔 lembrete e urgência (atrasado/hoje — SCRIPT 6)
+│   │       ├── theme_switcher.html      # 3 bolinhas dark/light/warm (Alpine `theme`) — SCRIPT 6
 │   │       ├── task_form.html         # CRIAÇÃO só com título (SCRIPT 4)
 │   │       ├── task_edit_form.html    # energia/prazo/resp/etiquetas/quick win/lembrete; contexto travado se for de projeto
 │   │       ├── reminder_popup.html    # toasts de lembrete (SCRIPT 4)
 │   │       ├── project_form.html       # criação: + campo "Próxima ação" (opcional) — SCRIPT 5
 │   │       ├── project_decision.html   # item de decisão (data + texto + excluir) — SCRIPT 5
 │   │       └── ... (subtasks, project_card/comment/attachment/risk, capture, process, ai_result)
-│   ├── static/                        # PWA: manifest.webmanifest, sw.js, icon.svg
+│   ├── static/                        # PWA: manifest.webmanifest, sw.js, icon.svg + css/theme.css (3 temas — SCRIPT 6)
 │   └── utils/
 │       ├── auth.py                    # cookie: oriens_token
 │       ├── verb_validator.py
@@ -234,35 +235,48 @@ C:\Projetos\Sistema tarefas\
 
 ---
 
-## UX — DARK MODE (DESIGN SYSTEM APLICADO)
+## UX — TEMAS (DESIGN SYSTEM APLICADO)
 
-Paleta Oriens (tokens Tailwind):
+**Três temas** (`dark` padrão, `light`, `warm`), trocáveis sem reload. (SCRIPT 6)
 
-```javascript
-'oriens-bg':         '#191919',   // base do conteúdo
-'oriens-surface':    '#202020',   // cards elevados, colunas
-'oriens-card':       '#1a1a1a',   // inset: inputs, badges
-'oriens-card-hover': '#262626',
-'oriens-border':     '#2a2a2a',   // borda sutil
-'oriens-divider':    '#232323',   // divisores de lista
-'oriens-primary':    '#e8edf1',   // texto principal
-'oriens-secondary':  '#9a9a9a',   // labels de seção
-'oriens-muted':      '#767676',   // datas, contadores
-'oriens-empty':      '#565656',   // estados vazios
-'oriens-accent':     '#5b8def',   // foco/ação/active
-'oriens-accent-hover':'#4a7adf',
-'oriens-link':       '#6fa8f5',   // links clicáveis
-'oriens-btn':        '#5b8def',   // botão primário
-'oriens-alert':      '#F87462',
-'oriens-success':    '#4BCE97',
-'oriens-warning':    '#E2B203',
-```
+- **Fonte da verdade:** `app/static/css/theme.css` define os tokens `--oriens-*` por
+  `:root[data-theme="dark|light|warm"]` (+ bloco `:root:not([data-theme])` como fallback dark).
+- **Ponte com Tailwind:** o `tailwind.config` em `base.html` mapeia cada cor `oriens-*` para
+  `var(--oriens-*)`. Assim **toda** classe utilitária (`bg-oriens-*`, `text-oriens-*`,
+  `border-oriens-*`) re-tematiza automaticamente — **não** redefina cores hardcoded nos templates;
+  use sempre os tokens.
+- **Aliases legados:** `theme.css` mantém `--bg-app`, `--bg-sidebar`, `--text-primary`, `--accent`,
+  `--border-default`, etc. apontando para os `--oriens-*` (usados por `.card/.sidebar/.btn-primary`
+  e por `style="…var(--…)…"` inline). Não recriar um segundo sistema de tema.
+- **Sem flash:** script inline no topo do `<head>` (antes do Tailwind) seta `data-theme` a partir
+  do `localStorage('oriens-theme')`. O `<html>` tem `x-data="{ theme }"`/`x-init` (Alpine) que
+  persiste e reaplica em `$watch`. Seletor: `partials/theme_switcher.html` (3 bolinhas), incluído
+  na sidebar (`base_app.html`) e em Configurações → "Aparência".
 
-CSS variables:
-- `--bg-sidebar: #141414`, `.sidebar { background: #141414 }`
-- `.nav-item:hover { background: #202020 }`
+Tokens semânticos de urgência: `oriens-urgent` (atrasado), `oriens-today` (hoje), `oriens-ok`.
+`oriens-accent-text` = texto sobre `accent`/botões. `oriens-sidebar` = fundo da sidebar.
 
-Princípios: espaço generoso (`px-12 py-10`), tipografia como hierarquia, zero ícones decorativos, zero `border-dashed`, máximo 3 níveis de informação por tela, fonte Inter.
+Paleta (resumo — valores completos em `app/static/css/theme.css`):
+
+| token | dark | light | warm |
+|---|---|---|---|
+| `--oriens-bg` | `#15151A` | `#FAF9F6` | `#1A1815` |
+| `--oriens-surface` | `#21212B` | `#FFFFFF` | `#2A2622` |
+| `--oriens-primary` (texto) | `#F2F1ED` | `#1F1E1B` | `#F0EBE3` |
+| `--oriens-accent` | `#7F77DD` | `#534AB7` | `#D85A30` |
+| `--oriens-urgent` / `--oriens-today` / `--oriens-ok` | `#E24B4A`/`#EF9F27`/`#5DCAA5` | `#A32D2D`/`#854F0B`/`#0F6E56` | `#E24B4A`/`#EF9F27`/`#1D9E75` |
+
+Princípios: cor/contraste são **função** (usuário com TDAH), não enfeite. Espaço generoso
+(`px-12 py-10`), tipografia como hierarquia, zero ícones decorativos, zero `border-dashed`,
+máximo 3 níveis de informação por tela, fonte Inter. **Nenhum tema pode deixar texto ilegível.**
+
+**Badge de urgência por data:** `due_status(value)` (global Jinja em `templates_env.py`) →
+`overdue|today|future|None`. Usado em `task_item.html` e `project_card.html`: atrasado → badge
+`oriens-urgent`; hoje → badge `oriens-today`; futuro → só a data (sem badge).
+
+**Estados vazios = convite:** no detalhe do projeto, "sem objetivo/risco/decisão" são links em
+`oriens-accent` que abrem o campo (objetivo dispara `$dispatch('abrir-edicao')` → form de
+metadados; risco → `adding=true`; decisão → foca `#decision-input`).
 
 ---
 
@@ -448,6 +462,14 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **Cronologia:** criar uma decisão grava evento `decision_recorded` em `project_timeline` (novo valor no enum `TimelineEventType`).
 - Migração PG aditiva: `archived` em `_ENSURE_COLUMNS_PG["projects"]`; SQLite em `_ENSURE_COLUMNS["projects"]`. Tabela `project_milestones` legada não é dropada (não-destrutivo).
 
+### ✅ SCRIPT 6 — Temas + clareza visual
+- **3 temas** (`dark`/`light`/`warm`) via `data-theme` no `<html>`: `app/static/css/theme.css` define os tokens `--oriens-*`; o `tailwind.config` aponta cada `oriens-*` para `var(--oriens-*)` → app inteiro re-tematiza sem editar tela a tela. Aliases legados (`--bg-app`, `--accent`, …) preservados.
+- **Sem flash + persistência:** script inline no `<head>` aplica `data-theme` do `localStorage`; `x-data`/`x-init` (Alpine) no `<html>` persiste e reaplica. Seletor `partials/theme_switcher.html` na sidebar e em Configurações → "Aparência".
+- **Sweep de legibilidade:** `text-[#f2f2f2]`→`text-oriens-primary`, `hover:text-[#8fc1ff]`→`hover:opacity-80`, e estilos inline da sidebar/kanban → `var(--oriens-*)` (nenhum tema deixa texto ilegível).
+- **Urgência por data:** global Jinja `due_status()` em `task_item.html` e `project_card.html` (badge atrasado/hoje; futuro só data). Tokens `oriens-urgent/today/ok`.
+- **Barra de progresso:** já existia (reusa `progress_by_project`); trilho em `oriens-card-hover` + legenda "X de Y tarefas concluídas".
+- **Estados vazios como convite:** objetivo/risco/decisão vazios viram link em `oriens-accent` que abre o campo (Alpine `$dispatch('abrir-edicao')` / `adding=true` / foco em `#decision-input`).
+
 ---
 
 ## PRODUÇÃO E OPERAÇÃO (VPS)
@@ -482,7 +504,8 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualiza
 | Rotas principais | 6 arquivos (+ `settings.py`) |
 | Rotas API | 7 arquivos (+ `api/settings.py`, `api/reminders.py`) |
 | Endpoints totais | ~39 |
-| Templates HTML | ~26 (+ `project_decision.html`; − `project_milestone.html`) |
+| Templates HTML | ~27 (+ `theme_switcher.html`) |
+| Temas | 3 (`dark`/`light`/`warm`) via `static/css/theme.css` |
 | Ambiente | Dev (SQLite) + Produção (PostgreSQL na VPS) |
 
 ---

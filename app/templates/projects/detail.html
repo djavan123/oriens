@@ -31,7 +31,7 @@
     <div class="mb-8">
       <div class="flex items-start justify-between gap-4">
         <div>
-          <h1 class="text-2xl font-bold text-[#f2f2f2] tracking-tight
+          <h1 class="text-2xl font-bold text-oriens-primary tracking-tight
             {% if project.status.value == 'concluido' %}line-through opacity-50{% endif %}">
             {{ project.name }}
           </h1>
@@ -84,16 +84,19 @@
           <span class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide">Progresso</span>
           <span class="text-oriens-primary text-xs font-mono">{{ progress.done }}/{{ progress.total }} · {{ progress.pct }}%</span>
         </div>
-        <div class="h-1.5 rounded-full bg-oriens-bg overflow-hidden">
+        <div class="h-2.5 rounded-full bg-oriens-card-hover overflow-hidden">
           <div class="h-full rounded-full {% if progress.pct == 100 %}bg-oriens-success{% else %}bg-oriens-btn{% endif %}"
                style="width: {{ progress.pct }}%;"></div>
         </div>
+        <p class="text-oriens-muted text-xs mt-2">{{ progress.done }} de {{ progress.total }} tarefas concluídas</p>
       </div>
       {% endif %}
     </div>
 
     <!-- Metadata + Edit -->
-    <div x-data="{ editing: false }" class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
+    <div x-data="{ editing: false }"
+         @abrir-edicao.window="editing = true; $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'center' }))"
+         class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
 
       <!-- Static view -->
       <div x-show="!editing" class="space-y-3">
@@ -101,7 +104,7 @@
           <span class="text-oriens-secondary text-xs w-20">Status</span>
           <span class="text-oriens-primary text-sm">{{ status_label.get(project.status.value, project.status.value) }}</span>
           <button @click="editing = true"
-            class="ml-auto text-oriens-link text-xs hover:text-[#8fc1ff] transition-colors cursor-pointer">
+            class="ml-auto text-oriens-link text-xs hover:opacity-80 transition-colors cursor-pointer">
             Editar →
           </button>
         </div>
@@ -274,7 +277,7 @@
         hx-target="#ai-project-suggestions"
         hx-swap="innerHTML"
         hx-indicator="#ai-project-spinner"
-        class="text-oriens-link text-sm hover:text-[#8fc1ff] transition-colors cursor-pointer">
+        class="text-oriens-link text-sm hover:opacity-80 transition-colors cursor-pointer">
         Sugerir próximas ações →
       </button>
       <span id="ai-project-spinner" class="htmx-indicator text-oriens-tertiary text-xs ml-2">...</span>
@@ -292,7 +295,7 @@
         hx-swap="afterbegin"
         hx-on::after-request="if(event.detail.successful){ $el.reset() }"
         class="mb-3 flex items-center gap-2">
-        <input type="text" name="content" required placeholder="Nova decisão..."
+        <input type="text" id="decision-input" name="content" required placeholder="Nova decisão..."
           class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
         <button type="submit"
           class="flex-shrink-0 bg-oriens-surface border border-oriens-border text-oriens-primary rounded-lg px-4 py-2 text-xs hover:bg-oriens-card transition-colors">
@@ -304,7 +307,10 @@
         {% for d in decisions %}
           {% include "partials/project_decision.html" %}
         {% else %}
-        <p class="text-oriens-empty text-sm italic">Nenhuma decisão registrada.</p>
+        <button type="button" onclick="document.getElementById('decision-input').focus()"
+          class="text-oriens-accent text-sm hover:opacity-80 transition-opacity cursor-pointer">
+          + registrar primeira decisão
+        </button>
         {% endfor %}
       </div>
     </div>
@@ -315,7 +321,7 @@
         <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Atividade Recente</h2>
         {% if timeline %}
         <button @click="showHistory = true"
-          class="text-oriens-link text-xs hover:text-[#8fc1ff] transition-colors cursor-pointer">
+          class="text-oriens-link text-xs hover:opacity-80 transition-colors cursor-pointer">
           Ver histórico completo →
         </button>
         {% endif %}
@@ -369,7 +375,7 @@
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Riscos</h2>
         <button @click="adding = !adding"
-          class="text-oriens-link text-xs hover:text-[#8fc1ff] transition-colors cursor-pointer">
+          class="text-oriens-link text-xs hover:opacity-80 transition-colors cursor-pointer">
           <span x-text="adding ? 'cancelar' : '+ registrar risco'"></span>
         </button>
       </div>
@@ -378,7 +384,10 @@
         {% for r in risks %}
           {% include "partials/project_risk.html" %}
         {% else %}
-        <p class="text-oriens-empty text-sm italic mb-2">Nenhum risco registrado.</p>
+        <button type="button" @click="adding = true"
+          class="text-oriens-accent text-sm hover:opacity-80 transition-opacity cursor-pointer mb-2">
+          + registrar primeiro risco
+        </button>
         {% endfor %}
       </div>
 
@@ -506,7 +515,10 @@
       {% if project.objective %}
       <p class="text-oriens-primary text-sm leading-relaxed mb-6">{{ project.objective }}</p>
       {% else %}
-      <p class="text-oriens-empty text-sm italic mb-6">Sem objetivo definido.</p>
+      <button type="button" @click="$dispatch('abrir-edicao')"
+        class="text-oriens-accent text-sm text-left hover:opacity-80 transition-opacity cursor-pointer mb-6 block">
+        + definir um objetivo claro pra esse projeto
+      </button>
       {% endif %}
 
       <!-- Comentários -->

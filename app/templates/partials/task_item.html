@@ -56,10 +56,18 @@
       <span class="text-xs leading-none text-oriens-accent">🔔 {{ task.remind_at.strftime('%d/%m %H:%M') }}</span>
       {% endif %}
       {% if task.deadline %}
-      <span class="text-xs
-        {% if task.deadline.date() < now().date() %}text-oriens-alert{% else %}text-oriens-muted{% endif %}">
-        {{ task.deadline.strftime('%d/%m/%y') }}
+      {% set ds = due_status(task.deadline) %}
+      {% if ds == 'overdue' and task.status.value != 'done' %}
+      <span class="text-xs px-1.5 py-0.5 rounded leading-none font-medium bg-oriens-urgent/15 text-oriens-urgent">
+        atrasado · {{ task.deadline.strftime('%d/%m') }}
       </span>
+      {% elif ds == 'today' and task.status.value != 'done' %}
+      <span class="text-xs px-1.5 py-0.5 rounded leading-none font-medium bg-oriens-today/15 text-oriens-today">
+        hoje
+      </span>
+      {% else %}
+      <span class="text-xs text-oriens-muted">{{ task.deadline.strftime('%d/%m/%y') }}</span>
+      {% endif %}
       {% endif %}
     </div>
   </div>

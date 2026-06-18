@@ -1,0 +1,20 @@
+{# Seletor de tema. Requer 'theme' no escopo Alpine (definido no <html> em base.html).
+   Previews usam cores fixas de cada tema (não dependem do tema ativo). #}
+<div class="flex items-center gap-2.5" role="group" aria-label="Tema de cores">
+  {% set swatches = [
+    ('dark',  '#15151A', '#7F77DD', 'Escuro'),
+    ('light', '#FAF9F6', '#534AB7', 'Claro'),
+    ('warm',  '#1A1815', '#D85A30', 'Quente')
+  ] %}
+  {% for key, bg, accent, label in swatches %}
+  <button type="button"
+    @click="theme = '{{ key }}'"
+    :class="theme === '{{ key }}' ? 'ring-2 ring-offset-2 ring-oriens-accent' : 'opacity-70 hover:opacity-100'"
+    style="background: {{ bg }}; --tw-ring-offset-color: var(--oriens-bg);"
+    class="relative w-7 h-7 rounded-full border border-oriens-border flex items-center justify-center transition-all"
+    :aria-pressed="theme === '{{ key }}'"
+    aria-label="Tema {{ label }}" title="{{ label }}">
+    <span class="w-3 h-3 rounded-full" style="background: {{ accent }};"></span>
+  </button>
+  {% endfor %}
+</div>

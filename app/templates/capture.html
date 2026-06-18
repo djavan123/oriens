@@ -7,10 +7,10 @@
 <div class="max-w-2xl">
 
   <div class="flex items-center justify-between mb-8">
-    <h1 class="text-3xl font-bold text-[#f2f2f2] tracking-tight">Captura</h1>
+    <h1 class="text-3xl font-bold text-oriens-primary tracking-tight">Captura</h1>
     {% if unprocessed_count > 0 %}
     <a href="/process"
-       class="text-oriens-link text-sm hover:text-[#8fc1ff] transition-colors">
+       class="text-oriens-link text-sm hover:opacity-80 transition-colors">
       Processar {{ unprocessed_count }} {{ 'item' if unprocessed_count == 1 else 'itens' }} →
     </a>
     {% endif %}

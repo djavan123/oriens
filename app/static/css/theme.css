@@ -1,0 +1,138 @@
+/* app/static/css/theme.css
+   Temas do Oriens. Trocados via atributo data-theme no <html>.
+   Os tokens --oriens-* são consumidos pelo tailwind.config (em base.html),
+   que mapeia cada cor 'oriens-x' para var(--oriens-x). Assim, todas as classes
+   utilitárias (bg-oriens-*, text-oriens-*, border-oriens-*) re-tematizam de uma vez. */
+
+/* ───────────────────────── DARK (padrão) ───────────────────────── */
+:root[data-theme="dark"] {
+  --oriens-bg:            #15151A;
+  --oriens-sidebar:       #1B1B22;
+  --oriens-surface:       #21212B;
+  --oriens-card:          #191920;
+  --oriens-card-hover:    #262633;
+  --oriens-border:        #2E2E3A;
+  --oriens-divider:       #232330;
+  --oriens-primary:       #F2F1ED;
+  --oriens-secondary:     #8A8A96;
+  --oriens-tertiary:      #8A8A96;
+  --oriens-muted:         #75757F;
+  --oriens-empty:         #55555E;
+  --oriens-accent:        #7F77DD;
+  --oriens-accent-hover:  #6E66CC;
+  --oriens-link:          #9A93E8;
+  --oriens-btn:           #7F77DD;
+  --oriens-accent-text:   #EEEDFE;
+  --oriens-urgent:        #E24B4A;
+  --oriens-alert:         #E24B4A;
+  --oriens-today:         #EF9F27;
+  --oriens-warning:       #EF9F27;
+  --oriens-ok:            #5DCAA5;
+  --oriens-success:       #5DCAA5;
+}
+
+/* ───────────────────────── LIGHT ───────────────────────── */
+:root[data-theme="light"] {
+  --oriens-bg:            #FAF9F6;
+  --oriens-sidebar:       #FFFFFF;
+  --oriens-surface:       #FFFFFF;
+  --oriens-card:          #F3F2EE;
+  --oriens-card-hover:    #ECEAE3;
+  --oriens-border:        #E5E3DB;
+  --oriens-divider:       #ECEAE3;
+  --oriens-primary:       #1F1E1B;
+  --oriens-secondary:     #6B6A64;
+  --oriens-tertiary:      #6B6A64;
+  --oriens-muted:         #8A887F;
+  --oriens-empty:         #A8A69C;
+  --oriens-accent:        #534AB7;
+  --oriens-accent-hover:  #443C9E;
+  --oriens-link:          #534AB7;
+  --oriens-btn:           #534AB7;
+  --oriens-accent-text:   #FFFFFF;
+  --oriens-urgent:        #A32D2D;
+  --oriens-alert:         #A32D2D;
+  --oriens-today:         #854F0B;
+  --oriens-warning:       #854F0B;
+  --oriens-ok:            #0F6E56;
+  --oriens-success:       #0F6E56;
+}
+
+/* ───────────────────────── WARM ───────────────────────── */
+:root[data-theme="warm"] {
+  --oriens-bg:            #1A1815;
+  --oriens-sidebar:       #211E1A;
+  --oriens-surface:       #2A2622;
+  --oriens-card:          #211E1A;
+  --oriens-card-hover:    #322D27;
+  --oriens-border:        #3A352F;
+  --oriens-divider:       #2E2A25;
+  --oriens-primary:       #F0EBE3;
+  --oriens-secondary:     #9C948A;
+  --oriens-tertiary:      #9C948A;
+  --oriens-muted:         #837C72;
+  --oriens-empty:         #5E574E;
+  --oriens-accent:        #D85A30;
+  --oriens-accent-hover:  #C24E28;
+  --oriens-link:          #E8794F;
+  --oriens-btn:           #D85A30;
+  --oriens-accent-text:   #FAECE7;
+  --oriens-urgent:        #E24B4A;
+  --oriens-alert:         #E24B4A;
+  --oriens-today:         #EF9F27;
+  --oriens-warning:       #EF9F27;
+  --oriens-ok:            #1D9E75;
+  --oriens-success:       #1D9E75;
+}
+
+/* Fallback: se nenhum data-theme estiver setado, usa o dark. */
+:root:not([data-theme]) {
+  --oriens-bg:            #15151A;
+  --oriens-sidebar:       #1B1B22;
+  --oriens-surface:       #21212B;
+  --oriens-card:          #191920;
+  --oriens-card-hover:    #262633;
+  --oriens-border:        #2E2E3A;
+  --oriens-divider:       #232330;
+  --oriens-primary:       #F2F1ED;
+  --oriens-secondary:     #8A8A96;
+  --oriens-tertiary:      #8A8A96;
+  --oriens-muted:         #75757F;
+  --oriens-empty:         #55555E;
+  --oriens-accent:        #7F77DD;
+  --oriens-accent-hover:  #6E66CC;
+  --oriens-link:          #9A93E8;
+  --oriens-btn:           #7F77DD;
+  --oriens-accent-text:   #EEEDFE;
+  --oriens-urgent:        #E24B4A;
+  --oriens-alert:         #E24B4A;
+  --oriens-today:         #EF9F27;
+  --oriens-warning:       #EF9F27;
+  --oriens-ok:            #5DCAA5;
+  --oriens-success:       #5DCAA5;
+}
+
+/* Aliases dos nomes legados usados em styles inline / classes .card/.sidebar/.btn-primary.
+   Independentes de tema: apontam para os tokens --oriens-* (que mudam por data-theme). */
+:root {
+  --bg-app:        var(--oriens-bg);
+  --bg-sidebar:    var(--oriens-sidebar);
+  --bg-surface:    var(--oriens-surface);
+  --bg-card:       var(--oriens-card);
+  --bg-card-hover: var(--oriens-card-hover);
+  --text-primary:   var(--oriens-primary);
+  --text-secondary: var(--oriens-secondary);
+  --text-tertiary:  var(--oriens-tertiary);
+  --text-empty:     var(--oriens-empty);
+  --accent:        var(--oriens-accent);
+  --accent-hover:  var(--oriens-accent-hover);
+  --link:          var(--oriens-link);
+  --divider:       var(--oriens-divider);
+  --border-default: 1px solid var(--oriens-border);
+  --border-hover:   1px solid var(--oriens-accent);
+}
+
+/* Inputs nativos seguem o esquema do tema (claro/escuro). */
+:root[data-theme="light"] input,
+:root[data-theme="light"] textarea,
+:root[data-theme="light"] select { color-scheme: light; }

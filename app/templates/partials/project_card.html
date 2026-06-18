@@ -56,13 +56,17 @@
       </span>
       {% endif %}
       {% if project.deadline %}
-      {% set overdue = project.deadline.date() < now().date() and project.status.value != 'concluido' %}
-      <span class="text-xs px-1.5 py-0.5 rounded leading-none
-        {% if overdue %}text-oriens-alert bg-oriens-alert/10{% else %}text-oriens-secondary bg-oriens-card{% endif %}">
+      {% set ds = due_status(project.deadline) if project.status.value != 'concluido' else 'future' %}
+      {% if ds == 'overdue' %}
+      <span class="text-xs px-1.5 py-0.5 rounded leading-none font-medium text-oriens-urgent bg-oriens-urgent/15">
+        atrasado · {{ project.deadline.strftime('%d/%m/%y') }}
+      </span>
+      {% elif ds == 'today' %}
+      <span class="text-xs px-1.5 py-0.5 rounded leading-none font-medium text-oriens-today bg-oriens-today/15">hoje</span>
+      {% else %}
+      <span class="text-xs px-1.5 py-0.5 rounded leading-none text-oriens-secondary bg-oriens-card">
         {{ project.deadline.strftime('%d/%m/%y') }}
       </span>
-      {% if overdue %}
-      <span class="text-xs px-1.5 py-0.5 rounded leading-none text-oriens-alert bg-oriens-alert/10">Atrasado</span>
       {% endif %}
       {% endif %}
     </div>

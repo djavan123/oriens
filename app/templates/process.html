@@ -8,7 +8,7 @@
 
   <div class="flex items-center justify-between mb-8">
     <div>
-      <h1 class="text-3xl font-bold text-[#f2f2f2] tracking-tight">Processar inbox</h1>
+      <h1 class="text-3xl font-bold text-oriens-primary tracking-tight">Processar inbox</h1>
       {% if captures %}
       <p class="text-oriens-muted text-xs mt-1">{{ captures | length }} {{ 'item' if captures | length == 1 else 'itens' }} para processar</p>
       {% endif %}
@@ -31,7 +31,7 @@
   <div class="bg-oriens-card rounded-lg px-6 py-16 text-center">
     <p class="text-oriens-primary text-base font-medium">Inbox zerado.</p>
     <p class="text-oriens-empty text-sm italic mt-2">Nenhum item para processar.</p>
-    <a href="/capture" class="text-oriens-link text-sm mt-4 block hover:text-[#8fc1ff] transition-colors">
+    <a href="/capture" class="text-oriens-link text-sm mt-4 block hover:opacity-80 transition-colors">
       Ir para captura →
     </a>
   </div>

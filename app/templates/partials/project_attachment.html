@@ -1,7 +1,7 @@
 ﻿<div id="attachment-{{ att.id }}" class="group flex items-center gap-3 py-3 border-b border-oriens-divider last:border-0">
   <div class="flex-1 min-w-0">
     <a href="/api/projects/{{ att.project_id }}/attachments/{{ att.id }}/download"
-       class="text-oriens-link text-sm hover:text-[#8fc1ff] transition-colors truncate block">
+       class="text-oriens-link text-sm hover:opacity-80 transition-colors truncate block">
       {{ att.original_name }}
     </a>
     <p class="text-oriens-muted text-xs mt-0.5">{{ fmt_size(att.size) }} · {{ att.created_at.strftime('%d/%m/%Y') }}</p>

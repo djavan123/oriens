@@ -8,7 +8,7 @@
 <!-- Date header -->
 <div class="mb-8">
   <p class="text-[11px] font-semibold text-oriens-muted tracking-wide uppercase">{{ day_of_week }}</p>
-  <h1 class="text-3xl font-bold text-[#f2f2f2] tracking-tight mt-1">{{ current_date }}</h1>
+  <h1 class="text-3xl font-bold text-oriens-primary tracking-tight mt-1">{{ current_date }}</h1>
 </div>
 
 <!-- Filters row -->
@@ -49,7 +49,7 @@
           hx-target="#ai-overload-context"
           hx-swap="innerHTML"
           hx-indicator="#ai-overload-spinner"
-          class="text-oriens-link text-xs hover:text-[#8fc1ff] transition-colors">
+          class="text-oriens-link text-xs hover:opacity-80 transition-colors">
           Analisar com IA →
         </button>
         <span id="ai-overload-spinner" class="htmx-indicator text-oriens-secondary text-xs ml-2">...</span>
@@ -139,7 +139,7 @@
       </div>
       {% elif energy_filter %}
       <p class="text-oriens-empty text-sm italic">Nenhuma tarefa com energia {{ energy_labels.get(energy_filter, '') | lower }}.</p>
-      <a href="/dashboard?energy=" class="text-oriens-link text-xs mt-1 block hover:text-[#8fc1ff]">Limpar filtro</a>
+      <a href="/dashboard?energy=" class="text-oriens-link text-xs mt-1 block hover:opacity-80">Limpar filtro</a>
       {% else %}
       <p class="text-oriens-empty text-sm italic">Nenhuma tarefa pendente.</p>
       {% endif %}

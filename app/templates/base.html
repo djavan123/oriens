@@ -1,9 +1,14 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" x-data="{ theme: localStorage.getItem('oriens-theme') || 'dark' }"
+  x-init="$watch('theme', v => { localStorage.setItem('oriens-theme', v); document.documentElement.setAttribute('data-theme', v) })">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>{% block title %}Oriens{% endblock %}</title>
+
+  <!-- Tema: aplica data-theme antes de qualquer CSS para não piscar -->
+  <script>(function(){try{document.documentElement.setAttribute('data-theme',localStorage.getItem('oriens-theme')||'dark')}catch(e){document.documentElement.setAttribute('data-theme','dark')}})();</script>
+  <link rel="stylesheet" href="/static/css/theme.css">
 
   <!-- PWA -->
   <link rel="manifest" href="/static/manifest.webmanifest">
@@ -21,24 +26,29 @@
       theme: {
         extend: {
           colors: {
-            'oriens-bg':        '#191919',
-            'oriens-surface':   '#202020',
-            'oriens-card':      '#1a1a1a',
-            'oriens-card-hover':'#262626',
-            'oriens-border':    '#2a2a2a',
-            'oriens-divider':   '#232323',
-            'oriens-primary':   '#e8edf1',
-            'oriens-secondary': '#9a9a9a',
-            'oriens-tertiary':  '#767676',
-            'oriens-muted':     '#767676',
-            'oriens-empty':     '#565656',
-            'oriens-accent':    '#5b8def',
-            'oriens-accent-hover': '#4a7adf',
-            'oriens-link':      '#6fa8f5',
-            'oriens-btn':       '#5b8def',
-            'oriens-alert':     '#F87462',
-            'oriens-success':   '#4BCE97',
-            'oriens-warning':   '#E2B203',
+            'oriens-bg':         'var(--oriens-bg)',
+            'oriens-sidebar':    'var(--oriens-sidebar)',
+            'oriens-surface':    'var(--oriens-surface)',
+            'oriens-card':       'var(--oriens-card)',
+            'oriens-card-hover': 'var(--oriens-card-hover)',
+            'oriens-border':     'var(--oriens-border)',
+            'oriens-divider':    'var(--oriens-divider)',
+            'oriens-primary':    'var(--oriens-primary)',
+            'oriens-secondary':  'var(--oriens-secondary)',
+            'oriens-tertiary':   'var(--oriens-tertiary)',
+            'oriens-muted':      'var(--oriens-muted)',
+            'oriens-empty':      'var(--oriens-empty)',
+            'oriens-accent':     'var(--oriens-accent)',
+            'oriens-accent-hover':'var(--oriens-accent-hover)',
+            'oriens-accent-text':'var(--oriens-accent-text)',
+            'oriens-link':       'var(--oriens-link)',
+            'oriens-btn':        'var(--oriens-btn)',
+            'oriens-alert':      'var(--oriens-alert)',
+            'oriens-success':    'var(--oriens-success)',
+            'oriens-warning':    'var(--oriens-warning)',
+            'oriens-urgent':     'var(--oriens-urgent)',
+            'oriens-today':      'var(--oriens-today)',
+            'oriens-ok':         'var(--oriens-ok)',
           },
           fontFamily: {
             sans: [
@@ -66,30 +76,9 @@
     :root {
       --font-base: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, "Helvetica Neue", sans-serif;
 
-      /* CAMADAS DE FUNDO */
-      --bg-app:        #191919;
-      --bg-sidebar:    #141414;
-      --bg-surface:    #202020;
-      --bg-card:       #1a1a1a;
-      --bg-card-hover: #262626;
-
-      /* BORDAS */
-      --border-default: 1px solid #2a2a2a;
-      --border-hover:   1px solid #5b8def;
-      --divider:        #232323;
+      /* RAIOS (as cores vêm de theme.css, por data-theme) */
       --radius-card: 10px;
       --radius-col:  12px;
-
-      /* TEXTO */
-      --text-primary:   #e8edf1;  /* títulos, valores — quase branco */
-      --text-secondary: #9a9a9a;  /* labels de seção (MARCOS, RISCOS, STATUS) */
-      --text-tertiary:  #767676;  /* texto neutro auxiliar (ex: "Criado em") */
-      --text-empty:     #565656;  /* estados vazios, propositalmente discreto */
-
-      /* DESTAQUE — reservado SÓ para links/ações clicáveis reais */
-      --accent:       #5b8def;
-      --accent-hover: #4a7adf;
-      --link:         #6fa8f5;
     }
 
     body {
@@ -104,7 +93,7 @@
 
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: var(--bg-app); }
-    ::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: var(--oriens-border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
     .htmx-indicator { display: none; }
@@ -149,7 +138,7 @@
     /* SIDEBAR */
     .sidebar {
       background: var(--bg-sidebar);
-      border-right: 1px solid #2a2a2a;
+      border-right: 1px solid var(--oriens-border);
     }
 
     /* NAV ITEMS */
@@ -164,11 +153,11 @@
       transition: background 0.12s, color 0.12s;
     }
     .nav-item:hover {
-      background: #202020;
+      background: var(--bg-surface);
       color: var(--text-primary);
     }
     .nav-item.active {
-      background: #202020;
+      background: var(--bg-surface);
       color: var(--text-primary);
       font-weight: 500;
     }
@@ -176,7 +165,7 @@
     /* BOTÃO PRIMÁRIO */
     .btn-primary {
       background: var(--accent);
-      color: #fff;
+      color: var(--oriens-accent-text);
       border: none;
       border-radius: 7px;
       padding: 9px 16px;

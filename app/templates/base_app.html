@@ -5,7 +5,7 @@
 
   <!-- Top bar (somente mobile) -->
   <header class="md:hidden fixed top-0 left-0 right-0 h-14 z-20 flex items-center gap-3 px-4"
-          style="background: var(--bg-sidebar); border-bottom: 1px solid #2a2a2a;">
+          style="background: var(--bg-sidebar); border-bottom: 1px solid var(--oriens-border);">
     <button @click="sidebarOpen = true" aria-label="Abrir menu"
       class="text-oriens-primary p-1 -ml-1">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -26,7 +26,7 @@
     :class="sidebarOpen ? 'translate-x-0' : ''">
 
     <!-- Logo -->
-    <div class="px-5 py-5 flex items-center justify-between" style="border-bottom: 1px solid #2a2a2a;">
+    <div class="px-5 py-5 flex items-center justify-between" style="border-bottom: 1px solid var(--oriens-border);">
       <span class="text-sm font-semibold tracking-[0.25em] uppercase select-none" style="color: var(--text-primary);">Oriens</span>
       <button @click="sidebarOpen = false" aria-label="Fechar menu" class="md:hidden text-oriens-secondary">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -61,7 +61,7 @@
         {% if ctx.type == 'home_recovery' %}{% set recovery_ns.id = ctx.id %}{% endif %}
       {% endfor %}
     {% endif %}
-    <div x-data="{ open: false }" style="border-top: 1px solid #2a2a2a;">
+    <div x-data="{ open: false }" style="border-top: 1px solid var(--oriens-border);">
       <button @click="open = true"
         class="w-full text-left px-5 py-3 text-xs hover:opacity-70 transition-opacity"
         style="color: var(--accent);">
@@ -84,7 +84,7 @@
               placeholder="Enviar e-mail para João&#10;Revisar proposta&#10;Ligar para cliente..."
               class="flex-1 w-full rounded-lg px-3 py-2.5 text-xs focus:outline-none resize-none transition-colors"
               style="background: var(--bg-card); border: var(--border-default); color: var(--text-primary);"
-              onfocus="this.style.borderColor='#5b8def'" onblur="this.style.borderColor='#2a2a2a'"></textarea>
+              onfocus="this.style.borderColor='var(--oriens-accent)'" onblur="this.style.borderColor='var(--oriens-border)'"></textarea>
             <div class="mt-4 space-y-2">
               <button type="submit" class="btn-primary w-full py-2.5 text-xs rounded-lg">
                 Confirmar saída
@@ -106,7 +106,7 @@
         {% if ctx.type == 'home_operational' %}{% set operational_ns.id = ctx.id %}{% endif %}
       {% endfor %}
     {% endif %}
-    <div style="border-top: 1px solid #2a2a2a;">
+    <div style="border-top: 1px solid var(--oriens-border);">
       <form hx-post="/api/context/transition" hx-swap="none">
         <input type="hidden" name="context_id" value="{{ operational_ns.id }}">
         <button type="submit"
@@ -120,7 +120,7 @@
     {% endif %}
 
     <!-- Context picker -->
-    <div class="px-2 py-3" style="border-top: 1px solid #2a2a2a;">
+    <div class="px-2 py-3" style="border-top: 1px solid var(--oriens-border);">
       <p class="section-label px-3 mb-2">Contexto</p>
       {% if all_contexts is defined %}
       {% for ctx in all_contexts %}
@@ -138,14 +138,20 @@
       {% endif %}
     </div>
 
+    <!-- Aparência -->
+    <div class="px-4 py-3" style="border-top: 1px solid var(--oriens-border);">
+      <p class="section-label mb-2.5">Aparência</p>
+      {% include "partials/theme_switcher.html" %}
+    </div>
+
     <!-- User -->
-    <div class="px-4 py-4" style="border-top: 1px solid #2a2a2a;">
+    <div class="px-4 py-4" style="border-top: 1px solid var(--oriens-border);">
       <p class="text-xs truncate mb-1.5" style="color: var(--text-secondary);">{{ user.name }}</p>
       <form method="POST" action="/auth/logout">
         <button type="submit"
           class="text-xs transition-colors"
           style="color: var(--text-secondary);"
-          onmouseover="this.style.color='#F87462'" onmouseout="this.style.color='var(--text-secondary)'">
+          onmouseover="this.style.color='var(--oriens-alert)'" onmouseout="this.style.color='var(--text-secondary)'">
           Sair
         </button>
       </form>
