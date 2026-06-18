@@ -28,3 +28,12 @@ class UserRepository:
         from sqlalchemy import func
         result = await self.db.execute(select(func.count()).select_from(User))
         return result.scalar_one()
+
+    async def update_foco(self, user_id: int, foco: Optional[str]) -> Optional[User]:
+        user = await self.get_by_id(user_id)
+        if not user:
+            return None
+        user.foco_do_dia = foco
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user

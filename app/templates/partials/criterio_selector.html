@@ -1,0 +1,28 @@
+{# Seletor de critérios de importância (botões 0-5, obrigatórios).
+   Parâmetros:
+   - criterios: lista de CriterioContexto
+   - valores  : dict {criterio_id: valor} para pré-seleção (opcional)
+   - x_disabled: expressão Alpine para :disabled (opcional — usado no Processar dinâmico)
+   Campos enviados: crit_<id> = 0..5 #}
+{% for c in criterios %}
+<div class="space-y-1.5">
+  <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">
+    {{ c.nome }}{% if c.inverter %} <span class="text-oriens-muted normal-case font-normal tracking-normal">· invertido</span>{% endif %}
+  </label>
+  <div class="flex items-center gap-1">
+    {% for n in range(6) %}
+    <label class="cursor-pointer">
+      <input type="radio" name="crit_{{ c.id }}" value="{{ n }}" required
+        {% if valores is defined and valores and valores.get(c.id) is not none and valores.get(c.id) == n %}checked{% endif %}
+        {% if x_disabled %}:disabled="{{ x_disabled }}"{% endif %}
+        class="peer sr-only">
+      <span class="block w-7 h-7 flex items-center justify-center rounded-md border border-oriens-border text-oriens-secondary text-xs
+                   peer-checked:bg-oriens-accent peer-checked:text-white peer-checked:border-oriens-accent
+                   hover:border-oriens-accent transition-colors select-none">
+        {{ n }}
+      </span>
+    </label>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}

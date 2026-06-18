@@ -1,0 +1,33 @@
+{# Foco do dia — âncora editável no topo do Dashboard. Único elemento com borda accent. #}
+<div id="foco-card" x-data="{ editing: false }"
+     class="mb-6 rounded-xl bg-oriens-surface px-5 py-4"
+     style="border: 1px solid var(--oriens-accent);">
+  <div class="flex items-start gap-3">
+    <span class="text-oriens-accent text-sm mt-0.5 flex-shrink-0" title="Foco do dia">📌</span>
+    <div class="flex-1 min-w-0">
+      <p class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">Foco do dia</p>
+
+      <div x-show="!editing" class="flex items-start gap-2">
+        {% if user.foco_do_dia %}
+        <p class="text-oriens-primary text-sm flex-1 whitespace-pre-wrap leading-relaxed">{{ user.foco_do_dia }}</p>
+        {% else %}
+        <p class="text-oriens-empty text-sm italic flex-1">Defina a âncora do seu dia.</p>
+        {% endif %}
+        <button @click="editing = true; $nextTick(() => $refs.inp.focus())"
+          title="Editar foco" class="text-oriens-secondary hover:text-oriens-accent text-xs flex-shrink-0 transition-colors">
+          ✏️
+        </button>
+      </div>
+
+      <form x-show="editing" style="display:none"
+        hx-patch="/dashboard/foco" hx-target="#foco-card" hx-swap="outerHTML"
+        @keydown.escape="editing = false">
+        <textarea name="foco" rows="2" x-ref="inp"
+          @keydown.enter.prevent="$el.closest('form').requestSubmit()"
+          @blur="$el.closest('form').requestSubmit()"
+          placeholder="Ex.: fechar a proposta do cliente X"
+          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors resize-none placeholder-oriens-muted">{{ user.foco_do_dia or '' }}</textarea>
+      </form>
+    </div>
+  </div>
+</div>

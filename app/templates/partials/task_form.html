@@ -24,6 +24,14 @@
       +
     </button>
   </div>
+
+  {% if criterios is defined and criterios %}
+  <div class="mt-1 space-y-3 bg-oriens-card border border-oriens-border rounded-md px-3 py-3">
+    <p class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Importância — todos obrigatórios</p>
+    {% include "partials/criterio_selector.html" %}
+  </div>
+  {% else %}
   <p class="text-oriens-muted text-[11px]">Só o título — o resto você ajusta depois em "editar".</p>
+  {% endif %}
 
 </form>

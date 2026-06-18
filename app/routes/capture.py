@@ -51,8 +51,13 @@ async def process_inbox(
     captures = await service.get_inbox(current_user.id)
     active_projects = await ProjectRepository(db).get_active_by_user(current_user.id)
 
-    _, active_context_obj, all_contexts = await resolve_active_context(
+    context_id, active_context_obj, all_contexts = await resolve_active_context(
         request, db, current_user.id
+    )
+
+    from app.repositories.criterio_repo import CriterioContextoRepository
+    criterios_by_context = await CriterioContextoRepository(db).get_for_contexts(
+        [c.id for c in all_contexts]
     )
 
     return templates.TemplateResponse(
@@ -64,5 +69,7 @@ async def process_inbox(
             "active_projects": active_projects,
             "active_context_obj": active_context_obj,
             "all_contexts": all_contexts,
+            "active_context_id": context_id,
+            "criterios_by_context": criterios_by_context,
         },
     )

@@ -52,6 +52,13 @@
       {% if task.is_quick_win and task.status.value != 'done' %}
       <span class="text-oriens-success text-xs font-medium">quick win</span>
       {% endif %}
+      {% if show_importancia is defined and show_importancia and task.status.value != 'done' %}
+        {% if faixa_importancia(task.importancia, task.sem_nota) == 'alta' %}
+        <span class="text-xs px-1.5 py-0.5 rounded leading-none font-medium bg-oriens-surface border border-oriens-border text-oriens-primary" title="Importância alta">★ importante</span>
+        {% elif task.sem_nota %}
+        <span class="text-oriens-muted text-xs leading-none" title="Sem nota de importância">⚠</span>
+        {% endif %}
+      {% endif %}
       {% if task.context_id and context_labels is defined and context_labels.get(task.context_id) %}
       <span class="text-xs px-1.5 py-0.5 rounded leading-none bg-oriens-surface border border-oriens-border text-oriens-secondary">
         {{ context_labels[task.context_id] }}

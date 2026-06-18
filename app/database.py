@@ -52,6 +52,11 @@ _ENSURE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("remind_at", "DATETIME"),
         ("reminder_telegram_sent", "BOOLEAN NOT NULL DEFAULT 0"),
         ("reminder_acked", "BOOLEAN NOT NULL DEFAULT 0"),
+        ("importancia", "REAL NOT NULL DEFAULT 0"),
+        ("sem_nota", "BOOLEAN NOT NULL DEFAULT 1"),
+    ],
+    "users": [
+        ("foco_do_dia", "TEXT"),
     ],
     "contexts": [
         ("user_id", "INTEGER"),
@@ -87,9 +92,14 @@ _ENSURE_COLUMNS_PG: dict[str, list[tuple[str, str]]] = {
         ("remind_at", "TIMESTAMP"),
         ("reminder_telegram_sent", "BOOLEAN NOT NULL DEFAULT FALSE"),
         ("reminder_acked", "BOOLEAN NOT NULL DEFAULT FALSE"),
+        ("importancia", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
+        ("sem_nota", "BOOLEAN NOT NULL DEFAULT TRUE"),
     ],
     "projects": [
         ("archived", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ],
+    "users": [
+        ("foco_do_dia", "TEXT"),
     ],
 }
 

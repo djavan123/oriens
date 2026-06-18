@@ -157,18 +157,25 @@ C:\Projetos\Sistema tarefas\
 
 ## BANCO DE DADOS (ESTADO ATUAL — PÓS SCRIPT 5)
 
-**users:** `id, email (unique), password (bcrypt), name, created_at`
+**users:** `id, email (unique), password (bcrypt), name, created_at, foco_do_dia (text, nullable — SCRIPT 8)`
 
 **projects:** `id, user_id, responsavel_id (nullable, FK users), context_id (nullable), name, objective, status, priority (1-3), deadline, notes, done_at, scope, tags, strategic (bool), quarter, owner, strategic_priority, proxima_acao (text), premissas (text), archived (bool, default false), created_at, updated_at`
 - status: `nao_iniciado | em_andamento | concluido`
 - Todo projeto novo nasce com `nao_iniciado`
 - `archived` (SCRIPT 5): true esconde da operação diária (listagem/dashboard/semanal); continua acessível por URL, editável e pesquisável
 
-**tasks:** `id, user_id, responsavel_id (nullable, FK users), project_id (nullable), parent_id (nullable, self-ref), context_id (nullable), title, status, energy, is_quick_win (bool), cognitive_load, financial_impact, operational_risk, strategic_impact, task_urgency, effort, priority_score (indexed), archived (bool), deadline, tags (text), remind_at (datetime, nullable), reminder_telegram_sent (bool), reminder_acked (bool), created_at, done_at`
+**tasks:** `id, user_id, responsavel_id (nullable, FK users), project_id (nullable), parent_id (nullable, self-ref), context_id (nullable), title, status, energy, is_quick_win (bool), cognitive_load, financial_impact, operational_risk, strategic_impact, task_urgency, effort, priority_score (indexed), importancia (float, indexed — SCRIPT 8), sem_nota (bool, default true — SCRIPT 8), archived (bool), deadline, tags (text), remind_at (datetime, nullable), reminder_telegram_sent (bool), reminder_acked (bool), created_at, done_at`
+- `importancia` (0-5): calculada dos critérios do contexto. `sem_nota`=true quando o contexto não tem critérios (ou tarefa criada sem nota).
 - status: `pending | done | blocked`
 - energy: `high | medium | low` (EnergyLevel enum em `task.py`)
 - `tags`: etiquetas separadas por vírgula (SCRIPT 3)
 - `context_id` NULL = tarefa "Independente (todos os contextos)" — aparece em qualquer contexto
+
+**criterio_contexto:** `id, context_id (FK contexts cascade), nome, peso (int), inverter (bool)`  *(SCRIPT 8)*
+- Máx. 3 por contexto (validado no backend). `inverter`=true → nota alta reduz a importância.
+- Seed inicial no lifespan: Trabalho (Financeiro 4 / Diretor pediu 3 / Facilidade 3 invertido), Casa (Financeiro 1 / Saúde 1 / Bem-estar 1).
+
+**tarefa_criterio_valor:** `id, task_id (FK cascade), criterio_id (FK cascade), valor (0-5)`  *(SCRIPT 8)* — unique (task_id, criterio_id).
 
 **labels:** `id, user_id (FK cascade), name, color (hex, nullable)`  *(SCRIPT 3)*
 - Etiquetas predefinidas pelo usuário, gerenciadas em `/settings`
@@ -228,7 +235,11 @@ C:\Projetos\Sistema tarefas\
 16. **Lembretes de tarefa:** `remind_at` (data+hora, sem recorrência). Dois canais: (a) **Telegram** — loop de fundo em `main.py` (a cada 60s) chama `reminder_service.process_due_telegram()`; só envia se `TELEGRAM_BOT_TOKEN`+`TELEGRAM_CHAT_ID` estiverem no `.env`; marca `reminder_telegram_sent`. (b) **Popup no app** — `base_app.html` faz polling de `GET /api/reminders/due` (60s); `POST /api/reminders/{id}/ack` seta `reminder_acked`. Ao editar o lembrete, ambos os flags são resetados. Hora local depende de `TZ=America/Sao_Paulo`.
 17. **Herança de contexto:** toda tarefa criada dentro de um projeto herda `context_id` do projeto (forçado em `api/tasks.create_task`). No `task_edit_form`, o contexto fica **somente leitura** para tarefas de projeto; editável só para tarefas avulsas.
 18. **Contexto obrigatório no projeto:** `create_project` e `update_project` exigem `context_id`; o select é `required` e nunca permite valor vazio. Projetos antigos sem contexto devem recebê-lo ao serem editados.
-19. **Criação de tarefa só com título** (GTD "capturar primeiro, organizar depois"): o `task_form` pede apenas o título; energia, prazo, responsável, etiquetas, quick win e lembrete são ajustados depois via "editar".
+19. **Criação de tarefa só com título** (GTD "capturar primeiro, organizar depois"): o `task_form` pede apenas o título; energia, prazo, responsável, etiquetas, quick win e lembrete são ajustados depois via "editar". **Exceção (SCRIPT 8):** se o contexto da tarefa tiver critérios, o form expande com os seletores 0-5 obrigatórios.
+20. **Importância ponderada (SCRIPT 8):** por contexto, até 3 critérios (`criterio_contexto`) com peso e flag `inverter`. `importancia = soma(valor_efetivo × peso) / soma(pesos)`, onde `valor_efetivo = (5 - valor)` se `inverter`. Faixas: 1-2 baixa, 3 média, 4-5 alta. Contexto sem critérios → `importancia=0, sem_nota=true`. Cálculo em `services/importancia_service.py` (`calcular_importancia`, `faixa_importancia` — global Jinja). Subtarefas não pedem critérios (ficam sem nota).
+21. **Obrigatoriedade dos critérios (SCRIPT 8):** ao criar/editar tarefa de topo cujo contexto tem critérios, todos os seletores 0-5 são obrigatórios (radios `required`) — bloqueia salvar. No **Processar**, o **contexto é obrigatório** e os critérios aparecem dinâmicos conforme o contexto escolhido (`process_item.html` + Alpine; campos `crit_<id>`). Persistência e cálculo nas rotas `api/tasks` (create/update) e `api/capture` (process), via `ImportanciaService`.
+22. **Foco do dia (SCRIPT 8):** `users.foco_do_dia` (singleton, sem histórico). Card no topo do Dashboard (único com borda `--oriens-accent`), edição inline (Alpine) salvando em `PATCH /dashboard/foco`.
+23. **Ordenação do Dashboard (SCRIPT 8):** "Prioridades" ordenadas por urgência (atrasado → hoje → resto) e, dentro do grupo, por `importancia` desc (`task_repo._priority_sort_key`). Badge "★ importante" só na faixa alta; `⚠` discreto quando `sem_nota` — ambos só no Dashboard (flag `show_importancia`).
 20. **Próxima ação (SCRIPT 5):** todo projeto deve ter uma próxima ação concreta e executável. Campo `proxima_acao` exibido **em destaque no topo** do detalhe, no card da listagem e na revisão semanal. Disponível no formulário de criação (**opcional**) e na edição. Auditado.
 21. **Arquivamento de projetos (SCRIPT 5):** `projects.archived` (bool). Arquivados saem da listagem padrão, dashboard, revisão semanal e "Projetos sem atualização", mas continuam acessíveis por URL, editáveis e pesquisáveis. Filtros na listagem: `?filter=active` (padrão) | `archived` | `all`. Botão "Arquivar/Desarquivar projeto" no detalhe (`PATCH /api/projects/{id}` com `archived`). Filtro de `archived == False` aplicado em `get_all_by_user` (padrão), `get_active_by_user` e `count_active`; `get_by_id` permanece sem filtro.
 22. **Decisões (SCRIPT 5):** substituem os antigos Marcos. `project_decisions` (data + texto). No detalhe, seção "Decisões" com input "Nova decisão..." + "Adicionar"; lista em ordem decrescente. Criar uma decisão grava evento `decision_recorded` na cronologia. Excluir uma decisão **não** remove o evento da timeline.
@@ -381,6 +392,8 @@ TELEGRAM_CHAT_ID=               # opcional
 | POST | `/api/ai/overload-context` | IA: análise de overload |
 | POST | `/api/context/switch` | Trocar contexto ativo (campo `context_id` inteiro) |
 | POST | `/api/context/transition` | Transição + captura pendências (campo `context_id`) |
+| PATCH | `/dashboard/foco` | Salvar foco do dia (SCRIPT 8) |
+| POST | `/api/settings/criterios/{context_id}` | Substituir critérios do contexto — máx. 3 (SCRIPT 8) |
 | POST | `/api/settings/labels` | Criar etiqueta (name, color) |
 | DELETE | `/api/settings/labels/{id}` | Excluir etiqueta |
 | POST | `/api/settings/contexts` | Criar contexto do usuário |
@@ -469,6 +482,17 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **Urgência por data:** global Jinja `due_status()` em `task_item.html` e `project_card.html` (badge atrasado/hoje; futuro só data). Tokens `oriens-urgent/today/ok`.
 - **Barra de progresso:** já existia (reusa `progress_by_project`); trilho em `oriens-card-hover` + legenda "X de Y tarefas concluídas".
 - **Estados vazios como convite:** objetivo/risco/decisão vazios viram link em `oriens-accent` que abre o campo (Alpine `$dispatch('abrir-edicao')` / `adding=true` / foco em `#decision-input`).
+
+### ✅ SCRIPT 7 — Ajustes na página de Projeto
+- Riscos **ocultos** da UI (`{% if false %}`, backend intacto); "Atividade Recente" só com link de histórico; card de **Prazo** na coluna direita (reusa `project.deadline`, dias restantes coloridos); Status em uma linha; campo de criar tarefa compacto; subtarefa por ícone "+"; **transição de conclusão** (`.task-completing` fade+strike) antes de sair da lista; cards de tarefa com mais padding.
+
+### ✅ SCRIPT 8 — Importância ponderada + foco do dia
+- **Critérios por contexto** (`criterio_contexto`, máx. 3, peso + `inverter`) e **valores por tarefa** (`tarefa_criterio_valor`); `tasks.importancia`/`sem_nota`. Cálculo + faixas em `services/importancia_service.py`; seed inicial no lifespan (`criterio_repo.seed_defaults`).
+- **Config em `/settings`:** seção "Critérios de importância" (1 card por contexto, linhas dinâmicas Alpine, "Salvar critérios" → `POST /api/settings/criterios/{id}` faz replace).
+- **Obrigatoriedade:** seletor 0-5 (`partials/criterio_selector.html`, radios `required`) na criação/edição de tarefa de topo com contexto que tem critérios; no **Processar**, contexto obrigatório + critérios dinâmicos por contexto. Persistência/validação em `api/tasks` e `api/capture` via `ImportanciaService`.
+- **Foco do dia:** `users.foco_do_dia` (singleton) editável no topo do Dashboard (`partials/foco_do_dia.html`, `PATCH /dashboard/foco`).
+- **Dashboard:** ordenação por urgência → importância (`task_repo._priority_sort_key`); badge "★ importante" (faixa alta) e `⚠` (sem nota) só nas Prioridades (flag `show_importancia`).
+- Migração aditiva: SQLite (`_ENSURE_COLUMNS` tasks/users) + PG (`_ENSURE_COLUMNS_PG` tasks/users); tabelas novas via `create_all`.
 
 ---
 

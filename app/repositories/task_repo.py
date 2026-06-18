@@ -1,9 +1,27 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Optional
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import Task, TaskStatus, CognitiveLoad, EnergyLevel
+
+
+def _urgency_rank(task: Task) -> int:
+    """0 = atrasado, 1 = hoje, 2 = resto (futuro ou sem prazo)."""
+    if not task.deadline:
+        return 2
+    d = task.deadline.date()
+    today = date.today()
+    if d < today:
+        return 0
+    if d == today:
+        return 1
+    return 2
+
+
+def _priority_sort_key(task: Task):
+    # Urgência primeiro; dentro do grupo, importância desc; desempate por score e criação.
+    return (_urgency_rank(task), -task.importancia, -task.priority_score, task.created_at)
 
 _COGNITIVE_MAP: dict[str, list[CognitiveLoad]] = {
     "morning":    [CognitiveLoad.deep, CognitiveLoad.high],
@@ -49,9 +67,12 @@ class TaskRepository:
         q = self._apply_context(q, context_id)
         q = self._apply_cognitive(q, cognitive_filter)
         result = await self.db.execute(
-            q.order_by(Task.priority_score.desc(), _energy_order, Task.created_at.asc()).limit(limit)
+            q.order_by(Task.priority_score.desc(), _energy_order, Task.created_at.asc())
         )
-        return list(result.scalars().all())
+        tasks = list(result.scalars().all())
+        # Reordena por urgência (atrasado→hoje→resto) e, dentro do grupo, por importância.
+        tasks.sort(key=_priority_sort_key)
+        return tasks[:limit]
 
     async def get_quick_wins(
         self,

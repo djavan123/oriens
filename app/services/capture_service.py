@@ -34,13 +34,16 @@ class CaptureService:
         project_id: Optional[int] = None,
         energy: EnergyLevel = EnergyLevel.medium,
         is_quick_win: bool = False,
+        context_id: Optional[int] = None,
     ) -> tuple[CaptureInbox, Task]:
+        extra = {"context_id": context_id} if context_id is not None else {}
         task = await TaskService(self.db).create(
             user_id=user_id,
             title=title,
             project_id=project_id,
             energy=energy,
             is_quick_win=is_quick_win,
+            **extra,
         )
         capture = await self.repo.mark_processed(capture_id, user_id)
         return capture, task

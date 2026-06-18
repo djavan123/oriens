@@ -9,7 +9,8 @@ from app.database import get_db
 from app.models.task import EnergyLevel
 from app.models.user import User
 from app.services.capture_service import CaptureService
-from app.services.task_service import TaskVerbError
+from app.services.task_service import TaskService, TaskVerbError
+from app.services.importancia_service import ImportanciaService
 from app.utils.auth import get_current_user
 
 
@@ -52,6 +53,7 @@ async def process_capture(
     # Task fields
     title: Optional[str] = Form(None),
     task_project_id: Optional[str] = Form(None),
+    task_context_id: Optional[str] = Form(None),
     task_energy: EnergyLevel = Form(EnergyLevel.medium),
     is_quick_win: bool = Form(False),
     # Project fields
@@ -92,27 +94,51 @@ async def process_capture(
         )
 
     if action == "task":
+        err_target = {
+            "HX-Retarget": f"#process-task-error-{capture_id}",
+            "HX-Reswap": "innerHTML",
+        }
         if not title or not title.strip():
             return HTMLResponse(
                 '<p class="text-oriens-alert text-sm">Título é obrigatório.</p>',
-                headers={
-                    "HX-Retarget": f"#process-task-error-{capture_id}",
-                    "HX-Reswap": "innerHTML",
-                },
+                headers=err_target,
+            )
+        ctx_id = _parse_int(task_context_id)
+        if ctx_id is None:
+            return HTMLResponse(
+                '<p class="text-oriens-alert text-sm">Escolha um contexto.</p>',
+                headers=err_target,
+            )
+        imp_service = ImportanciaService(db)
+        criterios, valores, faltando = await imp_service.parse_form_valores(
+            ctx_id, await request.form()
+        )
+        if criterios and faltando:
+            nomes = ", ".join(c.nome for c in faltando)
+            return HTMLResponse(
+                f'<p class="text-oriens-alert text-sm">Responda todos os critérios '
+                f'de importância (faltando: {nomes}).</p>',
+                headers=err_target,
             )
         try:
-            await service.process_as_task(
+            _, task = await service.process_as_task(
                 capture_id=capture_id,
                 user_id=current_user.id,
                 title=title.strip(),
                 project_id=_parse_int(task_project_id),
                 energy=task_energy,
                 is_quick_win=is_quick_win,
+                context_id=ctx_id,
             )
         except TaskVerbError as e:
             return _task_error(e)
         except ValueError:
             raise HTTPException(status_code=404)
+        if criterios:
+            imp, sem_nota = await imp_service.apply(task.id, criterios, valores)
+            await TaskService(db).update(
+                task.id, current_user.id, importancia=imp, sem_nota=sem_nota
+            )
 
     elif action == "project":
         name = (project_name or "").strip()

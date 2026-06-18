@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Form, Query, Request
 from fastapi.responses import HTMLResponse
 from app.templates_env import templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +11,7 @@ from app.database import get_db
 from app.models.task import EnergyLevel
 from app.models.user import User
 from app.repositories.label_repo import LabelRepository
+from app.repositories.user_repo import UserRepository
 from app.services.dashboard_service import DashboardService
 from app.utils.auth import get_current_user
 from app.utils.context_utils import resolve_active_context
@@ -81,3 +82,16 @@ async def dashboard(
             response.delete_cookie("oriens_energy")
 
     return response
+
+
+@router.patch("/dashboard/foco", response_class=HTMLResponse)
+async def update_foco(
+    request: Request,
+    foco: str = Form(""),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    user = await UserRepository(db).update_foco(current_user.id, foco.strip() or None)
+    return templates.TemplateResponse(
+        request, "partials/foco_do_dia.html", {"user": user}
+    )

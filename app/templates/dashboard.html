@@ -5,6 +5,9 @@
 
 {% block content %}
 
+<!-- Foco do dia (âncora) -->
+{% include "partials/foco_do_dia.html" %}
+
 <!-- Date header -->
 <div class="mb-8">
   <p class="text-[11px] font-semibold text-oriens-muted tracking-wide uppercase">{{ day_of_week }}</p>
@@ -72,7 +75,9 @@
     <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Próximas 3</h2>
     {% if data.priority_tasks %}
     <div class="bg-oriens-surface rounded-xl px-4">
+      {% with show_importancia = true %}
       {% for task in data.priority_tasks %}{% include "partials/task_item.html" %}{% endfor %}
+      {% endwith %}
     </div>
     {% else %}
     <p class="text-oriens-empty text-sm italic">Nenhuma tarefa pendente.</p>
@@ -135,7 +140,9 @@
       </h2>
       {% if data.priority_tasks %}
       <div class="bg-oriens-surface rounded-xl px-4">
+        {% with show_importancia = true %}
         {% for task in data.priority_tasks %}{% include "partials/task_item.html" %}{% endfor %}
+        {% endwith %}
       </div>
       {% elif energy_filter %}
       <p class="text-oriens-empty text-sm italic">Nenhuma tarefa com energia {{ energy_labels.get(energy_filter, '') | lower }}.</p>

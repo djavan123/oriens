@@ -41,8 +41,10 @@ async def lifespan(app: FastAPI):
     from app.database import init_db, AsyncSessionLocal
     await init_db()
     from app.repositories.context_repo import ContextRepository
+    from app.repositories.criterio_repo import CriterioContextoRepository
     async with AsyncSessionLocal() as db:
         await ContextRepository(db).seed_defaults()
+        await CriterioContextoRepository(db).seed_defaults()
     task = asyncio.create_task(_reminder_loop())
     try:
         yield

@@ -17,6 +17,52 @@
     </div>
   </section>
 
+  <!-- Critérios de importância -->
+  <section class="bg-oriens-surface border border-oriens-border rounded-xl p-6 mb-6">
+    <h2 class="text-oriens-secondary text-xs font-semibold uppercase tracking-widest mb-2">Critérios de importância</h2>
+    <p class="text-oriens-muted text-xs mb-5">Até 3 critérios por contexto. "Inverter": nota alta no critério <em>reduz</em> a importância (ex.: Facilidade).</p>
+
+    {% for ctx in all_contexts %}
+    <div class="border border-oriens-border rounded-lg p-4 mb-3"
+         x-data='{ rows: {{ criterios_json.get(ctx.id, []) | tojson }} }'>
+      <h3 class="text-oriens-primary text-sm font-medium mb-3">{{ ctx.name }}</h3>
+
+      <form hx-post="/api/settings/criterios/{{ ctx.id }}" hx-swap="none">
+        <template x-for="(row, i) in rows" :key="i">
+          <div class="flex items-center gap-2 mb-2">
+            <input name="nome" x-model="row.nome" placeholder="Nome do critério" required
+              class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
+            <input type="number" name="peso" x-model="row.peso" min="1" max="9" title="Peso"
+              class="w-16 bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-2 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+            <select name="inverter" x-model="row.inverter" title="Inverter"
+              class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-2 py-2 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+              <option value="false">normal</option>
+              <option value="true">inverter</option>
+            </select>
+            <button type="button" @click="rows.splice(i,1)"
+              class="text-oriens-secondary text-xs hover:text-oriens-alert transition-colors flex-shrink-0">remover</button>
+          </div>
+        </template>
+
+        <div class="flex items-center justify-between mt-3">
+          <div>
+            <button type="button" x-show="rows.length < 3"
+              @click="rows.push({nome:'', peso:1, inverter:'false'})"
+              class="text-oriens-accent text-xs hover:opacity-80 transition-opacity">
+              <span x-text="rows.length === 0 ? '+ configurar {{ ctx.name }}' : '+ adicionar critério'"></span>
+            </button>
+            <span x-show="rows.length >= 3" class="text-oriens-muted text-xs">máximo de 3</span>
+          </div>
+          <button type="submit"
+            class="bg-oriens-btn hover:bg-oriens-accent-hover text-white rounded-md px-4 py-2 text-xs font-semibold transition-colors">
+            Salvar critérios
+          </button>
+        </div>
+      </form>
+    </div>
+    {% endfor %}
+  </section>
+
   <!-- Etiquetas -->
   <section class="bg-oriens-surface border border-oriens-border rounded-xl p-6 mb-6">
     <h2 class="text-oriens-secondary text-xs font-semibold uppercase tracking-widest mb-5">Etiquetas</h2>

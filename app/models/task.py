@@ -50,6 +50,9 @@ class Task(Base):
     task_urgency: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     effort: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     priority_score: Mapped[float] = mapped_column(Float, default=0.0, nullable=False, index=True)
+    # Importância ponderada (0-5) calculada a partir dos critérios do contexto.
+    importancia: Mapped[float] = mapped_column(Float, default=0.0, nullable=False, index=True)
+    sem_nota: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     tags:     Mapped[Optional[str]]      = mapped_column(String, nullable=True)

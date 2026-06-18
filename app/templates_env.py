@@ -24,3 +24,7 @@ def due_status(value):
 
 
 templates.env.globals["due_status"] = due_status
+
+from app.services.importancia_service import faixa_importancia  # noqa: E402
+
+templates.env.globals["faixa_importancia"] = faixa_importancia

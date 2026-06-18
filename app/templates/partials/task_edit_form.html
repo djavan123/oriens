@@ -120,5 +120,12 @@
       {% endif %}
     </div>
 
+    {% if criterios is defined and criterios %}
+    <div class="space-y-3 border-t border-oriens-divider pt-3">
+      <p class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Importância — todos obrigatórios</p>
+      {% include "partials/criterio_selector.html" %}
+    </div>
+    {% endif %}
+
   </form>
 </div>
