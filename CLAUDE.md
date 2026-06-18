@@ -509,3 +509,103 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualiza
 | Ambiente | Dev (SQLite) + Produção (PostgreSQL na VPS) |
 
 ---
+
+## 🔭 FUTURO (PLANEJADO, NÃO IMPLEMENTADO) — Dev em PostgreSQL (paridade com produção)
+
+> **Status:** apenas documentado. Nada abaixo foi executado. O dev continua em SQLite.
+> **Motivo:** acabar com a divergência dev (SQLite) × prod (PostgreSQL) — sobretudo os
+> **`Enum` nativos** do PG (`Project.status`, `Task.status/energy/cognitive_load`,
+> `ProjectRisk.impact/probability/status`), que aceitam qualquer valor no SQLite mas quebram no
+> PG ao adicionar um valor novo; e o **caminho de migração** (`_ensure_columns_postgres`) que hoje
+> nunca é exercitado localmente.
+>
+> **Objetivos inegociáveis deste plano:** VPS intacta · PostgreSQL **só** para dev ·
+> `docker-compose.prod.yml` e deploy **inalterados** · rollback trivial para SQLite.
+
+### 1. Arquivos alterados/criados
+- **Novo:** `docker-compose.dev.yml` (Postgres + app para dev). Volumes próprios `pgdata_dev`/`appdata_dev` — **nunca** os de prod.
+- **Mantido como rollback:** `docker-compose.yml` (dev SQLite atual) permanece no repo, intocado.
+- **`.env` (dev):** trocar `DATABASE_URL` para PG + adicionar `POSTGRES_PASSWORD` (senha de dev, diferente da prod).
+- **`.env.example`:** passar a ter 3 blocos — DEV-SQLite (rollback), DEV-PostgreSQL (novo), PROD (inalterado).
+- **NÃO muda:** `config.py` (default segue SQLite, por segurança), `database.py` (o caminho PG já existe), `requirements.txt` (`asyncpg` já presente), `docker-compose.prod.yml`, `.env` da VPS.
+- **Opcional (follow-up separado):** `tests/conftest.py` (ver item 6) e, mais tarde, encolher o ramo SQLite do `database.py` / trocar `Enum` nativo por `String`.
+
+### 2. `docker-compose.dev.yml` (rascunho de referência)
+```yaml
+# docker-compose.dev.yml — DESENVOLVIMENTO em PostgreSQL (paridade com prod)
+# Subir:  docker compose -f docker-compose.dev.yml up -d --build
+# NUNCA usar os volumes de produção. Aqui são *_dev e isolados.
+services:
+  db:
+    image: postgres:16-alpine          # mesma major da prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: oriens
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: oriens
+    ports:
+      - "5432:5432"                     # expõe p/ rodar o app no host (py uvicorn) se quiser
+    volumes:
+      - pgdata_dev:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oriens -d oriens"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file: .env
+    environment:
+      TZ: America/Sao_Paulo
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app                          # hot reload
+      - appdata_dev:/app/data           # anexos do dev
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata_dev:
+  appdata_dev:
+```
+
+### 3. Ajustes de `.env` (dev)
+```env
+# DEV — PostgreSQL (app em container → host do banco = nome do serviço "db")
+DATABASE_URL=postgresql+asyncpg://oriens:devpass@db:5432/oriens
+POSTGRES_PASSWORD=devpass
+SECRET_KEY=dev-key
+DEBUG=true
+COOKIE_SECURE=false
+AI_ENABLED=false
+AI_PROVIDER=null
+```
+- Rodando o app **no host** (`py -m uvicorn`) contra o PG do container: trocar host por
+  `@localhost:5432` (precisa do `ports: 5432:5432` acima).
+- A senha de dev é independente da de prod; a `.env` da VPS **não** é tocada.
+
+### 4. Procedimento de migração (no PC, quando autorizado)
+1. Garantir árvore git limpa (commitar o que estiver pendente) e Docker rodando.
+2. Criar `docker-compose.dev.yml`; ajustar `.env` (dev) e `.env.example`.
+3. `docker compose -f docker-compose.dev.yml up -d --build`.
+4. No startup, `init_db()` roda `create_all` + `_ensure_columns_postgres()` → schema completo no PG de dev (os ramos SQLite ficam inertes pelo guard de dialeto).
+5. Banco nasce **vazio**: recriar 1º usuário em `/auth/setup` (sem migrar dados do SQLite — coerente com a decisão de produção). *Se um dia quiser copiar dados, existe `scripts/migrate_to_postgres.py` — mas o recomendado é começar limpo.*
+6. Smoke test: login, dashboard, criar projeto/tarefa, temas, concluir tarefa, decisões, arquivar.
+
+### 5. Plano de rollback (para SQLite)
+- **Imediato:** voltar `DATABASE_URL` do `.env` para `sqlite+aiosqlite:///./data/oriens.db` e rodar pelo `docker-compose.yml` antigo (ou `py -m uvicorn`). O arquivo `data/oriens.db` continua intacto — nada foi perdido.
+- **Descartar o PG de dev:** `docker compose -f docker-compose.dev.yml down -v` (o `-v` aqui é **seguro**, são volumes `*_dev`; **jamais** rodar `-v` no compose de prod).
+- **Git:** a mudança é aditiva (novo compose + `.env`); `git revert`/`checkout` desfaz sem afetar prod.
+
+### 6. Impactos em testes e deploy
+- **Deploy: ZERO impacto.** Prod usa `docker-compose.prod.yml` + `.env` da VPS, nenhum dos dois muda. `git pull && docker compose -f docker-compose.prod.yml up -d --build` segue idêntico. O `docker-compose.dev.yml` nunca é referenciado em prod.
+- **Testes:** `tests/conftest.py` usa **SQLite in-memory** (`sqlite+aiosqlite:///:memory:`, só `create_all`).
+  - Curto prazo: manter assim (rápido) — testes continuam passando.
+  - Ganho de paridade só aparece se a suíte (ou ao menos um *smoke test*) rodar contra PG; opção futura: serviço PG efêmero no CI. (Obs.: o `conftest` ainda seta cookie `pos_token` — nome legado; o atual é `oriens_token` — corrigir à parte.)
+- **Risco residual:** evolução de `Enum` nativo continua perigosa em prod mesmo com dev=PG — a diferença é que agora **quebraria no dev primeiro**. Mitigação futura: migrar enums voláteis para `String` + validação na aplicação.
+
+---
