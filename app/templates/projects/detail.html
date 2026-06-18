@@ -51,12 +51,31 @@
           {% if overdue %}
           <span class="text-xs px-2 py-0.5 rounded-full text-oriens-alert bg-oriens-alert/10">Atrasado</span>
           {% endif %}
+          {% if project.archived %}
+          <span class="text-xs px-2 py-0.5 rounded-full text-oriens-warning bg-oriens-warning/10">Arquivado</span>
+          {% endif %}
           <span class="text-xs {{ status_color.get(project.status.value, 'text-oriens-secondary') }}">
             {{ status_label.get(project.status.value, project.status.value) }}
           </span>
           <span class="text-oriens-secondary text-xs font-mono">P{{ project.priority }}</span>
+          <button
+            hx-patch="/api/projects/{{ project.id }}"
+            hx-vals='{"archived": {% if project.archived %}false{% else %}true{% endif %}}'
+            hx-swap="none"
+            hx-on::after-request="if(event.detail.successful){ window.location.href = '/projects' }"
+            class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors cursor-pointer">
+            {% if project.archived %}Desarquivar projeto{% else %}Arquivar projeto{% endif %}
+          </button>
         </div>
       </div>
+
+      <!-- Próxima ação (destaque) -->
+      {% if project.proxima_acao %}
+      <div class="mt-5 bg-oriens-surface border border-oriens-border border-l-[3px] border-l-oriens-accent rounded-lg p-5">
+        <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-1.5">Próxima ação</p>
+        <p class="text-oriens-primary text-sm leading-relaxed">→ {{ project.proxima_acao }}</p>
+      </div>
+      {% endif %}
 
       <!-- Progresso -->
       {% if progress.total %}
@@ -112,12 +131,6 @@
         <div class="pt-2">
           <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-2">Escopo</p>
           <p class="text-oriens-primary text-sm leading-relaxed whitespace-pre-wrap">{{ project.scope }}</p>
-        </div>
-        {% endif %}
-        {% if project.proxima_acao %}
-        <div class="pt-2">
-          <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-2">Próxima ação</p>
-          <p class="text-oriens-primary text-sm leading-relaxed">→ {{ project.proxima_acao }}</p>
         </div>
         {% endif %}
         {% if project.premissas %}
@@ -269,33 +282,31 @@
     </div>
     {% endif %}
 
-    <!-- Marcos -->
+    <!-- Decisões -->
     <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Marcos</h2>
-
-      <div id="milestones-list">
-        {% for m in milestones %}
-          {% include "partials/project_milestone.html" %}
-        {% else %}
-        <p class="text-oriens-empty text-sm italic mb-2">Nenhum marco definido.</p>
-        {% endfor %}
-      </div>
+      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Decisões</h2>
 
       <form
-        hx-post="/api/projects/{{ project.id }}/milestones"
-        hx-target="#milestones-list"
-        hx-swap="beforeend"
+        hx-post="/api/projects/{{ project.id }}/decisions"
+        hx-target="#decisions-list"
+        hx-swap="afterbegin"
         hx-on::after-request="if(event.detail.successful){ $el.reset() }"
-        class="mt-3 flex items-center gap-2">
-        <input type="text" name="title" required placeholder="Novo marco..."
+        class="mb-3 flex items-center gap-2">
+        <input type="text" name="content" required placeholder="Nova decisão..."
           class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
-        <input type="date" name="due_date"
-          class="bg-oriens-card border border-oriens-border text-oriens-primary rounded px-2 py-2 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
         <button type="submit"
           class="flex-shrink-0 bg-oriens-surface border border-oriens-border text-oriens-primary rounded-lg px-4 py-2 text-xs hover:bg-oriens-card transition-colors">
           Adicionar
         </button>
       </form>
+
+      <div id="decisions-list">
+        {% for d in decisions %}
+          {% include "partials/project_decision.html" %}
+        {% else %}
+        <p class="text-oriens-empty text-sm italic">Nenhuma decisão registrada.</p>
+        {% endfor %}
+      </div>
     </div>
 
     <!-- Atividade Recente -->

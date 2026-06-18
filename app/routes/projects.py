@@ -13,7 +13,7 @@ from sqlalchemy import select
 from app.repositories.task_repo import TaskRepository
 from app.repositories.project_comment_repo import ProjectCommentRepository
 from app.repositories.project_attachment_repo import ProjectAttachmentRepository
-from app.repositories.project_milestone_repo import ProjectMilestoneRepository
+from app.repositories.project_decision_repo import ProjectDecisionRepository
 from app.repositories.project_risk_repo import ProjectRiskRepository
 from app.repositories.project_audit_repo import ProjectAuditRepository
 from app.repositories.project_timeline_repo import ProjectTimelineRepository
@@ -36,6 +36,7 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 @router.get("", response_class=HTMLResponse)
 async def projects_list(
     request: Request,
+    filter: str = "active",
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -44,8 +45,16 @@ async def projects_list(
     )
     context_labels = {ctx.id: ctx.label for ctx in all_contexts}
 
+    if filter not in ("active", "archived", "all"):
+        filter = "active"
+
     service = ProjectService(db)
-    projects = await service.get_all(current_user.id, context_id=context_id)
+    projects = await service.get_all(
+        current_user.id,
+        context_id=context_id,
+        archived_only=(filter == "archived"),
+        include_archived=(filter == "all"),
+    )
 
     raw = await TaskRepository(db).progress_by_project(
         current_user.id, [p.id for p in projects]
@@ -65,6 +74,7 @@ async def projects_list(
         {
             "user": current_user,
             "projects": projects,
+            "current_filter": filter,
             "contexts": all_contexts,
             "context_labels": context_labels,
             "active_context_obj": active_context_obj,
@@ -94,14 +104,13 @@ async def projects_reports(
     progress_raw = await task_repo.progress_by_project(current_user.id, ids)
     overdue_raw = await task_repo.overdue_by_project(current_user.id, ids)
 
-    milestone_repo = ProjectMilestoneRepository(db)
+    decision_repo = ProjectDecisionRepository(db)
     risk_repo = ProjectRiskRepository(db)
 
     rows = []
     for p in projects:
         done, total = progress_raw.get(p.id, (0, 0))
-        milestones = await milestone_repo.get_by_project(p.id)
-        m_done = sum(1 for m in milestones if m.done)
+        decisions = await decision_repo.get_by_project(p.id)
         rows.append({
             "project": p,
             "done": done,
@@ -110,8 +119,7 @@ async def projects_reports(
             "remaining": total - done,
             "overdue": overdue_raw.get(p.id, 0),
             "open_risks": await risk_repo.count_open(p.id),
-            "milestones_done": m_done,
-            "milestones_total": len(milestones),
+            "decisions": len(decisions),
         })
 
     return templates.TemplateResponse(
@@ -157,7 +165,7 @@ async def project_detail(
 
     comments = await ProjectCommentRepository(db).get_by_project(project_id)
     attachments = await ProjectAttachmentRepository(db).get_by_project(project_id)
-    milestones = await ProjectMilestoneRepository(db).get_by_project(project_id)
+    decisions = await ProjectDecisionRepository(db).get_by_project(project_id)
     risks = await ProjectRiskRepository(db).get_by_project(project_id)
     audit = await ProjectAuditRepository(db).get_by_project(project_id)
     timeline = await ProjectTimelineRepository(db).get_by_project(project_id)
@@ -193,7 +201,7 @@ async def project_detail(
             "attachments": attachments,
             "fmt_size": _fmt_size,
             "progress": progress,
-            "milestones": milestones,
+            "decisions": decisions,
             "subtasks": subtasks,
             "risks": risks,
             "audit": audit,

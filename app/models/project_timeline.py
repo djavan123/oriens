@@ -9,10 +9,11 @@ from app.database import Base
 
 
 class TimelineEventType(str, enum.Enum):
-    project_created = "project_created"
-    status_changed  = "status_changed"
-    task_created    = "task_created"
-    task_done       = "task_done"
+    project_created   = "project_created"
+    status_changed    = "status_changed"
+    task_created      = "task_created"
+    task_done         = "task_done"
+    decision_recorded = "decision_recorded"
 
 
 class ProjectTimeline(Base):

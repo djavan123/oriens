@@ -67,7 +67,7 @@ C:\Projetos\Sistema tarefas\
 │   ├── models/
 │   │   ├── __init__.py                # Exporta todos os models (+ Label)
 │   │   ├── user.py
-│   │   ├── project.py                 # + proxima_acao, premissas, responsavel_id; status: nao_iniciado/em_andamento/concluido
+│   │   ├── project.py                 # + proxima_acao, premissas, responsavel_id, archived (SCRIPT 5); status: nao_iniciado/em_andamento/concluido
 │   │   ├── task.py                    # EnergyLevel aqui; + responsavel_id; + tags
 │   │   ├── note.py
 │   │   ├── capture.py
@@ -75,18 +75,18 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── weekly_directive.py
 │   │   ├── project_comment.py
 │   │   ├── project_attachment.py      # anexos em DISCO: /app/data/attachments/{project_id}/
-│   │   ├── project_milestone.py
+│   │   ├── project_decision.py        # Decisões (data + texto) — SCRIPT 5 (substituiu project_milestone)
 │   │   ├── project_risk.py
 │   │   ├── project_audit.py
-│   │   ├── project_timeline.py        # TimelineEventType enum + ProjectTimeline model
+│   │   ├── project_timeline.py        # TimelineEventType enum (+ decision_recorded, SCRIPT 5) + ProjectTimeline model
 │   │   └── label.py                   # Label (etiquetas por usuário) — SCRIPT 3
 │   ├── schemas/
 │   ├── repositories/
-│   │   ├── ... (user, project, task, note, capture, weekly, comment, attachment, milestone, risk, audit, timeline)
+│   │   ├── ... (user, project, task, note, capture, weekly, comment, attachment, decision, risk, audit, timeline)
 │   │   ├── context_repo.py            # + get_all_by_user/get_by_id/create/delete (SCRIPT 3)
 │   │   └── label_repo.py              # CRUD de etiquetas — SCRIPT 3
 │   ├── services/
-│   │   ├── project_service.py         # audit trail + timeline (project_created, status_changed)
+│   │   ├── project_service.py         # audit trail (+ proxima_acao) + timeline; create aceita proxima_acao; get_all filtra archived (SCRIPT 5)
 │   │   ├── task_service.py            # verb validation, priority_score + timeline (task_created, task_done)
 │   │   ├── capture_service.py         # process_as_task/project/note/discard
 │   │   ├── dashboard_service.py       # DashboardData: tasks + weekly_theme
@@ -96,13 +96,13 @@ C:\Projetos\Sistema tarefas\
 │   ├── routes/
 │   │   ├── auth.py                    # cookies com secure=COOKIE_SECURE
 │   │   ├── dashboard.py               # usa resolve_active_context()
-│   │   ├── projects.py                # usa resolve_active_context()
+│   │   ├── projects.py                # usa resolve_active_context(); list aceita ?filter=active|archived|all (SCRIPT 5)
 │   │   ├── capture.py                 # usa resolve_active_context()
 │   │   ├── weekly.py                  # usa resolve_active_context()
 │   │   ├── settings.py               # GET /settings (etiquetas + contextos) — SCRIPT 3
 │   │   └── api/
 │   │       ├── tasks.py               # aceita responsavel_id, context_id, tags
-│   │       ├── projects.py            # aceita responsavel_id; anexos em disco
+│   │       ├── projects.py            # aceita responsavel_id, proxima_acao, archived; anexos em disco; CRUD de decisões (SCRIPT 5)
 │   │       ├── capture.py
 │   │       ├── ai.py
 │   │       ├── context.py             # cookie agora guarda context_id (int) — SCRIPT 3
@@ -118,15 +118,17 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── settings.html              # etiquetas + contextos (SCRIPT 3)
 │   │   ├── auth/ (login.html, setup.html)
 │   │   ├── projects/
-│   │   │   ├── list.html              # kanban grid-cols-1 md:grid-cols-3 (responsivo)
-│   │   │   ├── detail.html            # responsivo + "Atividade Recente" + modal histórico; contexto obrigatório — SCRIPT 4
-│   │   │   └── reports.html
+│   │   │   ├── list.html              # kanban responsivo + filtro Ativos/Arquivados/Todos (SCRIPT 5)
+│   │   │   ├── detail.html            # próxima ação em destaque no topo; Decisões; arquivar/desarquivar; "Atividade Recente" (SCRIPT 5)
+│   │   │   └── reports.html           # coluna "Decisões" (era "Marcos") — SCRIPT 5
 │   │   └── partials/
 │   │       ├── task_item.html         # badge de contexto, etiquetas e 🔔 lembrete
 │   │       ├── task_form.html         # CRIAÇÃO só com título (SCRIPT 4)
 │   │       ├── task_edit_form.html    # energia/prazo/resp/etiquetas/quick win/lembrete; contexto travado se for de projeto
 │   │       ├── reminder_popup.html    # toasts de lembrete (SCRIPT 4)
-│   │       └── ... (subtasks, project_card/form/comment/attachment/milestone/risk, capture, process, ai_result)
+│   │       ├── project_form.html       # criação: + campo "Próxima ação" (opcional) — SCRIPT 5
+│   │       ├── project_decision.html   # item de decisão (data + texto + excluir) — SCRIPT 5
+│   │       └── ... (subtasks, project_card/comment/attachment/risk, capture, process, ai_result)
 │   ├── static/                        # PWA: manifest.webmanifest, sw.js, icon.svg
 │   └── utils/
 │       ├── auth.py                    # cookie: oriens_token
@@ -152,13 +154,14 @@ C:\Projetos\Sistema tarefas\
 
 ---
 
-## BANCO DE DADOS (ESTADO ATUAL — PÓS SCRIPT 3)
+## BANCO DE DADOS (ESTADO ATUAL — PÓS SCRIPT 5)
 
 **users:** `id, email (unique), password (bcrypt), name, created_at`
 
-**projects:** `id, user_id, responsavel_id (nullable, FK users), context_id (nullable), name, objective, status, priority (1-3), deadline, notes, done_at, scope, tags, strategic (bool), quarter, owner, strategic_priority, proxima_acao (text), premissas (text), created_at, updated_at`
+**projects:** `id, user_id, responsavel_id (nullable, FK users), context_id (nullable), name, objective, status, priority (1-3), deadline, notes, done_at, scope, tags, strategic (bool), quarter, owner, strategic_priority, proxima_acao (text), premissas (text), archived (bool, default false), created_at, updated_at`
 - status: `nao_iniciado | em_andamento | concluido`
 - Todo projeto novo nasce com `nao_iniciado`
+- `archived` (SCRIPT 5): true esconde da operação diária (listagem/dashboard/semanal); continua acessível por URL, editável e pesquisável
 
 **tasks:** `id, user_id, responsavel_id (nullable, FK users), project_id (nullable), parent_id (nullable, self-ref), context_id (nullable), title, status, energy, is_quick_win (bool), cognitive_load, financial_impact, operational_risk, strategic_impact, task_urgency, effort, priority_score (indexed), archived (bool), deadline, tags (text), remind_at (datetime, nullable), reminder_telegram_sent (bool), reminder_acked (bool), created_at, done_at`
 - status: `pending | done | blocked`
@@ -170,9 +173,14 @@ C:\Projetos\Sistema tarefas\
 - Etiquetas predefinidas pelo usuário, gerenciadas em `/settings`
 
 **project_timeline:** `id, project_id (FK cascade), user_id (FK cascade), event_type (string), description (string), created_at (indexed)`
-- event_type: `project_created | status_changed | task_created | task_done`
+- event_type: `project_created | status_changed | task_created | task_done | decision_recorded`
 - Seed automático em `_migrate_data()`: todos os projetos existentes recebem evento `project_created`
 - `get_last_activity()` em `project_repo` lê daqui (fallback: `project.updated_at`)
+
+**project_decisions:** `id, project_id (FK cascade, indexed), user_id (FK cascade), content (text), created_at`  *(SCRIPT 5 — substituiu project_milestones)*
+- Decisões relevantes do projeto (data + texto). Sem `done`/`due_date`.
+- Criar uma decisão grava também um evento `decision_recorded` em `project_timeline`.
+- Listadas no detalhe em ordem decrescente (mais recente no topo).
 
 **capture_inbox:** `id, user_id, content, processed (bool), created_at`
 
@@ -185,7 +193,9 @@ C:\Projetos\Sistema tarefas\
 
 **weekly_directives:** `id, user_id, week_start (date), weekly_theme, top_1, top_2, top_3, ignore_list, major_risk, physiological_priority, created_at, updated_at`
 
-**project_comments, project_attachments, project_milestones, project_risks, project_audit:** sem alterações.
+**project_comments, project_attachments, project_risks, project_audit:** sem alterações.
+
+> **`project_milestones`** (Marcos) foi **removida do código** no SCRIPT 5 (model/repo/rotas/template). A tabela legada pode permanecer órfã no banco (não é dropada — operação não-destrutiva); nada mais a lê.
 
 ---
 
@@ -199,7 +209,7 @@ C:\Projetos\Sistema tarefas\
    - `medium` → modo reduced (3 tarefas prioritárias)
    - `high` → modo full (5 tarefas prioritárias)
 5. **Priority score de tarefas:** calculado em `task_service._calc_score()` com 5 métricas: financial_impact, operational_risk, strategic_impact, task_urgency, effort.
-6. **Auditoria de projetos:** campos auditados: `status, priority, name, deadline, objective, scope, notes`. Cada mudança grava em `project_audit`.
+6. **Auditoria de projetos:** campos auditados: `status, priority, name, deadline, objective, scope, notes, proxima_acao`. Cada mudança grava em `project_audit`.
 7. **Contexto de trabalho:** cookie `oriens_context` persiste o contexto ativo. Transição work→recovery exibe painel com itens pendentes para captura.
 8. **Diretiva semanal:** upsert por `week_start` (segunda-feira). Seção "Projetos sem atualização" exibe projetos `em_andamento` ordenados por última atividade real (mais antigo primeiro).
 9. **Última atividade de projeto:** lida de `project_timeline` via `ProjectTimelineRepository.get_last_activity()`. Fallback: `project.updated_at`.
@@ -209,6 +219,7 @@ C:\Projetos\Sistema tarefas\
     - `project_service.update()` ao mudar status → `status_changed`
     - `task_service.create()` com project_id → `task_created`
     - `task_service.mark_done()` com project_id → `task_done`
+    - `POST /api/projects/{id}/decisions` → `decision_recorded` (SCRIPT 5)
 12. **Responsável:** `responsavel_id` (FK → users) em projetos e tarefas. Exibido no detalhe do projeto e no footer dos cards. Select dropdown condicional nos formulários (só aparece quando `users` está no contexto).
 13. **Contextos dinâmicos:** deixaram de ser enum fixo. Cookie `oriens_context` agora guarda o **`context_id` (inteiro)**. `resolve_active_context()` (`app/utils/context_utils.py`) é o helper único usado por todas as rotas HTML; retorna `(context_id, active_context_obj, all_contexts)` e ainda lê cookies legados por `type`. A sidebar lista os contextos dinamicamente; a transição "Sair do trabalho" é decidida por `active_context_obj.type == "work"`.
 14. **Tarefa independente de contexto:** `context_id = NULL` significa "Independente (todos os contextos)" — a tarefa aparece em qualquer contexto ativo (filtro: `context_id IS NULL OR context_id == ativo`).
@@ -217,6 +228,9 @@ C:\Projetos\Sistema tarefas\
 17. **Herança de contexto:** toda tarefa criada dentro de um projeto herda `context_id` do projeto (forçado em `api/tasks.create_task`). No `task_edit_form`, o contexto fica **somente leitura** para tarefas de projeto; editável só para tarefas avulsas.
 18. **Contexto obrigatório no projeto:** `create_project` e `update_project` exigem `context_id`; o select é `required` e nunca permite valor vazio. Projetos antigos sem contexto devem recebê-lo ao serem editados.
 19. **Criação de tarefa só com título** (GTD "capturar primeiro, organizar depois"): o `task_form` pede apenas o título; energia, prazo, responsável, etiquetas, quick win e lembrete são ajustados depois via "editar".
+20. **Próxima ação (SCRIPT 5):** todo projeto deve ter uma próxima ação concreta e executável. Campo `proxima_acao` exibido **em destaque no topo** do detalhe, no card da listagem e na revisão semanal. Disponível no formulário de criação (**opcional**) e na edição. Auditado.
+21. **Arquivamento de projetos (SCRIPT 5):** `projects.archived` (bool). Arquivados saem da listagem padrão, dashboard, revisão semanal e "Projetos sem atualização", mas continuam acessíveis por URL, editáveis e pesquisáveis. Filtros na listagem: `?filter=active` (padrão) | `archived` | `all`. Botão "Arquivar/Desarquivar projeto" no detalhe (`PATCH /api/projects/{id}` com `archived`). Filtro de `archived == False` aplicado em `get_all_by_user` (padrão), `get_active_by_user` e `count_active`; `get_by_id` permanece sem filtro.
+22. **Decisões (SCRIPT 5):** substituem os antigos Marcos. `project_decisions` (data + texto). No detalhe, seção "Decisões" com input "Nova decisão..." + "Adicionar"; lista em ordem decrescente. Criar uma decisão grava evento `decision_recorded` na cronologia. Excluir uma decisão **não** remove o evento da timeline.
 
 ---
 
@@ -310,7 +324,7 @@ TELEGRAM_CHAT_ID=               # opcional
 | GET | `/auth/setup` | Criar primeiro usuário |
 | POST | `/auth/setup` | Salvar primeiro usuário |
 | GET | `/dashboard` | Dashboard (`?energy=high\|medium\|low`) |
-| GET | `/projects` | Lista de projetos (kanban) |
+| GET | `/projects` | Lista de projetos (kanban); `?filter=active\|archived\|all` (SCRIPT 5) |
 | GET | `/projects/reports` | Relatórios |
 | GET | `/projects/{id}` | Detalhe do projeto |
 | GET | `/capture` | Inbox de captura |
@@ -334,16 +348,15 @@ TELEGRAM_CHAT_ID=               # opcional
 | GET | `/api/tasks/{id}/edit` | Formulário de edição inline |
 | GET | `/api/tasks/{id}/cancel-edit` | Cancelar edição |
 | PATCH | `/api/tasks/{id}` | Atualizar tarefa (aceita `responsavel_id`) |
-| POST | `/api/projects` | Criar projeto (aceita `responsavel_id`, grava timeline) |
-| PATCH | `/api/projects/{id}` | Atualizar projeto (aceita `responsavel_id`, grava timeline) |
+| POST | `/api/projects` | Criar projeto (aceita `responsavel_id`, `proxima_acao`, grava timeline) |
+| PATCH | `/api/projects/{id}` | Atualizar projeto (aceita `responsavel_id`, `proxima_acao`, `archived`, grava timeline) |
 | POST | `/api/projects/{id}/comments` | Adicionar comentário |
 | DELETE | `/api/projects/{id}/comments/{cid}` | Remover comentário |
 | POST | `/api/projects/{id}/attachments` | Upload arquivo |
 | GET | `/api/projects/{id}/attachments/{aid}/download` | Download |
 | DELETE | `/api/projects/{id}/attachments/{aid}` | Remover arquivo |
-| POST | `/api/projects/{id}/milestones` | Criar milestone |
-| PATCH | `/api/projects/{id}/milestones/{mid}` | Toggle done |
-| DELETE | `/api/projects/{id}/milestones/{mid}` | Remover milestone |
+| POST | `/api/projects/{id}/decisions` | Criar decisão (grava timeline `decision_recorded`) |
+| DELETE | `/api/projects/{id}/decisions/{did}` | Remover decisão |
 | POST | `/api/projects/{id}/risks` | Criar risco |
 | PATCH | `/api/projects/{id}/risks/{rid}` | Atualizar risco |
 | DELETE | `/api/projects/{id}/risks/{rid}` | Remover risco |
@@ -428,6 +441,13 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **Criação de tarefa só com título** (`task_form` reduzido) — o resto edita-se depois.
 - Migração PG aditiva via `_ensure_columns_postgres()` (`ADD COLUMN IF NOT EXISTS`).
 
+### ✅ SCRIPT 5 — Evolução dos Projetos
+- **Próxima ação em destaque:** bloco no topo do detalhe; campo (opcional) no formulário de criação; mantida no card e na revisão semanal; passou a ser auditada.
+- **Arquivamento de projetos:** `projects.archived` (bool). Esconde da operação diária (listagem/dashboard/semanal/"sem atualização"); continua acessível por URL, editável e pesquisável. Filtros `?filter=active|archived|all` na listagem; botão arquivar/desarquivar no detalhe. Filtro `archived == False` em `get_all_by_user`/`get_active_by_user`/`count_active`.
+- **Marcos → Decisões:** removidos model/repo/rotas/template de milestones; novo `project_decisions` (data + texto), `project_decision_repo`, `partials/project_decision.html`, seção "Decisões" no detalhe e coluna "Decisões" no relatório.
+- **Cronologia:** criar uma decisão grava evento `decision_recorded` em `project_timeline` (novo valor no enum `TimelineEventType`).
+- Migração PG aditiva: `archived` em `_ENSURE_COLUMNS_PG["projects"]`; SQLite em `_ENSURE_COLUMNS["projects"]`. Tabela `project_milestones` legada não é dropada (não-destrutivo).
+
 ---
 
 ## PRODUÇÃO E OPERAÇÃO (VPS)
@@ -455,14 +475,14 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualiza
 
 | Item | Quantidade |
 |---|---|
-| Tabelas no banco | 14 (+ `labels`) |
-| Models SQLAlchemy | 14 |
-| Repositories | 14 (+ `label_repo`) |
+| Tabelas no banco | 14 (`project_milestones` → `project_decisions`) |
+| Models SQLAlchemy | 14 (`project_decision` substituiu `project_milestone`) |
+| Repositories | 14 (`project_decision_repo` substituiu milestone) |
 | Services | 7 (+ `reminder_service`) |
 | Rotas principais | 6 arquivos (+ `settings.py`) |
 | Rotas API | 7 arquivos (+ `api/settings.py`, `api/reminders.py`) |
-| Endpoints totais | ~40 |
-| Templates HTML | ~26 (+ `settings.html`, `reminder_popup.html`) |
+| Endpoints totais | ~39 |
+| Templates HTML | ~26 (+ `project_decision.html`; − `project_milestone.html`) |
 | Ambiente | Dev (SQLite) + Produção (PostgreSQL na VPS) |
 
 ---

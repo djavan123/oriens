@@ -13,9 +13,11 @@ from app.models.project import ProjectStatus
 from app.models.user import User
 from app.repositories.project_comment_repo import ProjectCommentRepository
 from app.repositories.project_attachment_repo import ProjectAttachmentRepository
-from app.repositories.project_milestone_repo import ProjectMilestoneRepository
+from app.repositories.project_decision_repo import ProjectDecisionRepository
+from app.repositories.project_timeline_repo import ProjectTimelineRepository
 from app.repositories.project_risk_repo import ProjectRiskRepository
 from app.models.project_risk import RiskLevel, RiskStatus
+from app.models.project_timeline import TimelineEventType
 from app.services.project_service import ProjectService
 from app.utils.auth import get_current_user
 
@@ -68,6 +70,7 @@ async def create_project(
     deadline: Optional[str] = Form(None),
     context_id: Optional[str] = Form(None),
     responsavel_id: Optional[str] = Form(None),
+    proxima_acao: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -94,6 +97,7 @@ async def create_project(
         deadline=_parse_date(deadline),
         context_id=_parse_int(context_id),
         responsavel_id=_parse_int(responsavel_id),
+        proxima_acao=proxima_acao.strip() if proxima_acao else None,
     )
     return templates.TemplateResponse(
         request, "partials/project_card.html", {"project": project}
@@ -116,6 +120,7 @@ async def update_project(
     proxima_acao: Optional[str] = Form(None),
     premissas: Optional[str] = Form(None),
     responsavel_id: Optional[str] = Form(None),
+    archived: Optional[bool] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -147,6 +152,8 @@ async def update_project(
         updates["premissas"] = premissas.strip() or None
     if responsavel_id is not None:
         updates["responsavel_id"] = _parse_int(responsavel_id)
+    if archived is not None:
+        updates["archived"] = archived
 
     service = ProjectService(db)
     project = await service.update(project_id, current_user.id, **updates)
@@ -259,53 +266,44 @@ async def delete_attachment(
     return HTMLResponse("")
 
 
-# ── Milestones / Marcos ─────────────────────────────────────────────────────────
+# ── Decisões ────────────────────────────────────────────────────────────────────
 
-@router.post("/{project_id}/milestones", response_class=HTMLResponse)
-async def add_milestone(
+@router.post("/{project_id}/decisions", response_class=HTMLResponse)
+async def add_decision(
     project_id: int,
     request: Request,
-    title: str = Form(...),
-    due_date: Optional[str] = Form(None),
+    content: str = Form(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    title = title.strip()
-    if not title:
+    await _assert_owns_project(db, project_id, current_user.id)
+    content = content.strip()
+    if not content:
         return HTMLResponse("")
-    repo = ProjectMilestoneRepository(db)
-    milestone = await repo.create(project_id, current_user.id, title, _parse_date(due_date))
+    decision = await ProjectDecisionRepository(db).create(project_id, current_user.id, content)
+
+    # Registra a decisão na cronologia do projeto.
+    summary = content if len(content) <= 200 else content[:197] + "..."
+    timeline = ProjectTimelineRepository(db)
+    timeline.record(
+        project_id, current_user.id, TimelineEventType.decision_recorded,
+        f'Decisão registrada: "{summary}"'
+    )
+    await db.commit()
+
     return templates.TemplateResponse(
-        request, "partials/project_milestone.html", {"m": milestone}
+        request, "partials/project_decision.html", {"d": decision}
     )
 
 
-@router.patch("/{project_id}/milestones/{milestone_id}", response_class=HTMLResponse)
-async def toggle_milestone(
+@router.delete("/{project_id}/decisions/{decision_id}", response_class=HTMLResponse)
+async def delete_decision(
     project_id: int,
-    milestone_id: int,
-    request: Request,
+    decision_id: int,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    repo = ProjectMilestoneRepository(db)
-    milestone = await repo.toggle_done(milestone_id, current_user.id)
-    if not milestone or milestone.project_id != project_id:
-        raise HTTPException(status_code=404)
-    return templates.TemplateResponse(
-        request, "partials/project_milestone.html", {"m": milestone}
-    )
-
-
-@router.delete("/{project_id}/milestones/{milestone_id}", response_class=HTMLResponse)
-async def delete_milestone(
-    project_id: int,
-    milestone_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    repo = ProjectMilestoneRepository(db)
-    await repo.delete(milestone_id, current_user.id)
+    await ProjectDecisionRepository(db).delete(decision_id, current_user.id)
     return HTMLResponse("")
 
 

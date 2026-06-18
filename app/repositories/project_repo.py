@@ -12,11 +12,21 @@ class ProjectRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_all_by_user(self, user_id: int, context_id: Optional[int] = None) -> list[Project]:
+    async def get_all_by_user(
+        self,
+        user_id: int,
+        context_id: Optional[int] = None,
+        archived_only: bool = False,
+        include_archived: bool = False,
+    ) -> list[Project]:
         q = (
             select(Project)
             .where(Project.user_id == user_id, Project.status != ProjectStatus.concluido)
         )
+        if archived_only:
+            q = q.where(Project.archived.is_(True))
+        elif not include_archived:
+            q = q.where(Project.archived.is_(False))
         if context_id is not None:
             q = q.where(
                 (Project.context_id.is_(None)) | (Project.context_id == context_id)
@@ -29,7 +39,11 @@ class ProjectRepository:
     async def get_active_by_user(self, user_id: int) -> list[Project]:
         result = await self.db.execute(
             select(Project)
-            .where(Project.user_id == user_id, Project.status == ProjectStatus.em_andamento)
+            .where(
+                Project.user_id == user_id,
+                Project.status == ProjectStatus.em_andamento,
+                Project.archived.is_(False),
+            )
             .order_by(Project.priority.asc(), Project.created_at.desc())
         )
         return list(result.scalars().all())
@@ -44,7 +58,11 @@ class ProjectRepository:
         result = await self.db.execute(
             select(func.count())
             .select_from(Project)
-            .where(Project.user_id == user_id, Project.status == ProjectStatus.em_andamento)
+            .where(
+                Project.user_id == user_id,
+                Project.status == ProjectStatus.em_andamento,
+                Project.archived.is_(False),
+            )
         )
         return result.scalar_one()
 

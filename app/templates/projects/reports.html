@@ -23,7 +23,7 @@
         <th class="text-right font-medium px-4 py-3">Restantes</th>
         <th class="text-right font-medium px-4 py-3">Atrasadas</th>
         <th class="text-right font-medium px-4 py-3">Riscos abertos</th>
-        <th class="text-right font-medium px-4 py-3">Marcos</th>
+        <th class="text-right font-medium px-4 py-3">Decisões</th>
       </tr>
     </thead>
     <tbody>
@@ -47,7 +47,7 @@
         <td class="px-4 py-3 text-right text-oriens-primary font-mono">{{ row.remaining }}</td>
         <td class="px-4 py-3 text-right font-mono {% if row.overdue %}text-oriens-alert{% else %}text-oriens-secondary{% endif %}">{{ row.overdue }}</td>
         <td class="px-4 py-3 text-right font-mono {% if row.open_risks %}text-oriens-alert{% else %}text-oriens-secondary{% endif %}">{{ row.open_risks }}</td>
-        <td class="px-4 py-3 text-right text-oriens-secondary font-mono">{{ row.milestones_done }}/{{ row.milestones_total }}</td>
+        <td class="px-4 py-3 text-right text-oriens-secondary font-mono">{{ row.decisions }}</td>
       </tr>
       {% endfor %}
     </tbody>

@@ -38,3 +38,4 @@ class Project(Base):
     tags: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     proxima_acao: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     premissas: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

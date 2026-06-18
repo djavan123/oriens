@@ -7,7 +7,7 @@
 {% set paused_projects = projects | selectattr('status.value', 'equalto', 'nao_iniciado') | list %}
 {% set done_projects   = projects | selectattr('status.value', 'equalto', 'concluido')   | list %}
 
-<div class="flex items-center justify-between mb-8">
+<div class="flex items-center justify-between mb-6">
   <h1 class="text-3xl font-bold text-[#f2f2f2] tracking-tight">Projetos</h1>
   <div class="flex items-center gap-3">
     <a href="/projects/reports"
@@ -20,6 +20,18 @@
       + Novo projeto
     </button>
   </div>
+</div>
+
+<!-- Filtro: Ativos / Arquivados / Todos -->
+{% set cur = current_filter | default('active') %}
+<div class="flex items-center gap-1 mb-8">
+  {% for f, label in [('active', 'Ativos'), ('archived', 'Arquivados'), ('all', 'Todos')] %}
+  <a href="/projects?filter={{ f }}"
+     class="px-3 py-1.5 text-xs rounded-md transition-colors
+       {% if cur == f %}bg-oriens-surface text-oriens-primary{% else %}text-oriens-secondary hover:text-oriens-primary{% endif %}">
+    {{ label }}
+  </a>
+  {% endfor %}
 </div>
 
 <!-- Form -->

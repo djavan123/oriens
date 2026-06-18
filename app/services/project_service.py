@@ -11,7 +11,7 @@ from app.repositories.project_timeline_repo import ProjectTimelineRepository
 _CLOSING_STATUSES = {ProjectStatus.concluido}
 
 # Campos cujas alterações são registradas no histórico do projeto.
-_AUDITED_FIELDS = ("status", "priority", "name", "deadline", "objective", "scope", "notes")
+_AUDITED_FIELDS = ("status", "priority", "name", "deadline", "objective", "scope", "notes", "proxima_acao")
 
 
 def _audit_str(value) -> Optional[str]:
@@ -39,8 +39,19 @@ class ProjectService:
         self.audit = ProjectAuditRepository(db)
         self.timeline = ProjectTimelineRepository(db)
 
-    async def get_all(self, user_id: int, context_id: Optional[int] = None) -> list[Project]:
-        return await self.repo.get_all_by_user(user_id, context_id=context_id)
+    async def get_all(
+        self,
+        user_id: int,
+        context_id: Optional[int] = None,
+        archived_only: bool = False,
+        include_archived: bool = False,
+    ) -> list[Project]:
+        return await self.repo.get_all_by_user(
+            user_id,
+            context_id=context_id,
+            archived_only=archived_only,
+            include_archived=include_archived,
+        )
 
     async def get_by_id(self, project_id: int, user_id: int) -> Optional[Project]:
         return await self.repo.get_by_id(project_id, user_id)
@@ -57,6 +68,7 @@ class ProjectService:
         deadline: Optional[datetime] = None,
         context_id: Optional[int] = None,
         responsavel_id: Optional[int] = None,
+        proxima_acao: Optional[str] = None,
     ) -> Project:
         if priority not in (1, 2, 3):
             priority = 2
@@ -71,6 +83,7 @@ class ProjectService:
             deadline=deadline,
             context_id=context_id,
             responsavel_id=responsavel_id,
+            proxima_acao=proxima_acao,
         )
         self.timeline.record(project.id, user_id, TimelineEventType.project_created, f'Projeto "{project.name}" criado')
         await self.db.commit()

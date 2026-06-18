@@ -1,0 +1,21 @@
+<div id="decision-{{ d.id }}"
+     class="group flex items-start gap-3 py-3 border-b border-oriens-divider last:border-0">
+
+  <span class="text-oriens-muted text-xs font-mono w-16 flex-shrink-0 pt-0.5">
+    {{ d.created_at.strftime('%d/%m/%Y') }}
+  </span>
+
+  <p class="flex-1 min-w-0 text-oriens-primary text-sm leading-snug whitespace-pre-wrap">
+    {{ d.content }}
+  </p>
+
+  <button
+    hx-delete="/api/projects/{{ d.project_id }}/decisions/{{ d.id }}"
+    hx-target="#decision-{{ d.id }}"
+    hx-swap="outerHTML"
+    hx-confirm="Remover decisão?"
+    title="Remover"
+    class="flex-shrink-0 text-oriens-secondary text-xs opacity-0 group-hover:opacity-100 hover:text-oriens-alert transition-all">
+    ✕
+  </button>
+</div>

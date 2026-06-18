@@ -41,6 +41,7 @@ _ENSURE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("proxima_acao", "TEXT"),
         ("premissas", "TEXT"),
         ("responsavel_id", "INTEGER"),
+        ("archived", "BOOLEAN NOT NULL DEFAULT 0"),
     ],
     "tasks": [
         ("deadline", "DATETIME"),
@@ -86,6 +87,9 @@ _ENSURE_COLUMNS_PG: dict[str, list[tuple[str, str]]] = {
         ("remind_at", "TIMESTAMP"),
         ("reminder_telegram_sent", "BOOLEAN NOT NULL DEFAULT FALSE"),
         ("reminder_acked", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    ],
+    "projects": [
+        ("archived", "BOOLEAN NOT NULL DEFAULT FALSE"),
     ],
 }
 
