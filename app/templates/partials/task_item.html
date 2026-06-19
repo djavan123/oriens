@@ -6,6 +6,7 @@
      project_map (dict)     — {project_id: name}
      show_adiar (bool)      — botão "adiar" no hover (dashboard)
      refresh_priorities (bool) — ao concluir, dispara refreshPriorities em vez de remover DOM
+     reload_on_done (bool)  — ao concluir, recarrega a página (projeto: atualiza próxima ação/ordem)
      context_labels (dict)  — {context_id: name}
 #}
 {% set ds = due_status(task.deadline) if task.deadline and task.status.value != 'done' else None %}
@@ -21,7 +22,7 @@
     hx-patch="/api/tasks/{{ task.id }}/done"
     hx-swap="none"
     hx-on:click="document.getElementById('task-{{ task.id }}').classList.add('task-completing')"
-    hx-on::after-request="if(event.detail.successful){ {% if refresh_priorities is defined and refresh_priorities %}htmx.trigger(document.body,'refreshPriorities'){% else %}setTimeout(()=>{var e=document.getElementById('task-{{ task.id }}');if(e)e.remove();},450){% endif %} }"
+    hx-on::after-request="if(event.detail.successful){ {% if refresh_priorities is defined and refresh_priorities %}htmx.trigger(document.body,'refreshPriorities'){% elif reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}setTimeout(()=>{var e=document.getElementById('task-{{ task.id }}');if(e)e.remove();},450){% endif %} }"
     title="Concluir"
     class="flex-shrink-0 mt-0.5 w-4 h-4 border {{ cb_border }} rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors">
   </button>

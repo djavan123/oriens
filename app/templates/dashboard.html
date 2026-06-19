@@ -9,33 +9,31 @@
 {% include "partials/foco_do_dia.html" %}
 
 <!-- Date header -->
-<div class="mb-8">
+<div class="mb-6">
   <p class="text-[11px] font-semibold text-oriens-muted tracking-wide uppercase">{{ day_of_week }}</p>
   <h1 class="text-3xl font-bold text-oriens-primary tracking-tight mt-1">{{ current_date }}</h1>
 </div>
 
-<!-- Filters row -->
-<div class="flex items-center gap-6 mb-10 flex-wrap">
-  <div class="flex items-center gap-2">
-    <span class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mr-1">Energia</span>
-    {% for level, label in energy_labels.items() %}
-    <a href="/dashboard?energy={{ level }}"
-       class="px-3 py-1.5 rounded-md text-xs transition-colors border
-       {% if energy_filter == level %}
-         bg-oriens-accent text-white border-oriens-accent
-       {% else %}
-         bg-transparent border-oriens-border text-oriens-secondary hover:text-oriens-primary
-       {% endif %}">
-      {{ label }}
-    </a>
-    {% endfor %}
-    {% if energy_filter %}
-    <a href="/dashboard?energy=" class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">× limpar</a>
-    {% endif %}
-  </div>
+<!-- Energia (seletor discreto) -->
+<div class="flex items-center gap-2 mb-8 flex-wrap">
+  <span class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mr-1">Energia</span>
+  {% for level, label in energy_labels.items() %}
+  <a href="/dashboard?energy={{ level }}"
+     class="px-3 py-1.5 rounded-md text-xs transition-colors border
+     {% if energy_filter == level %}
+       bg-oriens-accent text-white border-oriens-accent
+     {% else %}
+       bg-transparent border-oriens-border text-oriens-secondary hover:text-oriens-primary
+     {% endif %}">
+    {{ label }}
+  </a>
+  {% endfor %}
+  {% if energy_filter %}
+  <a href="/dashboard?energy=" class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">× limpar</a>
+  {% endif %}
 </div>
 
-<!-- Overload banner -->
+<!-- Overload banner (informativo) -->
 {% if data.overload.is_overload %}
 <div class="mb-8 rounded-xl border border-oriens-alert/40 bg-oriens-alert/5 px-5 py-4">
   <div class="flex items-start justify-between">
@@ -67,102 +65,19 @@
 </div>
 {% endif %}
 
-{% if data.overload.is_overload %}
-<!-- ── MODO OVERLOAD ── -->
-<div class="max-w-lg space-y-8">
+<!-- Painel de decisão: Projetos em foco (peso maior) + Tarefas avulsas -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-8 max-w-5xl">
 
-  <section>
-    <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Próximas 3</h2>
-    {% if data.priority_tasks %}
-    <div class="bg-oriens-surface rounded-xl px-1 py-1">
-      {% with show_importancia=true %}
-      {% for task in data.priority_tasks %}{% include "partials/task_item.html" %}{% endfor %}
-      {% endwith %}
-    </div>
-    {% else %}
-    <p class="text-oriens-empty text-sm italic">Nenhuma tarefa pendente.</p>
-    {% endif %}
-  </section>
-
-  {% if data.quick_wins %}
-  <section class="border-l-2 border-oriens-success pl-5">
-    <h2 class="text-oriens-success text-[11px] font-bold tracking-wide uppercase mb-4">Quick wins</h2>
-    <div class="bg-oriens-surface rounded-xl px-1 py-1">
-      {% for task in data.quick_wins %}{% include "partials/task_item.html" %}{% endfor %}
-    </div>
-  </section>
-  {% endif %}
-
-</div>
-
-{% elif data.visibility_mode == "minimal" %}
-<!-- ── MODO MÍNIMO (energia baixa) ── -->
-<div class="max-w-lg space-y-8">
-
-  <div class="text-oriens-muted text-xs bg-oriens-card rounded-lg px-4 py-2.5 inline-block">
-    Energia baixa — mostrando apenas quick wins
-  </div>
-
-  {% if data.quick_wins %}
-  <section class="border-l-2 border-oriens-success pl-5">
-    <h2 class="text-oriens-success text-[11px] font-bold tracking-wide uppercase mb-4">Quick wins disponíveis</h2>
-    <div class="bg-oriens-surface rounded-xl px-1 py-1">
-      {% for task in data.quick_wins %}{% include "partials/task_item.html" %}{% endfor %}
-    </div>
-  </section>
-  {% else %}
-  <p class="text-oriens-empty text-sm italic">Nenhum quick win disponível.</p>
-  {% endif %}
-
-</div>
-
-{% else %}
-<!-- ── MODO NORMAL ── -->
-
-{% if data.weekly_directive and data.weekly_directive.weekly_theme %}
-<div class="mb-8 flex items-center gap-3 bg-oriens-card rounded-lg px-4 py-2.5 inline-flex w-auto">
-  <span class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Tema</span>
-  <span class="text-oriens-primary text-sm font-medium">{{ data.weekly_directive.weekly_theme }}</span>
-</div>
-{% endif %}
-
-<div class="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-10 max-w-4xl">
-
-  <!-- Coluna esquerda -->
-  <div class="space-y-8">
-
-    <section>
-      {% include "partials/dashboard_priorities.html" %}
-    </section>
-
+  <!-- Coluna principal -->
+  <div class="lg:col-span-2">
+    {% include "partials/dashboard_projects_focus.html" %}
   </div>
 
   <!-- Coluna direita -->
-  <div class="space-y-8">
-
-    {% if data.quick_wins %}
-    <section class="border-l-2 border-oriens-success pl-4">
-      <h2 class="text-oriens-success text-[11px] font-bold tracking-wide uppercase mb-4">
-        Quick wins{% if energy_filter %} · {{ energy_labels.get(energy_filter, '') | lower }}{% endif %}
-      </h2>
-      <div class="bg-oriens-surface rounded-xl px-1 py-1">
-        {% for task in data.quick_wins %}{% include "partials/task_item.html" %}{% endfor %}
-      </div>
-    </section>
-    {% endif %}
-
-    {% if data.blocked_tasks %}
-    <section>
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Bloqueios</h2>
-      <div class="bg-oriens-surface rounded-xl px-1 py-1">
-        {% for task in data.blocked_tasks %}{% include "partials/task_item.html" %}{% endfor %}
-      </div>
-    </section>
-    {% endif %}
-
+  <div>
+    {% include "partials/dashboard_standalone.html" %}
   </div>
 
 </div>
-{% endif %}
 
 {% endblock %}

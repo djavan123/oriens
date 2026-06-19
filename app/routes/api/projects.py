@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
+from pydantic import BaseModel
 from app.templates_env import templates
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,10 +17,15 @@ from app.repositories.project_attachment_repo import ProjectAttachmentRepository
 from app.repositories.project_decision_repo import ProjectDecisionRepository
 from app.repositories.project_timeline_repo import ProjectTimelineRepository
 from app.repositories.project_risk_repo import ProjectRiskRepository
+from app.repositories.task_repo import TaskRepository
 from app.models.project_risk import RiskLevel, RiskStatus
 from app.models.project_timeline import TimelineEventType
 from app.services.project_service import ProjectService
 from app.utils.auth import get_current_user
+
+
+class _TaskOrderPayload(BaseModel):
+    task_ids: list[int]
 
 router = APIRouter(prefix="/api/projects", tags=["api:projects"])
 
@@ -162,6 +168,35 @@ async def update_project(
     return templates.TemplateResponse(
         request, "partials/project_card.html", {"project": project}
     )
+
+
+# ── Task order ────────────────────────────────────────────────────────────────
+
+@router.patch("/{project_id}/task-order")
+async def reorder_tasks(
+    project_id: int,
+    payload: _TaskOrderPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Persiste a ordem manual das tarefas de topo de um projeto.
+
+    Recebe JSON {"task_ids": [1, 2, 3]} com os IDs na nova sequência.
+    Valida: ownership do projeto, ownership de cada tarefa, todas pertencem
+    ao mesmo projeto, nenhuma é subtarefa e nenhuma é tarefa avulsa.
+    """
+    await _assert_owns_project(db, project_id, current_user.id)
+    if not payload.task_ids:
+        raise HTTPException(status_code=422, detail="task_ids não pode ser vazio")
+    ok = await TaskRepository(db).reorder_project_tasks(
+        project_id, current_user.id, payload.task_ids
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=422,
+            detail="IDs inválidos: verifique ownership e pertencimento ao projeto",
+        )
+    return {"ok": True}
 
 
 # ── Comments ──────────────────────────────────────────────────────────────────

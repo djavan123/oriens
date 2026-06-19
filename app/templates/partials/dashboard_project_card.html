@@ -1,0 +1,70 @@
+{# Card de "Projeto em foco". Var: item = {project, next_task, next_text}. #}
+{% set p = item.project %}
+{% set energy_dot = {'high': 'bg-oriens-alert', 'medium': 'bg-oriens-btn', 'low': 'bg-oriens-secondary'} %}
+{% set energy_label = {'high': 'alta', 'medium': 'média', 'low': 'baixa'} %}
+
+<div class="rounded-lg bg-oriens-card border border-oriens-border p-4">
+
+  <div class="flex items-start justify-between gap-3">
+    <a href="/projects/{{ p.id }}"
+       class="text-oriens-primary text-sm font-medium leading-snug hover:text-oriens-accent transition-colors min-w-0">
+      {{ p.name }}
+    </a>
+    <span class="text-oriens-secondary text-[11px] font-mono flex-shrink-0">P{{ p.priority }}</span>
+  </div>
+
+  {% if p.deadline %}
+  {% set ds = due_status(p.deadline) %}
+  <div class="mt-1.5">
+    {% if ds == 'overdue' %}
+    <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-urgent/15 text-oriens-urgent">atrasado · {{ p.deadline.strftime('%d/%m/%y') }}</span>
+    {% elif ds == 'today' %}
+    <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-today/15 text-oriens-today">vence hoje</span>
+    {% else %}
+    <span class="text-[11px] text-oriens-muted">prazo {{ p.deadline.strftime('%d/%m/%y') }}</span>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Próxima ação operacional -->
+  <div class="mt-3 pt-3 border-t border-oriens-divider">
+    <p class="text-oriens-secondary text-[10px] font-bold uppercase tracking-wide mb-1.5">Próxima ação</p>
+
+    {% if item.next_task %}
+    {% set nt = item.next_task %}
+    <div class="flex items-start gap-2.5">
+      <button
+        hx-patch="/api/tasks/{{ nt.id }}/done"
+        hx-swap="none"
+        hx-on::after-request="if(event.detail.successful){ htmx.trigger(document.body, 'refreshProjectsFocus') }"
+        title="Concluir próxima ação"
+        class="flex-shrink-0 mt-0.5 w-4 h-4 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors"></button>
+      <div class="min-w-0">
+        <p class="text-oriens-primary text-sm leading-snug">{{ nt.title }}</p>
+        <div class="flex items-center gap-2 mt-1 flex-wrap">
+          <span class="text-[11px] text-oriens-muted inline-flex items-center gap-1.5">
+            <span class="w-1.5 h-1.5 rounded-full {{ energy_dot.get(nt.energy.value, 'bg-oriens-secondary') }}"></span>
+            energia {{ energy_label.get(nt.energy.value, nt.energy.value) }}
+          </span>
+          {% if nt.deadline %}
+          {% set nds = due_status(nt.deadline) %}
+          {% if nds == 'overdue' %}
+          <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-urgent/15 text-oriens-urgent">atrasado</span>
+          {% elif nds == 'today' %}
+          <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-today/15 text-oriens-today">hoje</span>
+          {% endif %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    {% else %}
+    <p class="text-oriens-primary text-sm leading-snug">→ {{ item.next_text }}</p>
+    <a href="/projects/{{ p.id }}"
+       class="text-oriens-link text-[11px] hover:opacity-80 transition-opacity mt-1.5 inline-block">
+      abrir projeto →
+    </a>
+    {% endif %}
+  </div>
+
+</div>

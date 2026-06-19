@@ -1,6 +1,10 @@
-﻿{% extends "base_app.html" %}
+{% extends "base_app.html" %}
 
 {% block title %}{{ project.name }} — Oriens{% endblock %}
+
+{% block head %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+{% endblock %}
 
 {% set status_color = {
   'em_andamento': 'text-oriens-accent',
@@ -12,6 +16,8 @@
   'nao_iniciado': 'Não iniciado',
   'concluido':    'Concluído',
 } %}
+{% set energy_label = {'high': 'alta', 'medium': 'média', 'low': 'baixa'} %}
+{% set energy_dot = {'high': 'bg-oriens-alert', 'medium': 'bg-oriens-btn', 'low': 'bg-oriens-secondary'} %}
 
 {% block content %}
 
@@ -28,7 +34,7 @@
   <div class="flex-1 min-w-0">
 
     <!-- Header -->
-    <div class="mb-8">
+    <div class="mb-6">
       <div class="flex items-start justify-between gap-4">
         <div>
           <h1 class="text-2xl font-bold text-oriens-primary tracking-tight
@@ -46,13 +52,16 @@
           </div>
           {% endif %}
         </div>
-        <div class="flex items-center gap-3 flex-shrink-0 mt-1">
+        <div class="flex items-center gap-3 flex-shrink-0 mt-1 flex-wrap justify-end">
           {% set overdue = project.deadline and project.deadline.date() < now().date() and project.status.value != 'concluido' %}
           {% if overdue %}
           <span class="text-xs px-2 py-0.5 rounded-full text-oriens-alert bg-oriens-alert/10">Atrasado</span>
           {% endif %}
           {% if project.archived %}
           <span class="text-xs px-2 py-0.5 rounded-full text-oriens-warning bg-oriens-warning/10">Arquivado</span>
+          {% endif %}
+          {% if context_labels is defined and context_labels.get(project.context_id) %}
+          <span class="text-xs px-2 py-0.5 rounded-full bg-oriens-surface border border-oriens-border text-oriens-secondary">{{ context_labels[project.context_id] }}</span>
           {% endif %}
           <span class="text-xs {{ status_color.get(project.status.value, 'text-oriens-secondary') }}">
             {{ status_label.get(project.status.value, project.status.value) }}
@@ -68,32 +77,111 @@
           </button>
         </div>
       </div>
+    </div>
 
-      <!-- Próxima ação (destaque) -->
-      {% if project.proxima_acao %}
-      <div class="mt-5 bg-oriens-surface border border-oriens-border border-l-[3px] border-l-oriens-accent rounded-lg p-5">
-        <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-1.5">Próxima ação</p>
-        <p class="text-oriens-primary text-sm leading-relaxed">→ {{ project.proxima_acao }}</p>
+    <!-- Próxima ação operacional -->
+    <div class="mb-6 bg-oriens-surface border border-oriens-border border-l-[3px] border-l-oriens-accent rounded-lg p-5">
+      <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-2.5">Próxima ação</p>
+
+      {% if next_action.task %}
+      {% set nt = next_action.task %}
+      <div class="flex items-start gap-3">
+        <button
+          hx-patch="/api/tasks/{{ nt.id }}/done"
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful){ window.location.reload() }"
+          title="Concluir"
+          class="flex-shrink-0 mt-0.5 w-5 h-5 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors"></button>
+        <div class="min-w-0">
+          <p class="text-oriens-primary text-sm leading-snug">{{ nt.title }}</p>
+          <div class="flex items-center gap-3 mt-1.5 flex-wrap">
+            <span class="text-[11px] text-oriens-muted inline-flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full {{ energy_dot.get(nt.energy.value, 'bg-oriens-secondary') }}"></span>
+              energia {{ energy_label.get(nt.energy.value, nt.energy.value) }}
+            </span>
+            {% if nt.deadline %}
+            {% set ds = due_status(nt.deadline) %}
+            {% if ds == 'overdue' %}
+            <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-urgent/15 text-oriens-urgent">atrasado · {{ (now().date() - nt.deadline.date()).days }}d</span>
+            {% elif ds == 'today' %}
+            <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-today/15 text-oriens-today">hoje</span>
+            {% else %}
+            <span class="text-[11px] text-oriens-muted">{{ nt.deadline.strftime('%d/%m/%y') }}</span>
+            {% endif %}
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      {% elif next_action.proxima_acao %}
+      <p class="text-oriens-primary text-sm leading-relaxed">→ {{ next_action.proxima_acao }}</p>
+      <p class="text-oriens-muted text-[11px] mt-1.5">Sem tarefas pendentes — defina uma tarefa para executar em ordem.</p>
+
+      {% else %}
+      <button type="button"
+        onclick="var i=document.getElementById('new-task-input'); if(i){ i.focus(); i.scrollIntoView({behavior:'smooth', block:'center'}); }"
+        class="text-oriens-accent text-sm hover:opacity-80 transition-opacity cursor-pointer">
+        Defina a próxima tarefa
+      </button>
+      {% endif %}
+    </div>
+
+    <!-- Tarefas do projeto (execução) -->
+    <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Tarefas do projeto</h2>
+        {% if progress.total %}
+        <span class="text-oriens-muted text-xs font-mono">{{ progress.done }}/{{ progress.total }} · {{ progress.pct }}%</span>
+        {% endif %}
+      </div>
+
+      {% if progress.total %}
+      <div class="h-1.5 rounded-full bg-oriens-card-hover overflow-hidden mb-4">
+        <div class="h-full rounded-full {% if progress.pct == 100 %}bg-oriens-success{% else %}bg-oriens-btn{% endif %}"
+             style="width: {{ progress.pct }}%;"></div>
       </div>
       {% endif %}
 
-      <!-- Progresso -->
-      {% if progress.total %}
-      <div class="mt-5 bg-oriens-surface border border-oriens-border border-l-[3px] border-l-oriens-accent rounded-lg p-5">
-        <div class="flex items-center justify-between mb-1.5">
-          <span class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide">Progresso</span>
-          <span class="text-oriens-primary text-xs font-mono">{{ progress.done }}/{{ progress.total }} · {{ progress.pct }}%</span>
+      <div class="mb-4">
+        {% set project_id = project.id %}
+        {% with criterios = [] %}{% include "partials/task_form.html" %}{% endwith %}
+      </div>
+
+      <div id="task-list-pending">
+        {% for task in pending_tasks %}
+          {% with draggable = true, reload_on_done = true %}{% include "partials/task_with_subtasks.html" %}{% endwith %}
+        {% endfor %}
+      </div>
+      {% if not pending_tasks %}
+      <p id="no-pending" class="text-oriens-empty text-sm italic">Nenhuma tarefa pendente.</p>
+      {% endif %}
+
+      {% if blocked_tasks %}
+      <div class="mt-4">
+        <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-3">Bloqueadas</p>
+        {% for task in blocked_tasks %}
+          {% with reload_on_done = true %}{% include "partials/task_with_subtasks.html" %}{% endwith %}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if done_tasks %}
+      <div class="mt-4" x-data="{ show: false }">
+        <button @click="show = !show"
+          class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-3 flex items-center gap-2 hover:text-oriens-primary transition-colors">
+          <span x-text="show ? '▾' : '▸'"></span>
+          <span>Concluídas ({{ done_tasks | length }})</span>
+        </button>
+        <div x-show="show" x-transition class="bg-oriens-card rounded-lg px-1 py-1">
+          {% for task in done_tasks %}
+            {% include "partials/task_item.html" %}
+          {% endfor %}
         </div>
-        <div class="h-2.5 rounded-full bg-oriens-card-hover overflow-hidden">
-          <div class="h-full rounded-full {% if progress.pct == 100 %}bg-oriens-success{% else %}bg-oriens-btn{% endif %}"
-               style="width: {{ progress.pct }}%;"></div>
-        </div>
-        <p class="text-oriens-muted text-xs mt-2">{{ progress.done }} de {{ progress.total }} tarefas concluídas</p>
       </div>
       {% endif %}
     </div>
 
-    <!-- Metadata + Edit -->
+    <!-- Detalhes do projeto (metadados + edição) -->
     <div x-data="{ editing: false }"
          @abrir-edicao.window="editing = true; $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'center' }))"
          class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
@@ -222,10 +310,10 @@
         </div>
 
         <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Próxima ação</label>
+          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Próxima ação (fallback)</label>
           <input type="text" name="proxima_acao"
             value="{{ project.proxima_acao or '' }}"
-            placeholder="Qual é a próxima ação concreta?"
+            placeholder="Usada como próxima ação quando não há tarefas pendentes"
             class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
         </div>
 
@@ -255,25 +343,6 @@
         </div>
       </form>
     </div>
-
-    <!-- IA -->
-    {% if ai_enabled %}
-    <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">IA</h2>
-      </div>
-      <button
-        hx-post="/api/ai/suggest-actions/{{ project.id }}"
-        hx-target="#ai-project-suggestions"
-        hx-swap="innerHTML"
-        hx-indicator="#ai-project-spinner"
-        class="text-oriens-link text-sm hover:opacity-80 transition-colors cursor-pointer">
-        Sugerir próximas ações →
-      </button>
-      <span id="ai-project-spinner" class="htmx-indicator text-oriens-tertiary text-xs ml-2">...</span>
-      <div id="ai-project-suggestions" class="mt-2"></div>
-    </div>
-    {% endif %}
 
     <!-- Decisões -->
     <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
@@ -351,6 +420,56 @@
       </div>
     </div>
 
+    <!-- Anexos -->
+    <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
+      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Anexos</h2>
+
+      <div id="attachments-list">
+        {% for att in attachments %}
+          {% include "partials/project_attachment.html" %}
+        {% else %}
+        <p class="text-oriens-empty text-sm italic mb-4">Nenhum anexo.</p>
+        {% endfor %}
+      </div>
+
+      <form
+        hx-post="/api/projects/{{ project.id }}/attachments"
+        hx-target="#attachments-list"
+        hx-swap="afterbegin"
+        hx-encoding="multipart/form-data"
+        hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+        class="mt-4 flex items-center gap-2">
+        <input type="file" name="file" required
+          class="flex-1 text-oriens-tertiary text-xs file:mr-3 file:py-1.5 file:px-3
+                 file:rounded file:border-0 file:text-xs file:font-medium
+                 file:bg-oriens-surface file:text-oriens-primary hover:file:bg-oriens-card
+                 file:cursor-pointer cursor-pointer">
+        <button type="submit"
+          class="flex-shrink-0 bg-oriens-surface border border-oriens-border text-oriens-primary rounded-lg px-4 py-1.5 text-xs hover:bg-oriens-card transition-colors">
+          Enviar
+        </button>
+      </form>
+    </div>
+
+    <!-- IA -->
+    {% if ai_enabled %}
+    <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">IA</h2>
+      </div>
+      <button
+        hx-post="/api/ai/suggest-actions/{{ project.id }}"
+        hx-target="#ai-project-suggestions"
+        hx-swap="innerHTML"
+        hx-indicator="#ai-project-spinner"
+        class="text-oriens-link text-sm hover:opacity-80 transition-colors cursor-pointer">
+        Sugerir próximas ações →
+      </button>
+      <span id="ai-project-spinner" class="htmx-indicator text-oriens-tertiary text-xs ml-2">...</span>
+      <div id="ai-project-suggestions" class="mt-2"></div>
+    </div>
+    {% endif %}
+
     <!-- Riscos — OCULTO da UI por opção (backend/model/rota intactos). Trocar false→true para reativar. -->
     {% if false %}
     <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4" x-data="{ adding: false }">
@@ -410,82 +529,6 @@
       </form>
     </div>
     {% endif %}
-
-    <!-- Anexos -->
-    <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Anexos</h2>
-
-      <div id="attachments-list">
-        {% for att in attachments %}
-          {% include "partials/project_attachment.html" %}
-        {% else %}
-        <p class="text-oriens-empty text-sm italic mb-4">Nenhum anexo.</p>
-        {% endfor %}
-      </div>
-
-      <form
-        hx-post="/api/projects/{{ project.id }}/attachments"
-        hx-target="#attachments-list"
-        hx-swap="afterbegin"
-        hx-encoding="multipart/form-data"
-        hx-on::after-request="if(event.detail.successful){ $el.reset() }"
-        class="mt-4 flex items-center gap-2">
-        <input type="file" name="file" required
-          class="flex-1 text-oriens-tertiary text-xs file:mr-3 file:py-1.5 file:px-3
-                 file:rounded file:border-0 file:text-xs file:font-medium
-                 file:bg-oriens-surface file:text-oriens-primary hover:file:bg-oriens-card
-                 file:cursor-pointer cursor-pointer">
-        <button type="submit"
-          class="flex-shrink-0 bg-oriens-surface border border-oriens-border text-oriens-primary rounded-lg px-4 py-1.5 text-xs hover:bg-oriens-card transition-colors">
-          Enviar
-        </button>
-      </form>
-    </div>
-
-    <!-- Tarefas -->
-    <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Tarefas</h2>
-      </div>
-
-      <div class="mb-4">
-        {% set project_id = project.id %}
-        {% include "partials/task_form.html" %}
-      </div>
-
-      <div id="task-list-pending">
-        {% for task in pending_tasks %}
-          {% include "partials/task_with_subtasks.html" %}
-        {% endfor %}
-        {% if not pending_tasks %}
-        <p class="text-oriens-empty text-sm italic">Nenhuma tarefa pendente.</p>
-        {% endif %}
-      </div>
-
-      {% if blocked_tasks %}
-      <div class="mt-4">
-        <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-3">Bloqueadas</p>
-        {% for task in blocked_tasks %}
-          {% include "partials/task_with_subtasks.html" %}
-        {% endfor %}
-      </div>
-      {% endif %}
-
-      {% if done_tasks %}
-      <div class="mt-4" x-data="{ show: false }">
-        <button @click="show = !show"
-          class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-3 flex items-center gap-2 hover:text-oriens-primary transition-colors">
-          <span x-text="show ? '▾' : '▸'"></span>
-          <span>Concluídas ({{ done_tasks | length }})</span>
-        </button>
-        <div x-show="show" x-transition class="bg-oriens-card rounded-lg px-1 py-1">
-          {% for task in done_tasks %}
-            {% include "partials/task_item.html" %}
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-    </div>
 
   </div>
 
@@ -591,5 +634,36 @@
   </aside>
 
 </div>
+
+<!-- Drag-and-drop das tarefas pendentes (só nesta página) -->
+<script>
+(function(){
+  function initSort(){
+    var el = document.getElementById('task-list-pending');
+    if(!el || el._sortable || typeof Sortable === 'undefined') return;
+    el._sortable = Sortable.create(el, {
+      handle: '.drag-handle',
+      draggable: '.project-task-row',
+      animation: 150,
+      onEnd: function(){
+        var ids = Array.prototype.slice.call(el.querySelectorAll(':scope > .project-task-row'))
+          .map(function(r){ return parseInt(r.getAttribute('data-task-id'), 10); })
+          .filter(function(n){ return !isNaN(n); });
+        if(!ids.length) return;
+        fetch('/api/projects/{{ project.id }}/task-order', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task_ids: ids })
+        });
+      }
+    });
+  }
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', initSort);
+  } else {
+    initSort();
+  }
+})();
+</script>
 
 {% endblock %}

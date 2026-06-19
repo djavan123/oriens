@@ -128,7 +128,10 @@ C:\Projetos\Sistema tarefas\
 │   │   │   ├── detail.html            # próxima ação em destaque no topo; Decisões; arquivar/desarquivar; "Atividade Recente" (SCRIPT 5)
 │   │   │   └── reports.html           # coluna "Decisões" (era "Marcos") — SCRIPT 5
 │   │   └── partials/
-│   │       ├── task_item.html         # badge de contexto, etiquetas, 🔔 lembrete e urgência (atrasado/hoje — SCRIPT 6)
+│   │       ├── task_item.html         # PARTIAL UNIFICADO de tarefa — lista densa, flags via {% with %} (SCRIPT 9)
+│   │       ├── task_with_subtasks.html # wrapper de tarefa com subtarefas; passa allow_subtask+show_importancia
+│   │       ├── dashboard_task.html     # thin wrapper → task_item com show_project/show_adiar/refresh_priorities (SCRIPT 9)
+│   │       ├── capture_item.html      # item de captura — mesmo estilo visual denso (SCRIPT 9)
 │   │       ├── theme_switcher.html      # 3 bolinhas dark/light/warm (Alpine `theme`) — SCRIPT 6
 │   │       ├── task_form.html         # CRIAÇÃO só com título (SCRIPT 4)
 │   │       ├── task_edit_form.html    # energia/prazo/resp/etiquetas/quick win/lembrete; contexto travado se for de projeto
@@ -138,8 +141,7 @@ C:\Projetos\Sistema tarefas\
 │   │       ├── criterio_selector.html  # botões 0-5 obrigatórios por critério (radios) — SCRIPT 8
 │   │       ├── foco_do_dia.html        # card âncora do Dashboard (borda accent, edição inline) — SCRIPT 8
 │   │       ├── dashboard_priorities.html # wrapper: resumo + pills + grupos + polling 30s — SCRIPT 8
-│   │       ├── dashboard_task.html     # card de prioridade (projeto/urgência/importância/esforço/adiar) — SCRIPT 8
-│   │       └── ... (subtasks, project_card/comment/attachment/risk, capture, process, ai_result)
+│   │       └── ... (project_card/comment/attachment/risk, process, ai_result)
 │   ├── static/                        # PWA: manifest.webmanifest, sw.js, icon.svg + css/theme.css (3 temas — SCRIPT 6)
 │   └── utils/
 │       ├── auth.py                    # cookie: oriens_token
@@ -506,6 +508,23 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **Dashboard (Prioridades):** três grupos (Atrasadas/Hoje/Alta), máx. 3/grupo (+expandir), resumo com bolinhas, pills de filtro (Todos/Atrasado/Hoje/Alta), cards ricos (projeto, urgência, `alta · X.X`, esforço `⏱`, `⚠` sem nota, **adiar**), ordenação intra-grupo por importância e **polling 30s** sem reload (`partials/dashboard_priorities.html` + `dashboard_task.html`, `GET /dashboard/priorities`, `PATCH /api/tasks/{id}/adiar`).
 - Migração aditiva: SQLite (`_ENSURE_COLUMNS` tasks/users) + PG (`_ENSURE_COLUMNS_PG` tasks/users); tabelas novas via `create_all`.
 
+### ✅ SCRIPT 9 — Redesign visual de lista de tarefas
+- **Partial unificado `task_item.html`:** substitui tanto o antigo `task_item.html` (projeto/dashboard-overload) quanto o `dashboard_task.html` (dashboard-prioridades). Um único componente renderiza tarefas em todos os contextos.
+- **Visual denso (estilo Todoist):** itens sem card individual; separador `border-b border-oriens-divider`; sem `mb-2` entre itens; hover com `bg-oriens-card-hover rounded-md transition-colors`; ações aparecem com `opacity-0 → opacity-100 duration-150`.
+- **Checkbox com cor de urgência:** borda assume `border-oriens-urgent` (atrasado) ou `border-oriens-today` (hoje) — calculada via `due_status` no topo do partial. Concluído: check `text-oriens-success` com `bg-oriens-success/20`.
+- **Badges condicionais** (só rendem quando o dado existe): projeto `📁` (11px muted), urgência (atrasado·Nd / hoje, fundo translúcido), importância `alta · X.X` (`text-oriens-accent bg-oriens-accent/10`, só faixa alta), `⚠` sem nota, esforço `⏱` (11px muted), quick win, contexto, tags, lembrete 🔔.
+- **Flags via `{% with %}`** (composição sem código duplicado):
+  - `allow_subtask` — botão "+" de subtarefa (usado em `task_with_subtasks.html`)
+  - `show_importancia` — mostra badge de importância (projeto e dashboard)
+  - `show_project` + `project_map` — badge 📁 com nome do projeto (dashboard)
+  - `show_adiar` — botão "adiar" no hover + campo de data Alpine (dashboard)
+  - `refresh_priorities` — ao concluir, dispara `htmx.trigger(body,'refreshPriorities')` em vez de remover DOM após 450ms
+- **`dashboard_task.html`** virou thin wrapper (3 linhas) que chama `task_item.html` com `show_project=true, show_importancia=true, show_adiar=true, refresh_priorities=true`. A rota e o `dashboard_priorities.html` não mudam.
+- **`capture_item.html`** atualizado para o mesmo estilo visual (border-b, hover bg, data em 11px) — mantém modelo `CaptureInbox`, sem checkbox.
+- **`process_item.html`** — cabeçalho (texto/data) alinhado visualmente (`leading-snug`, data `text-[11px]`).
+- **Containers** trocados de `px-4` para `px-1 py-1` onde itens entravam (`dashboard.html` overload/minimal/quick-wins/bloqueios, `dashboard_priorities.html` inner div). Tarefas concluídas no `detail.html` ganharam wrapper `bg-oriens-card rounded-lg px-1 py-1`.
+- **Sem migrações de schema** — mudança puramente de templates.
+
 ---
 
 ## PRODUÇÃO E OPERAÇÃO (VPS)
@@ -540,7 +559,7 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualiza
 | Rotas principais | 6 arquivos (+ `settings.py`) |
 | Rotas API | 7 arquivos (+ `api/settings.py`, `api/reminders.py`) |
 | Endpoints totais | ~43 |
-| Templates HTML | ~31 (+ critérios/foco/dashboard de prioridades — SCRIPT 8) |
+| Templates HTML | ~31 (partial unificado task_item — SCRIPT 9) |
 | Temas | 3 (`dark`/`light`/`warm`) via `static/css/theme.css` |
 | Ambiente | Dev (SQLite) + Produção (PostgreSQL na VPS) |
 

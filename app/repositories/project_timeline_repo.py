@@ -40,3 +40,16 @@ class ProjectTimelineRepository:
             .where(ProjectTimeline.project_id == project_id)
         )
         return result.scalar_one_or_none()
+
+    async def last_activity_by_projects(
+        self, project_ids: list[int]
+    ) -> dict[int, datetime]:
+        """{project_id: data da atividade mais recente}, em uma query."""
+        if not project_ids:
+            return {}
+        result = await self.db.execute(
+            select(ProjectTimeline.project_id, func.max(ProjectTimeline.created_at))
+            .where(ProjectTimeline.project_id.in_(project_ids))
+            .group_by(ProjectTimeline.project_id)
+        )
+        return {row[0]: row[1] for row in result.all()}

@@ -101,6 +101,7 @@ async def create_task(
         )
     extra = {}
     proj_id = _parse_int(project_id)
+    project = None
     # Herança de contexto: tarefa dentro de um projeto herda o contexto dele.
     if proj_id is not None:
         from app.services.project_service import ProjectService
@@ -125,13 +126,14 @@ async def create_task(
     if tags is not None:
         extra["tags"] = tags.strip() or None
 
-    # Importância: tarefas de topo (não subtarefas) cujo contexto tem critérios
-    # devem responder todos antes de salvar. Subtarefas ficam sem nota.
+    # Importância: só tarefas avulsas de topo usam critérios. Tarefas de projeto
+    # (execução por ordem) e subtarefas ficam sem nota — nada de critérios.
     is_subtask = pid is not None
+    is_project_task = proj_id is not None
     ctx_for_crit = extra.get("context_id")
     imp_service = ImportanciaService(db)
     criterios, valores, faltando = ([], {}, [])
-    if not is_subtask:
+    if not is_subtask and not is_project_task:
         form = await request.form()
         criterios, valores, faltando = await imp_service.parse_form_valores(ctx_for_crit, form)
         if criterios and faltando:
@@ -153,6 +155,16 @@ async def create_task(
     if criterios:
         imp, sem_nota = await imp_service.apply(task.id, criterios, valores)
         task = await service.update(task.id, current_user.id, importancia=imp, sem_nota=sem_nota)
+
+    # Tarefa de topo de um projeto: devolve o wrapper arrastável (com data-task-id),
+    # para entrar na lista de execução já reordenável. Subtarefas/avulsas → item simples.
+    if is_project_task and not is_subtask:
+        return templates.TemplateResponse(
+            request,
+            "partials/task_with_subtasks.html",
+            {"task": task, "project": project, "subtasks": {},
+             "draggable": True, "reload_on_done": True},
+        )
 
     return templates.TemplateResponse(
         request, "partials/task_item.html", {"task": task}
@@ -272,9 +284,9 @@ async def edit_form(
     users_result = await db.execute(select(UserModel).order_by(UserModel.name))
     users = list(users_result.scalars().all())
 
-    # Critérios de importância do contexto da tarefa (só tarefas de topo).
+    # Critérios de importância: só tarefas avulsas de topo (não de projeto).
     criterios, valores = [], {}
-    if task.parent_id is None and task.context_id is not None:
+    if task.parent_id is None and task.project_id is None and task.context_id is not None:
         criterios = await CriterioContextoRepository(db).get_by_context(task.context_id)
         if criterios:
             valores = await ImportanciaService(db).get_valores_by_task(task_id)
@@ -333,13 +345,11 @@ async def update_task(
         kwargs["reminder_telegram_sent"] = False
         kwargs["reminder_acked"] = False
 
-    # Importância: contexto efetivo (projeto = travado; avulsa = o que vier/atual).
+    # Importância: só tarefas avulsas de topo usam critérios. Tarefas de projeto
+    # (execução por ordem) e subtarefas não calculam importância.
     is_subtask = existing.parent_id is not None
-    if existing.project_id is not None:
-        eff_ctx = existing.context_id
-    else:
+    if existing.project_id is None and not is_subtask:
         eff_ctx = kwargs.get("context_id", existing.context_id)
-    if not is_subtask:
         imp_service = ImportanciaService(db)
         criterios, valores, faltando = await imp_service.parse_form_valores(
             eff_ctx, await request.form()

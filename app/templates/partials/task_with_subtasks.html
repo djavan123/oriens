@@ -1,22 +1,32 @@
+{# Linha de tarefa de projeto (com subtarefas). Sem badge de importância (execução por ordem).
+   Vars: task, subtasks, project; draggable (bool, mostra alça); reload_on_done (bool). #}
 {% set parent = task %}
-{% with allow_subtask=true, show_importancia=true %}{% include "partials/task_item.html" %}{% endwith %}
-<div class="ml-7 border-l border-oriens-border pl-3">
-  <div id="subtasks-{{ parent.id }}">
-    {% for sub in (subtasks.get(parent.id) if subtasks is defined and subtasks else None) or [] %}
-      {% with task = sub, allow_subtask = false %}{% include "partials/task_item.html" %}{% endwith %}
-    {% endfor %}
+<div class="project-task-row flex items-start gap-1" data-task-id="{{ parent.id }}">
+  {% if draggable is defined and draggable %}
+  <span class="drag-handle flex-shrink-0 mt-2.5 px-0.5 cursor-grab text-oriens-muted hover:text-oriens-secondary select-none leading-none"
+        title="Arraste para reordenar">⠿</span>
+  {% endif %}
+  <div class="flex-1 min-w-0">
+    {% with allow_subtask = true %}{% include "partials/task_item.html" %}{% endwith %}
+    <div class="ml-7 border-l border-oriens-border pl-3">
+      <div id="subtasks-{{ parent.id }}">
+        {% for sub in (subtasks.get(parent.id) if subtasks is defined and subtasks else None) or [] %}
+          {% with task = sub, allow_subtask = false %}{% include "partials/task_item.html" %}{% endwith %}
+        {% endfor %}
+      </div>
+      <form
+        id="subtask-form-{{ parent.id }}"
+        hx-post="/api/tasks"
+        hx-target="#subtasks-{{ parent.id }}"
+        hx-swap="afterbegin"
+        hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); }"
+        style="display:none"
+        class="flex items-center gap-2 mt-1 py-1">
+        <input type="hidden" name="parent_id" value="{{ parent.id }}">
+        <input type="hidden" name="project_id" value="{{ project.id }}">
+        <input type="text" name="title" id="subtask-input-{{ parent.id }}" placeholder="Nova subtarefa (verbo...)"
+          class="flex-1 bg-transparent border-b border-oriens-border focus:border-oriens-accent text-oriens-secondary text-xs px-1 py-1 focus:outline-none focus:text-oriens-primary transition-colors placeholder-oriens-muted">
+      </form>
+    </div>
   </div>
-  <form
-    id="subtask-form-{{ parent.id }}"
-    hx-post="/api/tasks"
-    hx-target="#subtasks-{{ parent.id }}"
-    hx-swap="afterbegin"
-    hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); }"
-    style="display:none"
-    class="flex items-center gap-2 mt-1 py-1">
-    <input type="hidden" name="parent_id" value="{{ parent.id }}">
-    <input type="hidden" name="project_id" value="{{ project.id }}">
-    <input type="text" name="title" id="subtask-input-{{ parent.id }}" placeholder="Nova subtarefa (verbo...)"
-      class="flex-1 bg-transparent border-b border-oriens-border focus:border-oriens-accent text-oriens-secondary text-xs px-1 py-1 focus:outline-none focus:text-oriens-primary transition-colors placeholder-oriens-muted">
-  </form>
 </div>

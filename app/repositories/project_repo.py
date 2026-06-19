@@ -36,15 +36,24 @@ class ProjectRepository:
         )
         return list(result.scalars().all())
 
-    async def get_active_by_user(self, user_id: int) -> list[Project]:
-        result = await self.db.execute(
+    async def get_active_by_user(
+        self, user_id: int, context_id: Optional[int] = None
+    ) -> list[Project]:
+        q = (
             select(Project)
             .where(
                 Project.user_id == user_id,
                 Project.status == ProjectStatus.em_andamento,
                 Project.archived.is_(False),
             )
-            .order_by(Project.priority.asc(), Project.created_at.desc())
+        )
+        # Contexto antes de prioridade: projeto sem contexto aparece em todos.
+        if context_id is not None:
+            q = q.where(
+                (Project.context_id.is_(None)) | (Project.context_id == context_id)
+            )
+        result = await self.db.execute(
+            q.order_by(Project.priority.asc(), Project.created_at.desc())
         )
         return list(result.scalars().all())
 

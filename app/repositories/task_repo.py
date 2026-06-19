@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 from typing import Optional
-from sqlalchemy import case, func, select
+from sqlalchemy import case, func, nullslast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import Task, TaskStatus, CognitiveLoad, EnergyLevel
@@ -60,8 +60,11 @@ class TaskRepository:
         energy: Optional[EnergyLevel] = None,
         context_id: Optional[int] = None,
         cognitive_filter: Optional[str] = None,
+        standalone_only: bool = False,
     ) -> list[Task]:
         q = select(Task).where(Task.user_id == user_id, Task.status == TaskStatus.pending, Task.archived.is_(False), Task.parent_id.is_(None))
+        if standalone_only:
+            q = q.where(Task.project_id.is_(None))
         if energy is not None:
             q = q.where(Task.energy == energy)
         q = self._apply_context(q, context_id)
@@ -137,7 +140,12 @@ class TaskRepository:
             q = q.where(Task.status == status)
         if energy is not None:
             q = q.where(Task.energy == energy)
-        result = await self.db.execute(q.order_by(Task.priority_score.desc(), _energy_order, Task.created_at.asc()))
+        # Tarefas de projeto: ordem manual (order_index). Avulsas: por score/energia.
+        if project_id is not None:
+            order = [nullslast(Task.order_index.asc()), Task.created_at.asc()]
+        else:
+            order = [Task.priority_score.desc(), _energy_order, Task.created_at.asc()]
+        result = await self.db.execute(q.order_by(*order))
         return list(result.scalars().all())
 
     async def get_children_map(self, user_id: int, parent_ids: list[int]) -> dict[int, list[Task]]:
@@ -229,3 +237,90 @@ class TaskRepository:
         await self.db.commit()
         await self.db.refresh(task)
         return task
+
+    async def get_project_next_task(self, project_id: int, user_id: int) -> Optional[Task]:
+        """Primeira tarefa pendente de topo do projeto, em ordem manual."""
+        result = await self.db.execute(
+            select(Task)
+            .where(
+                Task.project_id == project_id,
+                Task.user_id == user_id,
+                Task.status == TaskStatus.pending,
+                Task.archived.is_(False),
+                Task.parent_id.is_(None),
+            )
+            .order_by(nullslast(Task.order_index.asc()), Task.created_at.asc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def get_max_order_index(self, project_id: int) -> int:
+        """Maior order_index atual entre tarefas de topo do projeto (-1 se nenhuma)."""
+        result = await self.db.execute(
+            select(func.max(Task.order_index))
+            .where(Task.project_id == project_id, Task.parent_id.is_(None))
+        )
+        val = result.scalar_one_or_none()
+        return val if val is not None else -1
+
+    async def reorder_project_tasks(
+        self, project_id: int, user_id: int, task_ids: list[int]
+    ) -> bool:
+        """Persiste order_index na sequência dada. Retorna False se validação falhar."""
+        if not task_ids:
+            return False
+        result = await self.db.execute(
+            select(Task).where(Task.id.in_(task_ids), Task.user_id == user_id)
+        )
+        tasks = {t.id: t for t in result.scalars().all()}
+        # Todos os IDs devem existir, pertencer a este projeto e ser tarefas de topo.
+        if len(tasks) != len(task_ids):
+            return False
+        if any(t.project_id != project_id or t.parent_id is not None for t in tasks.values()):
+            return False
+        for idx, task_id in enumerate(task_ids):
+            tasks[task_id].order_index = idx
+        await self.db.commit()
+        return True
+
+    async def next_pending_tasks_by_project(
+        self, user_id: int, project_ids: list[int]
+    ) -> dict[int, Task]:
+        """{project_id: primeira tarefa pendente de topo em ordem manual}."""
+        if not project_ids:
+            return {}
+        result = await self.db.execute(
+            select(Task)
+            .where(
+                Task.user_id == user_id,
+                Task.project_id.in_(project_ids),
+                Task.status == TaskStatus.pending,
+                Task.archived.is_(False),
+                Task.parent_id.is_(None),
+            )
+            .order_by(Task.project_id, nullslast(Task.order_index.asc()), Task.created_at.asc())
+        )
+        out: dict[int, Task] = {}
+        for t in result.scalars().all():
+            if t.project_id not in out:
+                out[t.project_id] = t
+        return out
+
+    async def pending_count_by_project(
+        self, user_id: int, project_ids: list[int]
+    ) -> dict[int, int]:
+        """{project_id: nº de tarefas pendentes de topo}."""
+        if not project_ids:
+            return {}
+        result = await self.db.execute(
+            select(Task.project_id, func.count())
+            .where(
+                Task.user_id == user_id,
+                Task.project_id.in_(project_ids),
+                Task.status == TaskStatus.pending,
+                Task.archived.is_(False),
+                Task.parent_id.is_(None),
+            )
+            .group_by(Task.project_id)
+        )
+        return {row[0]: int(row[1]) for row in result.all()}

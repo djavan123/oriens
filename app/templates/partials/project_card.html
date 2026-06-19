@@ -4,6 +4,16 @@
   'nao_iniciado': 'bg-oriens-secondary',
   'concluido':    'bg-oriens-success',
 } %}
+{% set energy_dot = {'high': 'bg-oriens-alert', 'medium': 'bg-oriens-btn', 'low': 'bg-oriens-secondary'} %}
+{% set energy_label = {'high': 'alta', 'medium': 'média', 'low': 'baixa'} %}
+{% set ex = exec_map.get(project.id) if exec_map is defined and exec_map else None %}
+{% set state_meta = {
+  'completed':   ('Concluído', 'text-oriens-success bg-oriens-success/10'),
+  'executable':  ('Executável', 'text-oriens-accent bg-oriens-accent/10'),
+  'stalled':     ('Parado', 'text-oriens-warning bg-oriens-warning/10'),
+  'no_action':   ('Sem próxima ação', 'text-oriens-urgent bg-oriens-urgent/10'),
+  'not_started': ('Não iniciado', 'text-oriens-secondary bg-oriens-card'),
+} %}
 
 <div id="project-{{ project.id }}"
      class="bg-oriens-surface rounded-lg p-3 group hover:bg-oriens-card-hover transition-colors">
@@ -19,10 +29,27 @@
     {% if project.objective %}
     <p class="text-oriens-secondary text-xs leading-relaxed line-clamp-2">{{ project.objective }}</p>
     {% endif %}
-    {% if project.proxima_acao %}
-    <p class="text-oriens-muted text-xs mt-1 truncate">→ {{ project.proxima_acao }}</p>
+    {% set next_txt = (ex.next_task.title if ex and ex.next_task else (ex.next_text if ex else project.proxima_acao)) %}
+    {% if next_txt %}
+    <p class="text-oriens-muted text-xs mt-1 truncate">→ {{ next_txt }}</p>
     {% endif %}
   </a>
+
+  <!-- Estado operacional -->
+  {% if ex %}
+  <div class="flex items-center gap-2 mt-2.5 flex-wrap text-[11px]">
+    {% set sm = state_meta.get(ex.state) %}
+    {% if sm %}<span class="px-1.5 py-0.5 rounded leading-none font-medium {{ sm[1] }}">{{ sm[0] }}</span>{% endif %}
+    {% if ex.pending_count %}<span class="text-oriens-muted">{{ ex.pending_count }} pend.</span>{% endif %}
+    {% if ex.next_task %}
+    <span class="text-oriens-muted inline-flex items-center gap-1">
+      <span class="w-1.5 h-1.5 rounded-full {{ energy_dot.get(ex.next_task.energy.value, 'bg-oriens-secondary') }}"></span>
+      {{ energy_label.get(ex.next_task.energy.value, ex.next_task.energy.value) }}
+    </span>
+    {% endif %}
+    {% if ex.last_activity %}<span class="text-oriens-muted" title="Última atividade">· {{ ex.last_activity.strftime('%d/%m') }}</span>{% endif %}
+  </div>
+  {% endif %}
 
   <!-- Progresso -->
   {% set prog = progress.get(project.id) if progress is defined and progress else None %}

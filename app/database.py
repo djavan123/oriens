@@ -54,6 +54,7 @@ _ENSURE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("reminder_acked", "BOOLEAN NOT NULL DEFAULT 0"),
         ("importancia", "REAL NOT NULL DEFAULT 0"),
         ("sem_nota", "BOOLEAN NOT NULL DEFAULT 1"),
+        ("order_index", "INTEGER"),
     ],
     "users": [
         ("foco_do_dia", "TEXT"),
@@ -94,6 +95,7 @@ _ENSURE_COLUMNS_PG: dict[str, list[tuple[str, str]]] = {
         ("reminder_acked", "BOOLEAN NOT NULL DEFAULT FALSE"),
         ("importancia", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
         ("sem_nota", "BOOLEAN NOT NULL DEFAULT TRUE"),
+        ("order_index", "INTEGER"),
     ],
     "projects": [
         ("archived", "BOOLEAN NOT NULL DEFAULT FALSE"),
@@ -112,6 +114,20 @@ def _ensure_columns_postgres(conn) -> None:
             conn.exec_driver_sql(
                 f'ALTER TABLE "{table}" ADD COLUMN IF NOT EXISTS {name} {ddl}'
             )
+    # Inicializa order_index para tarefas de projeto existentes (idempotente).
+    try:
+        conn.exec_driver_sql("""
+            UPDATE tasks SET order_index = sub.rn
+            FROM (
+                SELECT id,
+                    (ROW_NUMBER() OVER (PARTITION BY project_id ORDER BY id ASC) - 1) AS rn
+                FROM tasks
+                WHERE project_id IS NOT NULL AND parent_id IS NULL
+            ) sub
+            WHERE tasks.id = sub.id AND tasks.order_index IS NULL
+        """)
+    except Exception:
+        pass
 
 
 def _migrate_data(conn) -> None:
@@ -144,6 +160,22 @@ def _migrate_data(conn) -> None:
                 "INSERT OR IGNORE INTO project_timeline (project_id, user_id, event_type, description, created_at) "
                 "SELECT id, user_id, 'project_created', 'Projeto criado', created_at FROM projects "
                 "WHERE id NOT IN (SELECT DISTINCT project_id FROM project_timeline WHERE event_type = 'project_created')"
+            )
+    except Exception:
+        pass
+    # Inicializa order_index para tarefas de projeto existentes (0-based, por id asc).
+    try:
+        task_cols = {row[1] for row in conn.exec_driver_sql('PRAGMA table_info("tasks")')}
+        if "order_index" in task_cols:
+            conn.exec_driver_sql(
+                "UPDATE tasks "
+                "SET order_index = ("
+                "  SELECT COUNT(*) FROM tasks t2"
+                "  WHERE t2.project_id = tasks.project_id"
+                "  AND t2.parent_id IS NULL"
+                "  AND t2.id < tasks.id"
+                ") "
+                "WHERE project_id IS NOT NULL AND parent_id IS NULL AND order_index IS NULL"
             )
     except Exception:
         pass

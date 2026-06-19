@@ -2,8 +2,8 @@
   id="new-task-form"
   hx-post="/api/tasks"
   hx-target="#task-list-pending"
-  hx-swap="afterbegin"
-  hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); document.getElementById('task-form-error').innerHTML=''; }"
+  hx-swap="beforeend"
+  hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); document.getElementById('task-form-error').innerHTML=''; var np=document.getElementById('no-pending'); if(np) np.remove(); }"
   class="space-y-2">
 
   {% if project_id %}
@@ -16,6 +16,7 @@
     <input
       type="text"
       name="title"
+      id="new-task-input"
       required
       placeholder="Criar, revisar, escrever..."
       class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">

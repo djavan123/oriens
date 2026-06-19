@@ -64,6 +64,8 @@ async def projects_list(
         for pid, (done, total) in raw.items()
     }
 
+    exec_map = await service.get_executability(current_user.id, projects)
+
     users_result = await db.execute(select(User).order_by(User.name))
     users = list(users_result.scalars().all())
     responsavel_map = {u.id: u.name for u in users}
@@ -80,6 +82,7 @@ async def projects_list(
             "active_context_obj": active_context_obj,
             "all_contexts": all_contexts,
             "progress": progress,
+            "exec_map": exec_map,
             "users": users,
             "responsavel_map": responsavel_map,
         },
@@ -146,6 +149,8 @@ async def project_detail(
     if not project:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
 
+    next_action = await service.get_project_next_action(project_id, current_user.id)
+
     task_repo = TaskRepository(db)
     all_tasks = await task_repo.get_all_by_user(current_user.id, project_id=project_id)
     pending_tasks = [t for t in all_tasks if t.status == TaskStatus.pending]
@@ -194,6 +199,7 @@ async def project_detail(
         {
             "user": current_user,
             "project": project,
+            "next_action": next_action,
             "pending_tasks": pending_tasks,
             "blocked_tasks": blocked_tasks,
             "done_tasks": done_tasks,

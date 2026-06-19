@@ -1,0 +1,22 @@
+{# Coluna direita: "Tarefas avulsas" (project_id nulo). Mantém importância/energia/urgência/
+   quick win/lembrete/concluir/adiar. Recarrega ao concluir ou adiar (refreshPriorities).
+   Vars: standalone_tasks, context_labels, energy_filter. #}
+<div id="standalone-tasks"
+     hx-get="/dashboard/standalone?energy={{ energy_filter or '' }}"
+     hx-trigger="refreshPriorities from:body"
+     hx-swap="outerHTML">
+
+  <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Tarefas avulsas</h2>
+
+  {% if standalone_tasks %}
+  <div class="bg-oriens-surface rounded-xl px-1 py-1">
+    {% with show_importancia = true, show_adiar = true, refresh_priorities = true %}
+    {% for task in standalone_tasks %}
+      {% include "partials/task_item.html" %}
+    {% endfor %}
+    {% endwith %}
+  </div>
+  {% else %}
+  <p class="text-oriens-empty text-sm italic">Nenhuma tarefa avulsa pendente.</p>
+  {% endif %}
+</div>

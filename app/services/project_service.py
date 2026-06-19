@@ -10,6 +10,17 @@ from app.repositories.project_timeline_repo import ProjectTimelineRepository
 
 _CLOSING_STATUSES = {ProjectStatus.concluido}
 
+# Dias sem atividade para um projeto em andamento ser considerado "parado".
+_STALLED_DAYS = 7
+
+
+def _days_since(dt: Optional[datetime]) -> Optional[int]:
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.replace(tzinfo=None)
+    return (datetime.utcnow() - dt).days
+
 # Campos cujas alterações são registradas no histórico do projeto.
 _AUDITED_FIELDS = ("status", "priority", "name", "deadline", "objective", "scope", "notes", "proxima_acao")
 
@@ -88,6 +99,67 @@ class ProjectService:
         self.timeline.record(project.id, user_id, TimelineEventType.project_created, f'Projeto "{project.name}" criado')
         await self.db.commit()
         return project
+
+    async def get_project_next_action(self, project_id: int, user_id: int) -> dict:
+        """Próxima ação executável do projeto.
+
+        Retorna dict com:
+          task         — primeira tarefa pendente em ordem manual (ou None)
+          proxima_acao — fallback para project.proxima_acao quando não há tarefa (ou None)
+          executable   — True se há algo a fazer
+        """
+        from app.repositories.task_repo import TaskRepository
+        task = await TaskRepository(self.db).get_project_next_task(project_id, user_id)
+        project = await self.repo.get_by_id(project_id, user_id)
+        fallback = project.proxima_acao if (project and not task) else None
+        return {
+            "task": task,
+            "proxima_acao": fallback,
+            "executable": task is not None or bool(fallback),
+        }
+
+    async def get_executability(self, user_id: int, projects: list[Project]) -> dict:
+        """Mapa {project_id: estado operacional} para a listagem de projetos.
+
+        Estados: completed | not_started | no_action | stalled | executable.
+        next_task = primeira tarefa pendente em ordem manual; next_text = fallback
+        proxima_acao quando não há tarefa pendente.
+        """
+        ids = [p.id for p in projects]
+        if not ids:
+            return {}
+        from app.repositories.task_repo import TaskRepository
+        trepo = TaskRepository(self.db)
+        next_tasks = await trepo.next_pending_tasks_by_project(user_id, ids)
+        counts = await trepo.pending_count_by_project(user_id, ids)
+        activity = await self.timeline.last_activity_by_projects(ids)
+
+        out: dict[int, dict] = {}
+        for p in projects:
+            nt = next_tasks.get(p.id)
+            fallback = p.proxima_acao if (not nt and p.proxima_acao) else None
+            executable = nt is not None or bool(fallback)
+            last = activity.get(p.id) or p.updated_at
+
+            if p.status == ProjectStatus.concluido:
+                state = "completed"
+            elif p.status == ProjectStatus.nao_iniciado:
+                state = "not_started"
+            elif not executable:
+                state = "no_action"
+            else:
+                days = _days_since(last)
+                state = "stalled" if (days is not None and days >= _STALLED_DAYS) else "executable"
+
+            out[p.id] = {
+                "state": state,
+                "next_task": nt,
+                "next_text": fallback,
+                "pending_count": counts.get(p.id, 0),
+                "last_activity": last,
+                "executable": executable,
+            }
+        return out
 
     async def update(self, project_id: int, user_id: int, **kwargs) -> Optional[Project]:
         project = await self.repo.get_by_id(project_id, user_id)

@@ -53,15 +53,19 @@ async def dashboard(
     data = await service.get_dashboard_data(
         current_user.id, energy_filter=energy_enum, context_id=context_id,
     )
-    priorities = await service.get_priorities_grouped(
-        current_user.id, energy=energy_enum, context_id=context_id, filtro="todos",
+    projects_focus = await service.get_projects_in_focus(
+        current_user.id, context_id=context_id,
+    )
+    standalone_tasks = await service.get_standalone_tasks(
+        current_user.id, energy=energy_enum, context_id=context_id,
     )
 
     now = datetime.now()
     context = {
         "user": current_user,
         "data": data,
-        "priorities": priorities,
+        "projects_focus": projects_focus,
+        "standalone_tasks": standalone_tasks,
         "energy_filter": energy_filter,
         "active_context_obj": active_context_obj,
         "all_contexts": all_contexts,
@@ -106,6 +110,43 @@ async def dashboard_priorities(
     return templates.TemplateResponse(
         request, "partials/dashboard_priorities.html",
         {"priorities": priorities, "energy_filter": energy_filter},
+    )
+
+
+@router.get("/dashboard/projects-focus", response_class=HTMLResponse)
+async def dashboard_projects_focus(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    context_id, _, _ = await resolve_active_context(request, db, current_user.id)
+    projects_focus = await DashboardService(db).get_projects_in_focus(
+        current_user.id, context_id=context_id,
+    )
+    return templates.TemplateResponse(
+        request, "partials/dashboard_projects_focus.html",
+        {"projects_focus": projects_focus},
+    )
+
+
+@router.get("/dashboard/standalone", response_class=HTMLResponse)
+async def dashboard_standalone(
+    request: Request,
+    energy: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    energy_filter = energy if energy in _VALID_ENERGIES else None
+    energy_enum = EnergyLevel(energy_filter) if energy_filter else None
+    context_id, _, all_contexts = await resolve_active_context(request, db, current_user.id)
+    context_labels = {ctx.id: ctx.name for ctx in all_contexts}
+    standalone_tasks = await DashboardService(db).get_standalone_tasks(
+        current_user.id, energy=energy_enum, context_id=context_id,
+    )
+    return templates.TemplateResponse(
+        request, "partials/dashboard_standalone.html",
+        {"standalone_tasks": standalone_tasks, "context_labels": context_labels,
+         "energy_filter": energy_filter},
     )
 
 

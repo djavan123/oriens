@@ -60,3 +60,5 @@ class Task(Base):
     remind_at:               Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     reminder_telegram_sent:  Mapped[bool]               = mapped_column(Boolean, default=False, nullable=False)
     reminder_acked:          Mapped[bool]               = mapped_column(Boolean, default=False, nullable=False)
+    # Ordenação manual dentro do projeto (NULL para tarefas avulsas e subtarefas).
+    order_index:             Mapped[Optional[int]]      = mapped_column(Integer, nullable=True)

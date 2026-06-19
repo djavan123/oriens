@@ -59,6 +59,10 @@ class TaskService:
         if not valid:
             raise TaskVerbError(title, suggestions)
         extra["priority_score"] = _calc_score(**extra)
+        # Tarefas de topo num projeto recebem order_index = max+1 (append ao final).
+        is_subtask = extra.get("parent_id") is not None
+        if project_id is not None and not is_subtask:
+            extra["order_index"] = await self.repo.get_max_order_index(project_id) + 1
         task = await self.repo.create(
             user_id=user_id,
             title=title,

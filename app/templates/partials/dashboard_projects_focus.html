@@ -1,0 +1,25 @@
+{# Coluna principal: "Projetos em foco". Auto-recarrega ao concluir uma próxima ação.
+   Var: projects_focus = {focus: [{project, next_task, next_text}], without_next_count}. #}
+<div id="projects-focus"
+     hx-get="/dashboard/projects-focus"
+     hx-trigger="refreshProjectsFocus from:body"
+     hx-swap="outerHTML">
+
+  <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Projetos em foco</h2>
+
+  {% if projects_focus.focus %}
+  <div class="space-y-3">
+    {% for item in projects_focus.focus %}
+      {% include "partials/dashboard_project_card.html" %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-oriens-empty text-sm italic">Nenhum projeto com próxima ação agora.</p>
+  {% endif %}
+
+  {% if projects_focus.without_next_count %}
+  <p class="text-oriens-muted text-[11px] mt-3">
+    {{ projects_focus.without_next_count }} projeto{{ 's' if projects_focus.without_next_count != 1 else '' }} sem próxima ação para revisar
+  </p>
+  {% endif %}
+</div>
