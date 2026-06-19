@@ -220,6 +220,20 @@ async def archive_task(
     return HTMLResponse("")
 
 
+@router.patch("/{task_id}/adiar", response_class=HTMLResponse)
+async def adiar_task(
+    task_id: int,
+    deadline: Optional[str] = Form(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Adiar = escolher novo prazo. Atualiza o deadline e pede refresh da lista do Dashboard."""
+    task = await TaskService(db).update(task_id, current_user.id, deadline=_parse_date(deadline))
+    if not task:
+        raise HTTPException(status_code=404)
+    return HTMLResponse("", status_code=204, headers={"HX-Trigger": "refreshPriorities"})
+
+
 @router.get("/{task_id}/cancel-edit", response_class=HTMLResponse)
 async def cancel_edit(
     task_id: int,

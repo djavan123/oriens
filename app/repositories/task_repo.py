@@ -74,6 +74,25 @@ class TaskRepository:
         tasks.sort(key=_priority_sort_key)
         return tasks[:limit]
 
+    async def get_pending_for_dashboard(
+        self,
+        user_id: int,
+        energy: Optional[EnergyLevel] = None,
+        context_id: Optional[int] = None,
+    ) -> list[Task]:
+        """Todas as tarefas pendentes de topo (sem limite) para o agrupamento do Dashboard."""
+        q = select(Task).where(
+            Task.user_id == user_id,
+            Task.status == TaskStatus.pending,
+            Task.archived.is_(False),
+            Task.parent_id.is_(None),
+        )
+        if energy is not None:
+            q = q.where(Task.energy == energy)
+        q = self._apply_context(q, context_id)
+        result = await self.db.execute(q)
+        return list(result.scalars().all())
+
     async def get_quick_wins(
         self,
         user_id: int,

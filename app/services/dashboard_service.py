@@ -7,11 +7,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.project import Project
 from app.models.task import Task, EnergyLevel
 from app.models.weekly_directive import WeeklyDirective
+from sqlalchemy import select
+
 from app.repositories.project_repo import ProjectRepository
-from app.repositories.task_repo import TaskRepository
+from app.repositories.task_repo import TaskRepository, _urgency_rank
 from app.repositories.weekly_directive_repo import WeeklyDirectiveRepository
 from app.services.weekly_directive_service import current_week_start
 from app.utils.overload_detector import OverloadResult, calculate_overload
+
+_DASH_CAP = 3  # máximo de cards visíveis por grupo
+_ALTA_MIN = 4.0  # importância mínima para a faixa "alta"
+
+
+def _grupo_sort(t: Task):
+    return (-t.importancia, -t.priority_score, t.created_at)
 
 
 @dataclass
@@ -27,9 +36,81 @@ class DashboardData:
 
 class DashboardService:
     def __init__(self, db: AsyncSession):
+        self.db = db
         self.projects = ProjectRepository(db)
         self.tasks = TaskRepository(db)
         self.weekly = WeeklyDirectiveRepository(db)
+
+    async def get_priorities_grouped(
+        self,
+        user_id: int,
+        energy: Optional[EnergyLevel] = None,
+        context_id: Optional[int] = None,
+        filtro: str = "todos",
+        expand: bool = False,
+    ) -> dict:
+        """Agrupa as pendências em Atrasadas / Hoje / Alta importância, com cap e filtro."""
+        if filtro not in ("todos", "atrasado", "hoje", "alta"):
+            filtro = "todos"
+        cap = 9999 if expand else _DASH_CAP
+        tasks = await self.tasks.get_pending_for_dashboard(
+            user_id, energy=energy, context_id=context_id
+        )
+        atrasadas, hoje, alta = [], [], []
+        for t in tasks:
+            r = _urgency_rank(t)
+            if r == 0:
+                atrasadas.append(t)
+            elif r == 1:
+                hoje.append(t)
+            elif t.importancia >= _ALTA_MIN:
+                alta.append(t)
+        for lst in (atrasadas, hoje, alta):
+            lst.sort(key=_grupo_sort)
+
+        summary = {"atrasadas": len(atrasadas), "hoje": len(hoje), "alta": len(alta)}
+
+        def _g(key, label, items):
+            return {
+                "key": key,
+                "label": label,
+                "visible": items[:cap],
+                "hidden": max(0, len(items) - cap),
+            }
+
+        if filtro == "alta":
+            combined = sorted(
+                [t for t in tasks if t.importancia >= _ALTA_MIN], key=_grupo_sort
+            )
+            groups = [_g("alta", "Alta importância", combined)]
+        elif filtro == "atrasado":
+            groups = [_g("atrasadas", "Atrasadas", atrasadas)]
+        elif filtro == "hoje":
+            groups = [_g("hoje", "Hoje", hoje)]
+        else:
+            groups = [
+                _g("atrasadas", "Atrasadas", atrasadas),
+                _g("hoje", "Hoje", hoje),
+                _g("alta", "Alta importância", alta),
+            ]
+        groups = [g for g in groups if g["visible"] or g["hidden"]]
+        total_hidden = sum(g["hidden"] for g in groups)
+
+        pids = {t.project_id for t in tasks if t.project_id}
+        project_map: dict[int, str] = {}
+        if pids:
+            res = await self.db.execute(
+                select(Project.id, Project.name).where(Project.id.in_(pids))
+            )
+            project_map = {row[0]: row[1] for row in res.all()}
+
+        return {
+            "groups": groups,
+            "summary": summary,
+            "total_hidden": total_hidden,
+            "project_map": project_map,
+            "filtro": filtro,
+        }
 
     async def get_dashboard_data(
         self,
