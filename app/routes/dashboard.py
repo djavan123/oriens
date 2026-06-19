@@ -70,6 +70,7 @@ async def dashboard(
         "standalone_tasks": standalone_tasks,
         "energy_filter": energy_filter,
         "active_context_obj": active_context_obj,
+        "active_context_id": context_id,
         "all_contexts": all_contexts,
         "context_labels": context_labels,
         "user_labels": user_labels,
@@ -172,6 +173,7 @@ async def dashboard_standalone(
     return templates.TemplateResponse(
         request, "partials/dashboard_standalone.html",
         {"standalone_tasks": standalone_tasks, "context_labels": context_labels,
+         "all_contexts": all_contexts, "active_context_id": context_id,
          "energy_filter": energy_filter},
     )
 

@@ -77,31 +77,27 @@
       </div>
     </div>
 
-    <div>
-      <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Projeto</label>
-      <select name="task_project_id"
-        class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-        <option value="">Sem projeto</option>
-        {% for p in active_projects %}
-        <option value="{{ p.id }}">{{ p.name }}</option>
-        {% endfor %}
-      </select>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Importância</label>
+        <select name="prioridade"
+          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="alta">Alta</option>
+          <option value="media" selected>Média</option>
+          <option value="baixa">Baixa</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Projeto</label>
+        <select name="task_project_id"
+          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="">Sem projeto</option>
+          {% for p in active_projects %}
+          <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
     </div>
-
-    {# Critérios por contexto — só o do contexto selecionado fica ativo/obrigatório #}
-    {% if criterios_by_context is defined %}
-    {% for ctx in all_contexts %}
-    {% set crits = criterios_by_context.get(ctx.id) %}
-    {% if crits %}
-    <div x-show="task_ctx == '{{ ctx.id }}'" x-transition class="space-y-3 bg-oriens-card border border-oriens-border rounded-md px-3 py-3">
-      <p class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Importância — todos obrigatórios</p>
-      {% with criterios = crits, valores = None, x_disabled = "task_ctx != '" ~ ctx.id ~ "'" %}
-      {% include "partials/criterio_selector.html" %}
-      {% endwith %}
-    </div>
-    {% endif %}
-    {% endfor %}
-    {% endif %}
 
     <div class="flex items-center justify-between">
       <label class="flex items-center gap-2 cursor-pointer">

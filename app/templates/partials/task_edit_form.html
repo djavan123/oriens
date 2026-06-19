@@ -52,11 +52,22 @@
       {% elif contexts is defined and contexts %}
       <div class="flex items-center gap-2">
         <label class="text-oriens-secondary text-xs">Contexto</label>
-        <select name="context_id"
+        <select name="context_id" required
           class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
-          <option value="">Independente (todos)</option>
           {% for ctx in contexts %}
           <option value="{{ ctx.id }}" {% if task.context_id == ctx.id %}selected{% endif %}>{{ ctx.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      {% if show_prioridade is defined and show_prioridade %}
+      <div class="flex items-center gap-2">
+        <label class="text-oriens-secondary text-xs">Importância</label>
+        <select name="prioridade"
+          class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+          {% for val, label in [('alta','Alta'),('media','Média'),('baixa','Baixa')] %}
+          <option value="{{ val }}" {% if prioridade == val %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>
       </div>
@@ -119,13 +130,6 @@
       {% endfor %}
       {% endif %}
     </div>
-
-    {% if criterios is defined and criterios %}
-    <div class="space-y-3 border-t border-oriens-divider pt-3">
-      <p class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Importância — todos obrigatórios</p>
-      {% include "partials/criterio_selector.html" %}
-    </div>
-    {% endif %}
 
   </form>
 </div>

@@ -34,6 +34,21 @@ async def _reminder_loop():
         await asyncio.sleep(60)
 
 
+async def _telegram_capture_loop():
+    """Captura por Telegram (SCRIPT 13): long polling getUpdates → caixa de entrada.
+    Mantém o offset em memória. Premissa: 1 worker uvicorn (evita updates duplicados)."""
+    from app.database import AsyncSessionLocal
+    from app.services.reminder_service import process_telegram_updates
+    offset = 0
+    while True:
+        try:
+            async with AsyncSessionLocal() as db:
+                offset = await process_telegram_updates(db, offset)
+        except Exception:
+            pass
+        await asyncio.sleep(2)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # init_db() é idempotente (create_all com checkfirst) e seed_defaults() só
@@ -41,17 +56,21 @@ async def lifespan(app: FastAPI):
     from app.database import init_db, AsyncSessionLocal
     await init_db()
     from app.repositories.context_repo import ContextRepository
-    from app.repositories.criterio_repo import CriterioContextoRepository
     async with AsyncSessionLocal() as db:
         await ContextRepository(db).seed_defaults()
-        await CriterioContextoRepository(db).seed_defaults()
-    task = asyncio.create_task(_reminder_loop())
+        # Critérios de importância desativados no SCRIPT 13 — não semear mais.
+    tasks = [
+        asyncio.create_task(_reminder_loop()),
+        asyncio.create_task(_telegram_capture_loop()),
+    ]
     try:
         yield
     finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
-            await task
+        for t in tasks:
+            t.cancel()
+        for t in tasks:
+            with contextlib.suppress(asyncio.CancelledError):
+                await t
 
 
 app = FastAPI(title="Oriens", lifespan=lifespan)

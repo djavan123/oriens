@@ -10,17 +10,8 @@ from app.database import get_db
 from app.models.task import EnergyLevel
 from app.models.user import User
 from app.services.task_service import TaskService, TaskVerbError
-from app.services.importancia_service import ImportanciaService
+from app.services.importancia_service import importancia_from_prioridade
 from app.utils.auth import get_current_user
-
-
-def _criterios_error(faltando, target_id: str) -> HTMLResponse:
-    nomes = ", ".join(c.nome for c in faltando)
-    return HTMLResponse(
-        f'<p class="text-oriens-alert text-sm">Responda todos os critérios de importância '
-        f'(faltando: {nomes}).</p>',
-        headers={"HX-Retarget": target_id, "HX-Reswap": "innerHTML"},
-    )
 
 
 def _parse_date(v: Optional[str]) -> Optional[datetime]:
@@ -85,6 +76,7 @@ async def create_task(
     energy: EnergyLevel = Form(EnergyLevel.medium),
     is_quick_win: bool = Form(False),
     context_id: Optional[str] = Form(None),
+    prioridade: str = Form("media"),
     cognitive_load: Optional[str] = Form(None),
     deadline: Optional[str] = Form(None),
     responsavel_id: Optional[str] = Form(None),
@@ -101,6 +93,7 @@ async def create_task(
         )
     extra = {}
     proj_id = _parse_int(project_id)
+    pid = _parse_int(parent_id)
     project = None
     # Herança de contexto: tarefa dentro de um projeto herda o contexto dele.
     if proj_id is not None:
@@ -110,9 +103,14 @@ async def create_task(
             extra["context_id"] = project.context_id
     else:
         cid = _parse_int(context_id)
+        # Tarefa avulsa de topo (SCRIPT 13): contexto é obrigatório.
+        if cid is None and pid is None:
+            return HTMLResponse(
+                '<p class="text-oriens-alert text-sm">Escolha um contexto.</p>',
+                headers={"HX-Retarget": "#task-form-error", "HX-Reswap": "innerHTML"},
+            )
         if cid is not None:
             extra["context_id"] = cid
-    pid = _parse_int(parent_id)
     if pid is not None:
         extra["parent_id"] = pid
     if cognitive_load and cognitive_load in {c.value for c in CognitiveLoad}:
@@ -126,18 +124,14 @@ async def create_task(
     if tags is not None:
         extra["tags"] = tags.strip() or None
 
-    # Importância: só tarefas avulsas de topo usam critérios. Tarefas de projeto
-    # (execução por ordem) e subtarefas ficam sem nota — nada de critérios.
+    # Importância (SCRIPT 13): só tarefa avulsa de topo recebe nota, a partir da
+    # escolha Alta/Média/Baixa. Tarefas de projeto (execução por ordem) e subtarefas
+    # ficam sem nota.
     is_subtask = pid is not None
     is_project_task = proj_id is not None
-    ctx_for_crit = extra.get("context_id")
-    imp_service = ImportanciaService(db)
-    criterios, valores, faltando = ([], {}, [])
     if not is_subtask and not is_project_task:
-        form = await request.form()
-        criterios, valores, faltando = await imp_service.parse_form_valores(ctx_for_crit, form)
-        if criterios and faltando:
-            return _criterios_error(faltando, "#task-form-error")
+        extra["importancia"] = importancia_from_prioridade(prioridade)
+        extra["sem_nota"] = False
 
     service = TaskService(db)
     try:
@@ -151,10 +145,6 @@ async def create_task(
         )
     except TaskVerbError as e:
         return _verb_error_response(e)
-
-    if criterios:
-        imp, sem_nota = await imp_service.apply(task.id, criterios, valores)
-        task = await service.update(task.id, current_user.id, importancia=imp, sem_nota=sem_nota)
 
     # Tarefa de topo de um projeto: devolve o wrapper arrastável (com data-task-id),
     # para entrar na lista de execução já reordenável. Subtarefas/avulsas → item simples.
@@ -271,7 +261,7 @@ async def edit_form(
 ):
     from app.repositories.context_repo import ContextRepository
     from app.repositories.label_repo import LabelRepository
-    from app.repositories.criterio_repo import CriterioContextoRepository
+    from app.services.importancia_service import faixa_importancia
     service = TaskService(db)
     task = await service.get_by_id(task_id, current_user.id)
     if not task:
@@ -284,19 +274,16 @@ async def edit_form(
     users_result = await db.execute(select(UserModel).order_by(UserModel.name))
     users = list(users_result.scalars().all())
 
-    # Critérios de importância: só tarefas avulsas de topo (não de projeto).
-    criterios, valores = [], {}
-    if task.parent_id is None and task.project_id is None and task.context_id is not None:
-        criterios = await CriterioContextoRepository(db).get_by_context(task.context_id)
-        if criterios:
-            valores = await ImportanciaService(db).get_valores_by_task(task_id)
+    # Importância (SCRIPT 13): só tarefa avulsa de topo escolhe Alta/Média/Baixa.
+    is_standalone_top = task.parent_id is None and task.project_id is None
+    prioridade = faixa_importancia(task.importancia, task.sem_nota) or "media"
 
     return templates.TemplateResponse(
         request,
         "partials/task_edit_form.html",
         {"task": task, "contexts": contexts, "context_labels": context_labels,
          "user_labels": user_labels, "users": users,
-         "criterios": criterios, "valores": valores},
+         "show_prioridade": is_standalone_top, "prioridade": prioridade},
     )
 
 
@@ -310,6 +297,7 @@ async def update_task(
     deadline: Optional[str] = Form(None),
     responsavel_id: Optional[str] = Form(None),
     context_id: Optional[str] = Form(None),
+    prioridade: str = Form("media"),
     tags: Optional[str] = Form(None),
     remind_date: Optional[str] = Form(None),
     remind_time: Optional[str] = Form(None),
@@ -345,20 +333,11 @@ async def update_task(
         kwargs["reminder_telegram_sent"] = False
         kwargs["reminder_acked"] = False
 
-    # Importância: só tarefas avulsas de topo usam critérios. Tarefas de projeto
-    # (execução por ordem) e subtarefas não calculam importância.
+    # Importância (SCRIPT 13): só tarefa avulsa de topo recebe nota, de Alta/Média/Baixa.
     is_subtask = existing.parent_id is not None
     if existing.project_id is None and not is_subtask:
-        eff_ctx = kwargs.get("context_id", existing.context_id)
-        imp_service = ImportanciaService(db)
-        criterios, valores, faltando = await imp_service.parse_form_valores(
-            eff_ctx, await request.form()
-        )
-        if criterios and faltando:
-            return _criterios_error(faltando, f"#task-edit-error-{task_id}")
-        imp, sem_nota = await imp_service.apply(task_id, criterios, valores)
-        kwargs["importancia"] = imp
-        kwargs["sem_nota"] = sem_nota
+        kwargs["importancia"] = importancia_from_prioridade(prioridade)
+        kwargs["sem_nota"] = False
 
     try:
         task = await service.update(task_id, current_user.id, **kwargs)

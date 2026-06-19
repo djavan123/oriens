@@ -35,8 +35,13 @@ class CaptureService:
         energy: EnergyLevel = EnergyLevel.medium,
         is_quick_win: bool = False,
         context_id: Optional[int] = None,
+        importancia: Optional[float] = None,
     ) -> tuple[CaptureInbox, Task]:
         extra = {"context_id": context_id} if context_id is not None else {}
+        # Importância vinda de Alta/Média/Baixa (SCRIPT 13). None = tarefa de projeto (sem nota).
+        if importancia is not None:
+            extra["importancia"] = importancia
+            extra["sem_nota"] = False
         task = await TaskService(self.db).create(
             user_id=user_id,
             title=title,

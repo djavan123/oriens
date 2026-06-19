@@ -24,6 +24,11 @@ class UserRepository:
         await self.db.refresh(user)
         return user
 
+    async def get_first(self) -> Optional[User]:
+        """Menor id — usado pela captura por Telegram (sistema single-user)."""
+        result = await self.db.execute(select(User).order_by(User.id.asc()).limit(1))
+        return result.scalar_one_or_none()
+
     async def count(self) -> int:
         from sqlalchemy import func
         result = await self.db.execute(select(func.count()).select_from(User))

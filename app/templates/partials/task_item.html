@@ -76,7 +76,7 @@
 
       {% if (show_importancia is defined and show_importancia) and task.status.value != 'done' %}
         {% if faixa_importancia(task.importancia, task.sem_nota) == 'alta' %}
-        <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-accent/10 text-oriens-accent border border-oriens-accent/20" title="Importância alta">alta · {{ '%.1f'|format(task.importancia) }}</span>
+        <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-accent/10 text-oriens-accent border border-oriens-accent/20" title="Importância alta">Alta</span>
         {% elif task.sem_nota %}
         <span class="text-[11px] text-oriens-muted" title="Sem nota de importância">⚠</span>
         {% endif %}

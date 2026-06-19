@@ -54,7 +54,7 @@ Se a resposta for "mais difícil", a escolha está errada.
 
 ---
 
-## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS SCRIPT 8)
+## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS SCRIPT 12)
 
 ```
 C:\Projetos\Sistema tarefas\
@@ -87,28 +87,30 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── ... (user, project, task, note, capture, weekly, comment, attachment, decision, risk, audit, timeline)
 │   │   ├── context_repo.py            # + get_all_by_user/get_by_id/create/delete (SCRIPT 3)
 │   │   ├── user_repo.py               # + update_foco (SCRIPT 8)
-│   │   ├── task_repo.py               # _urgency_rank/_priority_sort_key; get_pending_for_dashboard (SCRIPT 8)
+│   │   ├── task_repo.py               # +order_index (nullslast); reorder/next/max-order; standalone_only; next/pending_count_by_project (10A/11)
+│   │   ├── project_repo.py            # get_active_by_user(context_id=...) — contexto antes de prioridade (SCRIPT 11)
+│   │   ├── project_timeline_repo.py   # + last_activity_by_projects (batched) — SCRIPT 10C
 │   │   ├── criterio_repo.py           # CRUD/replace de critérios + seed inicial — SCRIPT 8
 │   │   └── label_repo.py              # CRUD de etiquetas — SCRIPT 3
 │   ├── services/
-│   │   ├── project_service.py         # audit trail (+ proxima_acao) + timeline; create aceita proxima_acao; get_all filtra archived (SCRIPT 5)
-│   │   ├── task_service.py            # verb validation, priority_score + timeline (task_created, task_done)
+│   │   ├── project_service.py         # +get_project_next_action (10A) +get_executability (10C); audit/timeline; archived (SCRIPT 5)
+│   │   ├── task_service.py            # priority_score + timeline; order_index no create (10A); SEM validação de verbo (SCRIPT 12)
 │   │   ├── capture_service.py         # process_as_task (aceita context_id) /project/note/discard
-│   │   ├── dashboard_service.py       # DashboardData + get_priorities_grouped (grupos/filtro/expand — SCRIPT 8)
+│   │   ├── dashboard_service.py       # +get_projects_in_focus/get_standalone_tasks/pick_now_action (11/12); get_priorities_grouped legado
 │   │   ├── importancia_service.py     # calcular_importancia, faixa_importancia, parse/apply de valores — SCRIPT 8
 │   │   ├── weekly_directive_service.py
 │   │   ├── ai_service.py              # Protocol + ClaudeProvider + OpenAIProvider + NullProvider
 │   │   └── reminder_service.py        # lembretes: send_telegram, process_due_telegram, get_due_popups — SCRIPT 4
 │   ├── routes/
 │   │   ├── auth.py                    # cookies com secure=COOKIE_SECURE
-│   │   ├── dashboard.py               # resolve_active_context(); GET /dashboard/priorities (fragmento), PATCH /dashboard/foco (SCRIPT 8)
+│   │   ├── dashboard.py               # GET /dashboard/now + /projects-focus + /standalone (11/12); PATCH /dashboard/foco; /priorities legado
 │   │   ├── projects.py                # usa resolve_active_context(); list aceita ?filter=active|archived|all (SCRIPT 5); passa criterios ao detalhe (SCRIPT 8)
 │   │   ├── capture.py                 # resolve_active_context(); process passa criterios_by_context + contexto ativo (SCRIPT 8)
 │   │   ├── weekly.py                  # usa resolve_active_context()
 │   │   ├── settings.py               # GET /settings (etiquetas + contextos + critérios) — SCRIPT 3/8
 │   │   └── api/
-│   │       ├── tasks.py               # responsavel_id/context_id/tags; valida+calcula critérios (create/update); PATCH /{id}/adiar (SCRIPT 8)
-│   │       ├── projects.py            # aceita responsavel_id, proxima_acao, archived; anexos em disco; CRUD de decisões (SCRIPT 5)
+│   │       ├── tasks.py               # critérios SÓ p/ avulsas de topo (10B); tarefa de projeto devolve wrapper drag; PATCH /{id}/adiar
+│   │       ├── projects.py            # + PATCH /{id}/task-order (reordena, SCRIPT 10A); responsavel/proxima_acao/archived; decisões (SCRIPT 5)
 │   │       ├── capture.py             # process: contexto obrigatório + critérios (SCRIPT 8)
 │   │       ├── ai.py
 │   │       ├── context.py             # cookie agora guarda context_id (int) — SCRIPT 3
@@ -117,19 +119,19 @@ C:\Projetos\Sistema tarefas\
 │   ├── templates/
 │   │   ├── base.html                  # tokens oriens-*→var(); theme.css; init de tema sem flash; x-data theme no <html> (SCRIPT 6)
 │   │   ├── base_app.html              # sidebar RESPONSIVA + contextos dinâmicos + seletor de tema "Aparência" (SCRIPT 6)
-│   │   ├── dashboard.html             # foco do dia + componente de Prioridades (grupos/pills/polling) — SCRIPT 8
+│   │   ├── dashboard.html             # bloco "Agora" + Projetos em foco × Tarefas avulsas (SCRIPT 11/12)
 │   │   ├── capture.html
 │   │   ├── process.html               # form de tarefa: contexto obrigatório + critérios dinâmicos (SCRIPT 8)
 │   │   ├── weekly.html
 │   │   ├── settings.html              # etiquetas + contextos + "Critérios de importância" (SCRIPT 3/8)
 │   │   ├── auth/ (login.html, setup.html)
 │   │   ├── projects/
-│   │   │   ├── list.html              # kanban responsivo + filtro Ativos/Arquivados/Todos (SCRIPT 5)
-│   │   │   ├── detail.html            # próxima ação em destaque no topo; Decisões; arquivar/desarquivar; "Atividade Recente" (SCRIPT 5)
+│   │   │   ├── list.html              # kanban; cards de executabilidade limpos; estados vazios padronizados (SCRIPT 10C/12)
+│   │   │   ├── detail.html            # execução: Próxima Ação + Tarefas (drag-and-drop SortableJS); prioridade Alta/Média/Baixa (SCRIPT 10B/12)
 │   │   │   └── reports.html           # coluna "Decisões" (era "Marcos") — SCRIPT 5
 │   │   └── partials/
-│   │       ├── task_item.html         # PARTIAL UNIFICADO de tarefa — lista densa, flags via {% with %} (SCRIPT 9)
-│   │       ├── task_with_subtasks.html # wrapper de tarefa com subtarefas; passa allow_subtask+show_importancia
+│   │       ├── task_item.html         # PARTIAL UNIFICADO de tarefa — flags: reload_on_done (10B), hide_actions (12)
+│   │       ├── task_with_subtasks.html # wrapper de tarefa de projeto; alça drag (.drag-handle), is_next destaca a 1ª (10B/12)
 │   │       ├── dashboard_task.html     # thin wrapper → task_item com show_project/show_adiar/refresh_priorities (SCRIPT 9)
 │   │       ├── capture_item.html      # item de captura — mesmo estilo visual denso (SCRIPT 9)
 │   │       ├── theme_switcher.html      # 3 bolinhas dark/light/warm (Alpine `theme`) — SCRIPT 6
@@ -139,9 +141,14 @@ C:\Projetos\Sistema tarefas\
 │   │       ├── project_form.html       # criação: + "Próxima ação" + critérios quando o contexto tem (SCRIPT 5/8)
 │   │       ├── project_decision.html   # item de decisão (data + texto + excluir) — SCRIPT 5
 │   │       ├── criterio_selector.html  # botões 0-5 obrigatórios por critério (radios) — SCRIPT 8
-│   │       ├── foco_do_dia.html        # card âncora do Dashboard (borda accent, edição inline) — SCRIPT 8
-│   │       ├── dashboard_priorities.html # wrapper: resumo + pills + grupos + polling 30s — SCRIPT 8
-│   │       └── ... (project_card/comment/attachment/risk, process, ai_result)
+│   │       ├── foco_do_dia.html        # compacto se vazio, accent se preenchido (SCRIPT 12) + _foco_form.html
+│   │       ├── dashboard_now.html       # bloco "Agora": UMA ação dominante (SCRIPT 12)
+│   │       ├── dashboard_projects_focus.html # coluna "Projetos em foco" + contador sem-próxima-ação (SCRIPT 11)
+│   │       ├── dashboard_project_card.html   # card de projeto em foco (próxima ação/energia/prazo) (SCRIPT 11/12)
+│   │       ├── dashboard_standalone.html     # coluna "Tarefas avulsas" (task_item hide_actions) (SCRIPT 11/12)
+│   │       ├── dashboard_priorities.html # LEGADO (SCRIPT 8) — não usado no dashboard atual, mantido
+│   │       ├── project_card.html        # card limpo: estado operacional + próxima ação/revisão (SCRIPT 10C/12)
+│   │       └── ... (comment/attachment/risk, process, ai_result)
 │   ├── static/                        # PWA: manifest.webmanifest, sw.js, icon.svg + css/theme.css (3 temas — SCRIPT 6)
 │   └── utils/
 │       ├── auth.py                    # cookie: oriens_token
@@ -176,8 +183,9 @@ C:\Projetos\Sistema tarefas\
 - Todo projeto novo nasce com `nao_iniciado`
 - `archived` (SCRIPT 5): true esconde da operação diária (listagem/dashboard/semanal); continua acessível por URL, editável e pesquisável
 
-**tasks:** `id, user_id, responsavel_id (nullable, FK users), project_id (nullable), parent_id (nullable, self-ref), context_id (nullable), title, status, energy, is_quick_win (bool), cognitive_load, financial_impact, operational_risk, strategic_impact, task_urgency, effort, priority_score (indexed), importancia (float, indexed — SCRIPT 8), sem_nota (bool, default true — SCRIPT 8), archived (bool), deadline, tags (text), remind_at (datetime, nullable), reminder_telegram_sent (bool), reminder_acked (bool), created_at, done_at`
-- `importancia` (0-5): calculada dos critérios do contexto. `sem_nota`=true quando o contexto não tem critérios (ou tarefa criada sem nota).
+**tasks:** `id, user_id, responsavel_id (nullable, FK users), project_id (nullable), parent_id (nullable, self-ref), context_id (nullable), title, status, energy, is_quick_win (bool), cognitive_load, financial_impact, operational_risk, strategic_impact, task_urgency, effort, priority_score (indexed), importancia (float, indexed — SCRIPT 8), sem_nota (bool, default true — SCRIPT 8), order_index (int, nullable — SCRIPT 10A), archived (bool), deadline, tags (text), remind_at (datetime, nullable), reminder_telegram_sent (bool), reminder_acked (bool), created_at, done_at`
+- `importancia` (0-5): calculada dos critérios do contexto. `sem_nota`=true quando o contexto não tem critérios (ou tarefa criada sem nota). **Importância NÃO se aplica a tarefas de projeto** (SCRIPT 10B): elas ficam `sem_nota` e não exibem badge.
+- `order_index` (SCRIPT 10A): ordem manual das tarefas de **topo de projeto**. NULL em avulsas e subtarefas. Nova tarefa de projeto entra com `max+1` (fim). Reordenável por drag-and-drop só no detalhe (`PATCH /api/projects/{id}/task-order`).
 - status: `pending | done | blocked`
 - energy: `high | medium | low` (EnergyLevel enum em `task.py`)
 - `tags`: etiquetas separadas por vírgula (SCRIPT 3)
@@ -255,6 +263,16 @@ C:\Projetos\Sistema tarefas\
 20. **Próxima ação (SCRIPT 5):** todo projeto deve ter uma próxima ação concreta e executável. Campo `proxima_acao` exibido **em destaque no topo** do detalhe, no card da listagem e na revisão semanal. Disponível no formulário de criação (**opcional**) e na edição. Auditado.
 21. **Arquivamento de projetos (SCRIPT 5):** `projects.archived` (bool). Arquivados saem da listagem padrão, dashboard, revisão semanal e "Projetos sem atualização", mas continuam acessíveis por URL, editáveis e pesquisáveis. Filtros na listagem: `?filter=active` (padrão) | `archived` | `all`. Botão "Arquivar/Desarquivar projeto" no detalhe (`PATCH /api/projects/{id}` com `archived`). Filtro de `archived == False` aplicado em `get_all_by_user` (padrão), `get_active_by_user` e `count_active`; `get_by_id` permanece sem filtro.
 22. **Decisões (SCRIPT 5):** substituem os antigos Marcos. `project_decisions` (data + texto). No detalhe, seção "Decisões" com input "Nova decisão..." + "Adicionar"; lista em ordem decrescente. Criar uma decisão grava evento `decision_recorded` na cronologia. Excluir uma decisão **não** remove o evento da timeline.
+
+### Execução de projetos e Dashboard (SCRIPTS 10–12)
+
+23. **Três tipos de importância:** **Projeto** = importância estratégica (`priority` 1-3 = Alta/Média/Baixa). **Tarefa de projeto** = ordem de execução (`order_index`), **não** usa importância. **Tarefa avulsa** = importância própria (critérios do contexto).
+24. **Próxima ação operacional de um projeto:** 1ª tarefa pendente em ordem manual → fallback `project.proxima_acao` → se não houver nenhum, projeto **não é executável**. Energia é informativa e **não** reordena projetos nem tarefas de projeto.
+25. **Ordem manual (SCRIPT 10A):** `tasks.order_index` só vale para tarefas de topo de projeto. Reordenável por drag-and-drop (SortableJS) **apenas no detalhe do projeto**; persiste via `PATCH /api/projects/{id}/task-order` (valida ownership/pertencimento, rejeita avulsas/subtarefas). Nova tarefa de projeto vai ao fim.
+26. **Estado operacional do projeto (SCRIPT 10C):** `completed | not_started | no_action | stalled | executable` (em `get_executability`; `stalled` = em andamento sem atividade ≥7 dias). Exibido na lista como próxima ação ou "Precisa de revisão" (discreto, nunca vermelho).
+27. **Dashboard separa projeto × avulsa (SCRIPT 11):** nunca mistura tarefa de projeto com avulsa. **Projetos em foco** = ativos não-arquivados ordenados por prioridade, só os com próxima ação (resto vira contador "sem próxima ação"). **Tarefas avulsas** (`project_id` nulo) mantêm importância/energia/urgência. Ambos respeitam o contexto ativo (contexto antes de prioridade).
+28. **Bloco "Agora" (SCRIPT 12):** mostra UMA única ação dominante — próxima ação do 1º projeto executável em foco → senão 1ª tarefa avulsa. Concluir a ação recarrega via eventos `refreshProjectsFocus`/`refreshPriorities` (timeline preservada). Sem lista, sem drag-and-drop no Dashboard.
+29. **Sem validação de verbo (SCRIPT 12):** títulos de tarefa aceitam qualquer texto não vazio. O helper `validate_starts_with_verb` foi **mantido** mas não é mais chamado em `task_service`. Bloqueio de título vazio permanece na rota.
 
 ---
 
@@ -405,7 +423,11 @@ TELEGRAM_CHAT_ID=               # opcional
 | POST | `/api/ai/overload-context` | IA: análise de overload |
 | POST | `/api/context/switch` | Trocar contexto ativo (campo `context_id` inteiro) |
 | POST | `/api/context/transition` | Transição + captura pendências (campo `context_id`) |
-| GET | `/dashboard/priorities` | Fragmento de prioridades (`?filter=&energy=&expand=`) — polling 30s (SCRIPT 8) |
+| PATCH | `/api/projects/{id}/task-order` | Reordena tarefas de topo do projeto (JSON `{task_ids:[...]}`) — SCRIPT 10A |
+| GET | `/dashboard/now` | Fragmento bloco "Agora" (uma ação dominante) — SCRIPT 12 |
+| GET | `/dashboard/projects-focus` | Fragmento "Projetos em foco" — SCRIPT 11 |
+| GET | `/dashboard/standalone` | Fragmento "Tarefas avulsas" (`?energy=`) — SCRIPT 11 |
+| GET | `/dashboard/priorities` | LEGADO (SCRIPT 8) — fragmento de prioridades agrupadas; não usado no dashboard atual |
 | PATCH | `/dashboard/foco` | Salvar foco do dia (SCRIPT 8) |
 | POST | `/api/settings/criterios/{context_id}` | Substituir critérios do contexto — máx. 3 (SCRIPT 8) |
 | POST | `/api/settings/labels` | Criar etiqueta (name, color) |
@@ -524,6 +546,62 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **`process_item.html`** — cabeçalho (texto/data) alinhado visualmente (`leading-snug`, data `text-[11px]`).
 - **Containers** trocados de `px-4` para `px-1 py-1` onde itens entravam (`dashboard.html` overload/minimal/quick-wins/bloqueios, `dashboard_priorities.html` inner div). Tarefas concluídas no `detail.html` ganharam wrapper `bg-oriens-card rounded-lg px-1 py-1`.
 - **Sem migrações de schema** — mudança puramente de templates.
+
+### ✅ SCRIPT 10A — Base técnica para projetos executáveis
+- **`tasks.order_index`** (Integer, nullable): ordem manual das tarefas de **topo de projeto**. NULL em tarefas avulsas e subtarefas (que ignoram o campo). Migração aditiva em SQLite (`_ENSURE_COLUMNS`) e PG (`_ENSURE_COLUMNS_PG`); inicialização idempotente das tarefas existentes (0,1,2… por `id` asc dentro de cada projeto) em `_migrate_data` (SQLite) e `_ensure_columns_postgres` (PG, `ROW_NUMBER`).
+- **`task_repo`:** `get_all_by_user(project_id=...)` ordena por `nullslast(order_index)`; novos métodos `get_project_next_task`, `get_max_order_index`, `reorder_project_tasks` (valida ownership + pertencimento ao projeto + rejeita avulsas/subtarefas).
+- **`task_service.create`:** tarefa de topo de projeto nasce com `order_index = max+1` (append ao fim).
+- **`project_service.get_project_next_action`:** 1ª tarefa pendente em ordem manual → fallback `project.proxima_acao` → não executável. Importância de tarefa de projeto **não** é usada na execução.
+- **Endpoint** `PATCH /api/projects/{id}/task-order` (JSON `{task_ids:[...]}`): persiste `order_index`.
+
+### ✅ SCRIPT 10B/10C — UI de execução do projeto + executabilidade na lista
+- **Detalhe do projeto reorganizado em torno da execução:** Cabeçalho (nome/status/prioridade/contexto/arquivar) → **Próxima Ação operacional** → **Tarefas do Projeto** (no topo) → Detalhes/edição → Decisões → Atividade → Anexos.
+- **Drag-and-drop** (SortableJS via CDN, só no `detail.html`): alça `.drag-handle` em `task_with_subtasks.html` (wrapper `.project-task-row[data-task-id]`); `onEnd` faz `fetch` PATCH `task-order`. Ordem manual persistida; concluídas recolhidas.
+- **Importância/critérios ocultos para tarefas de projeto:** `task_form` incluído com `criterios=[]`; `task_with_subtasks` sem `show_importancia`; `api/tasks` (create/update/edit_form) **não** exige nem calcula critérios quando `project_id` presente. Avulsas mantêm tudo.
+- **Conclusão de tarefa de projeto recarrega a página** (flag `reload_on_done` em `task_item`) → próxima ação/ordem atualizadas.
+- **Lista de projetos:** `project_service.get_executability` (batched) → estado operacional por projeto (`completed | not_started | no_action | stalled | executable`) + próxima ação + pendentes + última atividade (`project_timeline_repo.last_activity_by_projects`, `task_repo.next_pending_tasks_by_project`/`pending_count_by_project`). `project_card` passou a exibir estado/próxima ação.
+
+### ✅ SCRIPT 11 — Dashboard: projetos em foco × tarefas avulsas
+- **Separação total** projeto × avulsa no Dashboard. Duas colunas: **Projetos em foco** (principal, `lg:col-span-2`) e **Tarefas avulsas** (apoio).
+- **`dashboard_service.get_projects_in_focus`:** projetos ativos não-arquivados ordenados por **prioridade**, cada um com a próxima ação operacional; projetos sem próxima ação só são contados (`without_next_count`, contador discreto). Respeita contexto (`project_repo.get_active_by_user(context_id=...)`, contexto antes de prioridade).
+- **`dashboard_service.get_standalone_tasks`:** tarefas avulsas (`get_priority_pending(standalone_only=True)`); mantêm importância/energia/urgência/quick win; energia continua influenciando a ordem.
+- **Fragmentos** `GET /dashboard/projects-focus` e `GET /dashboard/standalone` (recarregam em `refreshProjectsFocus`/`refreshPriorities`). Próxima ação de projeto concluível pelo Dashboard (timeline preservada). Sem lista de tarefas de projeto, sem importância de tarefa de projeto, sem drag-and-drop. Componentes antigos (`dashboard_priorities.html`, `/dashboard/priorities`) preservados mas não usados.
+
+### ✅ SCRIPT 12 — Polimento: bloco "Agora", contraste e cards limpos
+- **Bloco "Agora"** (`partials/dashboard_now.html` + `DashboardService.pick_now_action` + `GET /dashboard/now`): **uma única** ação dominante — próxima ação do 1º projeto executável em foco → senão, 1ª tarefa avulsa. Mostra título, origem (projeto/"Tarefa avulsa"), contexto, energia, concluir (se tarefa), "abrir projeto" (se de projeto). Auto-recarrega em `refreshProjectsFocus`/`refreshPriorities`.
+- **Foco do dia:** vazio = compacto ("Definir foco do dia", sem caixa accent); preenchido = card accent. Form extraído para `partials/_foco_form.html`.
+- **Dashboard:** data+energia em cabeçalho compacto; colunas viram apoio; card de projeto e avulsas mais limpos (`hide_actions` em `task_item` → avulsas só com checkbox/título/contexto/prazo/importância).
+- **Título de tarefa:** validação de verbo **desativada** (`task_service` não chama mais `validate_starts_with_verb`; helper mantido). Qualquer título não vazio é aceito; vazio ainda bloqueado na rota. Removido o texto "Só o título…".
+- **Prioridade como Alta/Média/Baixa** (sem P1/P2/P3) no detalhe, cards e selects (`detail`, `project_form`, `process_item`). Primeira tarefa pendente do projeto destacada como "Próxima ação" (flag `is_next`).
+- **Lista de projetos simplificada:** nome, objetivo, próxima ação **ou** "Precisa de revisão" (discreto, não vermelho), progresso único ("X de Y concluídas"), prioridade/contexto/prazo. Vermelho só para atraso/urgência. Kanban mais leve, estados vazios padronizados (`oriens-secondary`).
+- **Sem migração / sem novo módulo ou entidade.**
+
+### ✅ SCRIPT 13 — Captura rápida + Criação direta + Captura por Telegram
+- **Criação direta de tarefa avulsa simplificada:** os critérios 0-5 por contexto (SCRIPT 8)
+  saíram da criação/edição/processamento de tarefa avulsa, substituídos por um seletor
+  **Alta/Média/Baixa**. Mapeado no campo existente `tasks.importancia` via
+  `importancia_service.importancia_from_prioridade` (Alta→5, Média→3, Baixa→1, `sem_nota=False`)
+  — **sem migração**. Contexto passou a ser **obrigatório** na tarefa avulsa de topo
+  (`api/tasks.create_task`/`update_task` e `task_form.html`/`task_edit_form.html`); a herança de
+  contexto da tarefa de projeto não mudou. O badge de importância (`task_item.html`) mostra só
+  "Alta" (sem decimal). Processar inbox idem (`process_item.html` + `api/capture.process_capture`
+  + `capture_service.process_as_task(importancia=...)`).
+- **Critérios de importância desativados:** seção em `settings.html` envolvida em `{% if false %}`
+  (backend, rotas e tabelas `criterio_contexto`/`tarefa_criterio_valor` intactos — não-destrutivo);
+  `CriterioContextoRepository.seed_defaults()` não é mais chamado no lifespan. `criterio_selector.html`
+  ficou órfão (mantido). `ImportanciaService`/`calcular_importancia` permanecem para uso futuro.
+- **Captura direta de tarefa avulsa no Dashboard:** `task_form.html` incluído na coluna "Tarefas
+  avulsas" (`dashboard_standalone.html`), com contexto (default = contexto ativo, via
+  `active_context_id`) + Alta/Média/Baixa; ao salvar dispara `refreshPriorities`.
+- **Captura rápida global:** botão "Capturar" na sidebar + modal Alpine de campo único
+  (`base_app.html`) que posta em `POST /api/capture`; atalho de teclado **`c`** (ignorado quando
+  o foco está em input/textarea/select/contenteditable), `Esc` fecha, Ctrl/⌘+Enter envia.
+- **Captura por Telegram (long polling):** `reminder_service.process_telegram_updates(db, offset)`
+  consulta `getUpdates` (sem HTTPS/webhook), aceita **apenas mensagens do `TELEGRAM_CHAT_ID`**,
+  cria captura para o usuário dono (`UserRepository.get_first()`) e responde "✓ Capturado".
+  Loop de fundo `_telegram_capture_loop()` no lifespan (`main.py`), ao lado do de lembretes
+  (premissa: 1 worker uvicorn). No-op se `TELEGRAM_*` vazios. Reusa `send_telegram` e `httpx`.
+- **Sem migração de schema. Sem novo model/tabela.**
 
 ---
 

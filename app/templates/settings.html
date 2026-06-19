@@ -17,7 +17,9 @@
     </div>
   </section>
 
-  <!-- Critérios de importância -->
+  <!-- Critérios de importância — desativado no SCRIPT 13 (substituído por Alta/Média/Baixa).
+       Backend e tabelas preservados; UI oculta. -->
+  {% if false %}
   <section class="bg-oriens-surface border border-oriens-border rounded-xl p-6 mb-6">
     <h2 class="text-oriens-secondary text-xs font-semibold uppercase tracking-widest mb-2">Critérios de importância</h2>
     <p class="text-oriens-muted text-xs mb-5">Até 3 critérios por contexto. "Inverter": nota alta no critério <em>reduz</em> a importância (ex.: Facilidade).</p>
@@ -62,6 +64,7 @@
     </div>
     {% endfor %}
   </section>
+  {% endif %}
 
   <!-- Etiquetas -->
   <section class="bg-oriens-surface border border-oriens-border rounded-xl p-6 mb-6">
