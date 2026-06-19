@@ -110,6 +110,7 @@ class DashboardService:
             "total_hidden": total_hidden,
             "project_map": project_map,
             "filtro": filtro,
+            "expand": expand,
         }
 
     async def get_dashboard_data(

@@ -1,0 +1,69 @@
+{# Card de tarefa do Dashboard. Vars: task, project_map (dict). #}
+<div id="task-{{ task.id }}"
+     x-data="{ adiar: false }"
+     class="group flex items-start gap-3 p-3 mb-2 rounded-lg bg-oriens-card border border-oriens-border">
+
+  <!-- Concluir -->
+  <button
+    hx-patch="/api/tasks/{{ task.id }}/done"
+    hx-swap="none"
+    hx-on:click="document.getElementById('task-{{ task.id }}').classList.add('task-completing')"
+    hx-on::after-request="if(event.detail.successful){ htmx.trigger(document.body, 'refreshPriorities') }"
+    title="Concluir"
+    class="flex-shrink-0 mt-0.5 w-4 h-4 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors">
+  </button>
+
+  <!-- Conteúdo -->
+  <div class="flex-1 min-w-0">
+    <p class="text-oriens-primary text-sm leading-snug">{{ task.title }}</p>
+
+    <div class="flex items-center gap-2 mt-1 flex-wrap">
+      {% if task.project_id and project_map is defined and project_map.get(task.project_id) %}
+      <span class="text-oriens-muted text-xs inline-flex items-center gap-1">📁 {{ project_map[task.project_id] }}</span>
+      {% endif %}
+
+      {% set ds = due_status(task.deadline) %}
+      {% if ds == 'overdue' %}
+      <span class="text-xs px-1.5 py-0.5 rounded leading-none font-medium bg-oriens-urgent/15 text-oriens-urgent">
+        atrasado · {{ (now().date() - task.deadline.date()).days }}d
+      </span>
+      {% elif ds == 'today' %}
+      <span class="text-xs px-1.5 py-0.5 rounded leading-none font-medium bg-oriens-today/15 text-oriens-today">hoje</span>
+      {% endif %}
+
+      {% if faixa_importancia(task.importancia, task.sem_nota) == 'alta' %}
+      <span class="text-xs px-1.5 py-0.5 rounded leading-none font-medium bg-oriens-surface border border-oriens-border text-oriens-primary" title="Importância alta">
+        alta · {{ '%.1f'|format(task.importancia) }}
+      </span>
+      {% endif %}
+
+      {% if task.effort and task.effort > 0 %}
+      <span class="text-oriens-muted text-xs inline-flex items-center gap-1" title="Esforço estimado">⏱ {{ task.effort }}</span>
+      {% endif %}
+
+      {% if task.sem_nota %}
+      <span class="text-oriens-muted text-xs" title="Sem nota de importância">⚠</span>
+      {% endif %}
+    </div>
+
+    <!-- Adiar: escolher novo prazo -->
+    <div x-show="adiar" style="display:none" class="mt-2">
+      <input type="date" name="deadline"
+        value="{{ task.deadline.strftime('%Y-%m-%d') if task.deadline else '' }}"
+        hx-patch="/api/tasks/{{ task.id }}/adiar"
+        hx-trigger="change"
+        hx-swap="none"
+        @change="adiar = false"
+        class="bg-oriens-card border border-oriens-border text-oriens-primary rounded px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+    </div>
+  </div>
+
+  <!-- Ações (hover) -->
+  <div class="flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+    <button type="button" @click="adiar = !adiar"
+      class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">
+      adiar
+    </button>
+  </div>
+
+</div>

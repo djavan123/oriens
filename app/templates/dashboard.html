@@ -132,24 +132,7 @@
   <div class="space-y-8">
 
     <section>
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">
-        Prioridades
-        {% if energy_filter %}
-        <span class="normal-case tracking-normal font-normal text-oriens-muted"> · {{ energy_labels.get(energy_filter, '') | lower }}</span>
-        {% endif %}
-      </h2>
-      {% if data.priority_tasks %}
-      <div class="bg-oriens-surface rounded-xl px-4">
-        {% with show_importancia = true %}
-        {% for task in data.priority_tasks %}{% include "partials/task_item.html" %}{% endfor %}
-        {% endwith %}
-      </div>
-      {% elif energy_filter %}
-      <p class="text-oriens-empty text-sm italic">Nenhuma tarefa com energia {{ energy_labels.get(energy_filter, '') | lower }}.</p>
-      <a href="/dashboard?energy=" class="text-oriens-link text-xs mt-1 block hover:opacity-80">Limpar filtro</a>
-      {% else %}
-      <p class="text-oriens-empty text-sm italic">Nenhuma tarefa pendente.</p>
-      {% endif %}
+      {% include "partials/dashboard_priorities.html" %}
     </section>
 
   </div>

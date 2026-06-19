@@ -1,0 +1,80 @@
+{# Prioridades do Dashboard: resumo + pills + grupos + rodapé, auto-atualizável (30s).
+   Vars: priorities (dict groups/summary/total_hidden/project_map/filtro/expand), energy_filter. #}
+{% set filtro = priorities.filtro %}
+{% set sm = priorities.summary %}
+{% set base = '/dashboard/priorities?energy=' ~ (energy_filter or '') %}
+{% set self_url = base ~ '&filter=' ~ filtro ~ ('&expand=1' if priorities.expand else '') %}
+{% set color = {'atrasadas': 'oriens-urgent', 'hoje': 'oriens-today', 'alta': 'oriens-primary'} %}
+
+<div id="priorities-wrap"
+     hx-get="{{ self_url }}"
+     hx-trigger="every 30s, refreshPriorities from:body"
+     hx-swap="outerHTML">
+
+  <!-- Cabeçalho + resumo -->
+  <div class="flex items-center justify-between mb-3 gap-3 flex-wrap">
+    <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Prioridades</h2>
+    <div class="flex items-center gap-2 text-xs">
+      {% set parts = [] %}
+      {% if sm.atrasadas %}
+      <span class="inline-flex items-center gap-1 text-oriens-urgent"><span class="w-1.5 h-1.5 rounded-full bg-oriens-urgent"></span>{{ sm.atrasadas }} atrasadas</span>
+      {% endif %}
+      {% if sm.atrasadas and (sm.hoje or sm.alta) %}<span class="text-oriens-muted">·</span>{% endif %}
+      {% if sm.hoje %}
+      <span class="inline-flex items-center gap-1 text-oriens-today"><span class="w-1.5 h-1.5 rounded-full bg-oriens-today"></span>{{ sm.hoje }} hoje</span>
+      {% endif %}
+      {% if sm.hoje and sm.alta %}<span class="text-oriens-muted">·</span>{% endif %}
+      {% if sm.alta %}
+      <span class="inline-flex items-center gap-1 text-oriens-primary"><span class="w-1.5 h-1.5 rounded-full bg-oriens-primary"></span>{{ sm.alta }} alta</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="flex items-center gap-1.5 mb-4 flex-wrap">
+    {% for key, label in [('todos','Todos'),('atrasado','Atrasado'),('hoje','Hoje'),('alta','Alta')] %}
+    <button
+      hx-get="{{ base }}&filter={{ key }}"
+      hx-target="#priorities-wrap" hx-swap="outerHTML"
+      class="px-3 py-1 rounded-md text-xs transition-colors border
+        {% if filtro == key %}bg-oriens-accent text-white border-oriens-accent{% else %}bg-transparent border-oriens-border text-oriens-secondary hover:text-oriens-primary{% endif %}">
+      {{ label }}
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- Grupos -->
+  <div class="bg-oriens-surface rounded-xl p-4">
+    {% for g in priorities.groups %}
+    <div class="{% if not loop.last %}mb-5{% endif %}">
+      <p class="text-{{ color.get(g.key, 'oriens-secondary') }} text-[11px] font-bold tracking-wide uppercase mb-2">
+        {{ g.label }}{% if g.hidden %} <span class="text-oriens-muted normal-case font-normal tracking-normal">+{{ g.hidden }} ocultas</span>{% endif %}
+      </p>
+      {% if g.visible %}
+        {% for task in g.visible %}
+          {% with project_map = priorities.project_map %}{% include "partials/dashboard_task.html" %}{% endwith %}
+        {% endfor %}
+      {% else %}
+      <p class="text-oriens-empty text-sm italic">Nada aqui.</p>
+      {% endif %}
+    </div>
+    {% else %}
+    <p class="text-oriens-empty text-sm italic">Nenhuma prioridade no momento.</p>
+    {% endfor %}
+  </div>
+
+  <!-- Rodapé -->
+  <div class="flex items-center justify-between mt-2 text-xs gap-3">
+    {% if priorities.total_hidden and not priorities.expand %}
+    <button hx-get="{{ base }}&filter={{ filtro }}&expand=1" hx-target="#priorities-wrap" hx-swap="outerHTML"
+      class="text-oriens-link hover:opacity-80 transition-opacity">+ {{ priorities.total_hidden }} outras prioridades →</button>
+    {% elif priorities.expand %}
+    <button hx-get="{{ base }}&filter={{ filtro }}" hx-target="#priorities-wrap" hx-swap="outerHTML"
+      class="text-oriens-link hover:opacity-80 transition-opacity">← mostrar menos</button>
+    {% else %}
+    <span></span>
+    {% endif %}
+    <span class="text-oriens-muted" x-data="{ s: 0 }" x-init="setInterval(() => s++, 1000)"
+      x-text="s === 0 ? 'atualizado agora' : 'atualizado há ' + s + 's'"></span>
+  </div>
+</div>

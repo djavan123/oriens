@@ -93,6 +93,7 @@ async def dashboard_priorities(
     request: Request,
     energy: Optional[str] = Query(None),
     filter: str = Query("todos"),
+    expand: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -100,7 +101,7 @@ async def dashboard_priorities(
     energy_enum = EnergyLevel(energy_filter) if energy_filter else None
     context_id, _, _ = await resolve_active_context(request, db, current_user.id)
     priorities = await DashboardService(db).get_priorities_grouped(
-        current_user.id, energy=energy_enum, context_id=context_id, filtro=filter,
+        current_user.id, energy=energy_enum, context_id=context_id, filtro=filter, expand=expand,
     )
     return templates.TemplateResponse(
         request, "partials/dashboard_priorities.html",

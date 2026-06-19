@@ -239,7 +239,7 @@ C:\Projetos\Sistema tarefas\
 20. **Importância ponderada (SCRIPT 8):** por contexto, até 3 critérios (`criterio_contexto`) com peso e flag `inverter`. `importancia = soma(valor_efetivo × peso) / soma(pesos)`, onde `valor_efetivo = (5 - valor)` se `inverter`. Faixas: 1-2 baixa, 3 média, 4-5 alta. Contexto sem critérios → `importancia=0, sem_nota=true`. Cálculo em `services/importancia_service.py` (`calcular_importancia`, `faixa_importancia` — global Jinja). Subtarefas não pedem critérios (ficam sem nota).
 21. **Obrigatoriedade dos critérios (SCRIPT 8):** ao criar/editar tarefa de topo cujo contexto tem critérios, todos os seletores 0-5 são obrigatórios (radios `required`) — bloqueia salvar. No **Processar**, o **contexto é obrigatório** e os critérios aparecem dinâmicos conforme o contexto escolhido (`process_item.html` + Alpine; campos `crit_<id>`). Persistência e cálculo nas rotas `api/tasks` (create/update) e `api/capture` (process), via `ImportanciaService`.
 22. **Foco do dia (SCRIPT 8):** `users.foco_do_dia` (singleton, sem histórico). Card no topo do Dashboard (único com borda `--oriens-accent`), edição inline (Alpine) salvando em `PATCH /dashboard/foco`.
-23. **Ordenação do Dashboard (SCRIPT 8):** "Prioridades" ordenadas por urgência (atrasado → hoje → resto) e, dentro do grupo, por `importancia` desc (`task_repo._priority_sort_key`). Badge "★ importante" só na faixa alta; `⚠` discreto quando `sem_nota` — ambos só no Dashboard (flag `show_importancia`).
+23. **Dashboard de Prioridades (SCRIPT 8, modo normal):** componente `partials/dashboard_priorities.html` com **três grupos** — Atrasadas / Hoje / Alta importância (`importancia >= 4` e não urgente). Máx. 3 cards por grupo (+N ocultas; "+ X outras prioridades" expande via `?expand=1`). Resumo "N atrasadas · N hoje · N alta" (bolinhas). **Pills** Todos/Atrasado/Hoje/Alta (`alta` reúne toda `importancia >= 4`). Ordenação intra-grupo por `importancia` desc. **Polling 30s** (`hx-trigger="every 30s, refreshPriorities from:body"`, swap `outerHTML`) + "atualizado há Xs". Cards (`partials/dashboard_task.html`): projeto (📁), urgência (atrasado·Nd/hoje), `alta · X.X` só na faixa alta, esforço `⏱`, `⚠` se `sem_nota`, **adiar** (escolhe novo prazo, `PATCH /api/tasks/{id}/adiar`, hover). Dados via `DashboardService.get_priorities_grouped` + `task_repo.get_pending_for_dashboard`/`_urgency_rank`. Fragmento: `GET /dashboard/priorities`. Modos overload/minimal inalterados.
 20. **Próxima ação (SCRIPT 5):** todo projeto deve ter uma próxima ação concreta e executável. Campo `proxima_acao` exibido **em destaque no topo** do detalhe, no card da listagem e na revisão semanal. Disponível no formulário de criação (**opcional**) e na edição. Auditado.
 21. **Arquivamento de projetos (SCRIPT 5):** `projects.archived` (bool). Arquivados saem da listagem padrão, dashboard, revisão semanal e "Projetos sem atualização", mas continuam acessíveis por URL, editáveis e pesquisáveis. Filtros na listagem: `?filter=active` (padrão) | `archived` | `all`. Botão "Arquivar/Desarquivar projeto" no detalhe (`PATCH /api/projects/{id}` com `archived`). Filtro de `archived == False` aplicado em `get_all_by_user` (padrão), `get_active_by_user` e `count_active`; `get_by_id` permanece sem filtro.
 22. **Decisões (SCRIPT 5):** substituem os antigos Marcos. `project_decisions` (data + texto). No detalhe, seção "Decisões" com input "Nova decisão..." + "Adicionar"; lista em ordem decrescente. Criar uma decisão grava evento `decision_recorded` na cronologia. Excluir uma decisão **não** remove o evento da timeline.
@@ -370,6 +370,7 @@ TELEGRAM_CHAT_ID=               # opcional
 | PATCH | `/api/tasks/{id}/blocked` | Marcar bloqueada |
 | PATCH | `/api/tasks/{id}/pending` | Marcar pendente |
 | PATCH | `/api/tasks/{id}/archive` | Arquivar |
+| PATCH | `/api/tasks/{id}/adiar` | Adiar: novo prazo; 204 + `HX-Trigger: refreshPriorities` (SCRIPT 8) |
 | GET | `/api/tasks/{id}/edit` | Formulário de edição inline |
 | GET | `/api/tasks/{id}/cancel-edit` | Cancelar edição |
 | PATCH | `/api/tasks/{id}` | Atualizar tarefa (aceita `responsavel_id`) |
@@ -392,6 +393,7 @@ TELEGRAM_CHAT_ID=               # opcional
 | POST | `/api/ai/overload-context` | IA: análise de overload |
 | POST | `/api/context/switch` | Trocar contexto ativo (campo `context_id` inteiro) |
 | POST | `/api/context/transition` | Transição + captura pendências (campo `context_id`) |
+| GET | `/dashboard/priorities` | Fragmento de prioridades (`?filter=&energy=&expand=`) — polling 30s (SCRIPT 8) |
 | PATCH | `/dashboard/foco` | Salvar foco do dia (SCRIPT 8) |
 | POST | `/api/settings/criterios/{context_id}` | Substituir critérios do contexto — máx. 3 (SCRIPT 8) |
 | POST | `/api/settings/labels` | Criar etiqueta (name, color) |
@@ -491,7 +493,7 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **Config em `/settings`:** seção "Critérios de importância" (1 card por contexto, linhas dinâmicas Alpine, "Salvar critérios" → `POST /api/settings/criterios/{id}` faz replace).
 - **Obrigatoriedade:** seletor 0-5 (`partials/criterio_selector.html`, radios `required`) na criação/edição de tarefa de topo com contexto que tem critérios; no **Processar**, contexto obrigatório + critérios dinâmicos por contexto. Persistência/validação em `api/tasks` e `api/capture` via `ImportanciaService`.
 - **Foco do dia:** `users.foco_do_dia` (singleton) editável no topo do Dashboard (`partials/foco_do_dia.html`, `PATCH /dashboard/foco`).
-- **Dashboard:** ordenação por urgência → importância (`task_repo._priority_sort_key`); badge "★ importante" (faixa alta) e `⚠` (sem nota) só nas Prioridades (flag `show_importancia`).
+- **Dashboard (Prioridades):** três grupos (Atrasadas/Hoje/Alta), máx. 3/grupo (+expandir), resumo com bolinhas, pills de filtro (Todos/Atrasado/Hoje/Alta), cards ricos (projeto, urgência, `alta · X.X`, esforço `⏱`, `⚠` sem nota, **adiar**), ordenação intra-grupo por importância e **polling 30s** sem reload (`partials/dashboard_priorities.html` + `dashboard_task.html`, `GET /dashboard/priorities`, `PATCH /api/tasks/{id}/adiar`).
 - Migração aditiva: SQLite (`_ENSURE_COLUMNS` tasks/users) + PG (`_ENSURE_COLUMNS_PG` tasks/users); tabelas novas via `create_all`.
 
 ---
