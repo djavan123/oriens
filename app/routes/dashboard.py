@@ -59,11 +59,13 @@ async def dashboard(
     standalone_tasks = await service.get_standalone_tasks(
         current_user.id, energy=energy_enum, context_id=context_id,
     )
+    now_action = service.pick_now_action(projects_focus, standalone_tasks)
 
     now = datetime.now()
     context = {
         "user": current_user,
         "data": data,
+        "now_action": now_action,
         "projects_focus": projects_focus,
         "standalone_tasks": standalone_tasks,
         "energy_filter": energy_filter,
@@ -110,6 +112,30 @@ async def dashboard_priorities(
     return templates.TemplateResponse(
         request, "partials/dashboard_priorities.html",
         {"priorities": priorities, "energy_filter": energy_filter},
+    )
+
+
+@router.get("/dashboard/now", response_class=HTMLResponse)
+async def dashboard_now(
+    request: Request,
+    energy: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    energy_filter = energy if energy in _VALID_ENERGIES else None
+    energy_enum = EnergyLevel(energy_filter) if energy_filter else None
+    context_id, _, all_contexts = await resolve_active_context(request, db, current_user.id)
+    context_labels = {ctx.id: ctx.name for ctx in all_contexts}
+    service = DashboardService(db)
+    projects_focus = await service.get_projects_in_focus(current_user.id, context_id=context_id)
+    standalone_tasks = await service.get_standalone_tasks(
+        current_user.id, energy=energy_enum, context_id=context_id,
+    )
+    now_action = service.pick_now_action(projects_focus, standalone_tasks)
+    return templates.TemplateResponse(
+        request, "partials/dashboard_now.html",
+        {"now_action": now_action, "context_labels": context_labels,
+         "energy_filter": energy_filter},
     )
 
 

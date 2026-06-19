@@ -10,13 +10,13 @@
 
   {% if standalone_tasks %}
   <div class="bg-oriens-surface rounded-xl px-1 py-1">
-    {% with show_importancia = true, show_adiar = true, refresh_priorities = true %}
+    {% with show_importancia = true, refresh_priorities = true, hide_actions = true %}
     {% for task in standalone_tasks %}
       {% include "partials/task_item.html" %}
     {% endfor %}
     {% endwith %}
   </div>
   {% else %}
-  <p class="text-oriens-empty text-sm italic">Nenhuma tarefa avulsa pendente.</p>
+  <p class="text-oriens-secondary text-sm">Nenhuma tarefa avulsa pendente.</p>
   {% endif %}
 </div>

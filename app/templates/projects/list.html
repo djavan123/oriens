@@ -44,7 +44,7 @@
 
   <!-- Em andamento -->
   <div class="bg-oriens-card rounded-xl overflow-hidden flex flex-col">
-    <div class="flex items-center gap-2 px-3 py-2.5 bg-black/10" style="border-top: 2px solid var(--oriens-accent);">
+    <div class="flex items-center gap-2 px-3 py-2.5" style="border-top: 1px solid var(--oriens-accent);">
       <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: var(--oriens-accent);"></span>
       <h2 class="text-xs font-semibold uppercase tracking-wider flex-1 text-oriens-primary">Em andamento</h2>
       <span class="text-xs font-mono rounded px-1.5 py-0.5 bg-oriens-card-hover border border-oriens-border text-oriens-secondary">{{ active_projects | length }}</span>
@@ -52,6 +52,8 @@
     <div id="projects-active" class="flex flex-col gap-2 p-2">
       {% for project in active_projects %}
         {% include "partials/project_card.html" %}
+      {% else %}
+      <p class="text-oriens-secondary text-xs px-2 py-3">Nenhum projeto aqui.</p>
       {% endfor %}
     </div>
     <div class="px-2 pb-2">
@@ -65,7 +67,7 @@
 
   <!-- Não iniciado -->
   <div class="bg-oriens-card rounded-xl overflow-hidden flex flex-col">
-    <div class="flex items-center gap-2 px-3 py-2.5 bg-black/10" style="border-top: 2px solid var(--oriens-muted);">
+    <div class="flex items-center gap-2 px-3 py-2.5" style="border-top: 1px solid var(--oriens-muted);">
       <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: var(--oriens-muted);"></span>
       <h2 class="text-xs font-semibold uppercase tracking-wider flex-1 text-oriens-primary">Não iniciado</h2>
       <span class="text-xs font-mono rounded px-1.5 py-0.5 bg-oriens-card-hover border border-oriens-border text-oriens-secondary">{{ paused_projects | length }}</span>
@@ -74,14 +76,14 @@
       {% for project in paused_projects %}
         {% include "partials/project_card.html" %}
       {% else %}
-      <p class="text-oriens-empty text-xs italic px-2 py-3">Nenhum projeto aqui.</p>
+      <p class="text-oriens-secondary text-xs px-2 py-3">Nenhum projeto aqui.</p>
       {% endfor %}
     </div>
   </div>
 
   <!-- Concluído -->
   <div class="bg-oriens-card rounded-xl overflow-hidden flex flex-col">
-    <div class="flex items-center gap-2 px-3 py-2.5 bg-black/10" style="border-top: 2px solid var(--oriens-success);">
+    <div class="flex items-center gap-2 px-3 py-2.5" style="border-top: 1px solid var(--oriens-success);">
       <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: var(--oriens-success);"></span>
       <h2 class="text-xs font-semibold uppercase tracking-wider flex-1 text-oriens-primary">Concluído</h2>
       <span class="text-xs font-mono rounded px-1.5 py-0.5 bg-oriens-card-hover border border-oriens-border text-oriens-secondary">{{ done_projects | length }}</span>
@@ -90,7 +92,7 @@
       {% for project in done_projects %}
         {% include "partials/project_card.html" %}
       {% else %}
-      <p class="text-oriens-empty text-xs italic px-2 py-3">Nenhum projeto concluído.</p>
+      <p class="text-oriens-secondary text-xs px-2 py-3">Nenhum projeto concluído.</p>
       {% endfor %}
     </div>
   </div>

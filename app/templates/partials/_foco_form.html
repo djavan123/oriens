@@ -1,0 +1,10 @@
+{# Formulário do foco do dia (compartilhado pelos modos vazio/preenchido). Requer x-data com `editing`. #}
+<form x-show="editing" style="display:none"
+  hx-patch="/dashboard/foco" hx-target="#foco-card" hx-swap="outerHTML"
+  @keydown.escape="editing = false">
+  <textarea name="foco" rows="2" x-ref="inp"
+    @keydown.enter.prevent="$el.closest('form').requestSubmit()"
+    @blur="$el.closest('form').requestSubmit()"
+    placeholder="Ex.: fechar a proposta do cliente X"
+    class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors resize-none placeholder-oriens-muted">{{ user.foco_do_dia or '' }}</textarea>
+</form>

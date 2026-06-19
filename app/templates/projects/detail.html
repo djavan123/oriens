@@ -18,6 +18,7 @@
 } %}
 {% set energy_label = {'high': 'alta', 'medium': 'média', 'low': 'baixa'} %}
 {% set energy_dot = {'high': 'bg-oriens-alert', 'medium': 'bg-oriens-btn', 'low': 'bg-oriens-secondary'} %}
+{% set priority_label = {1: 'Alta', 2: 'Média', 3: 'Baixa'} %}
 
 {% block content %}
 
@@ -66,7 +67,7 @@
           <span class="text-xs {{ status_color.get(project.status.value, 'text-oriens-secondary') }}">
             {{ status_label.get(project.status.value, project.status.value) }}
           </span>
-          <span class="text-oriens-secondary text-xs font-mono">P{{ project.priority }}</span>
+          <span class="text-oriens-secondary text-xs">Prioridade {{ priority_label.get(project.priority, 'Média') | lower }}</span>
           <button
             hx-patch="/api/projects/{{ project.id }}"
             hx-vals='{"archived": {% if project.archived %}false{% else %}true{% endif %}}'
@@ -149,7 +150,7 @@
 
       <div id="task-list-pending">
         {% for task in pending_tasks %}
-          {% with draggable = true, reload_on_done = true %}{% include "partials/task_with_subtasks.html" %}{% endwith %}
+          {% with draggable = true, reload_on_done = true, is_next = loop.first %}{% include "partials/task_with_subtasks.html" %}{% endwith %}
         {% endfor %}
       </div>
       {% if not pending_tasks %}
@@ -275,9 +276,9 @@
             <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Prioridade</label>
             <select name="priority"
               class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-              <option value="1" {% if project.priority == 1 %}selected{% endif %}>P1 — Alta</option>
-              <option value="2" {% if project.priority == 2 %}selected{% endif %}>P2 — Média</option>
-              <option value="3" {% if project.priority == 3 %}selected{% endif %}>P3 — Baixa</option>
+              <option value="1" {% if project.priority == 1 %}selected{% endif %}>Alta</option>
+              <option value="2" {% if project.priority == 2 %}selected{% endif %}>Média</option>
+              <option value="3" {% if project.priority == 3 %}selected{% endif %}>Baixa</option>
             </select>
           </div>
         </div>

@@ -151,6 +151,23 @@ class DashboardService:
             user_id, limit=limit, energy=energy, context_id=context_id, standalone_only=True
         )
 
+    @staticmethod
+    def pick_now_action(projects_focus: dict, standalone_tasks: list[Task]) -> Optional[dict]:
+        """Escolhe a ÚNICA ação dominante do bloco "Agora".
+
+        Ordem: 1) próxima ação do primeiro projeto executável em foco;
+               2) primeira tarefa avulsa prioritária. None se não houver nada.
+        """
+        focus = projects_focus.get("focus") if projects_focus else None
+        if focus:
+            item = focus[0]
+            if item["next_task"] is not None:
+                return {"kind": "project_task", "task": item["next_task"], "project": item["project"]}
+            return {"kind": "project_fallback", "text": item["next_text"], "project": item["project"]}
+        if standalone_tasks:
+            return {"kind": "standalone", "task": standalone_tasks[0]}
+        return None
+
     async def get_dashboard_data(
         self,
         user_id: int,

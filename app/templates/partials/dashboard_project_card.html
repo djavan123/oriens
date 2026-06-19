@@ -2,6 +2,7 @@
 {% set p = item.project %}
 {% set energy_dot = {'high': 'bg-oriens-alert', 'medium': 'bg-oriens-btn', 'low': 'bg-oriens-secondary'} %}
 {% set energy_label = {'high': 'alta', 'medium': 'média', 'low': 'baixa'} %}
+{% set priority_label = {1: 'Alta', 2: 'Média', 3: 'Baixa'} %}
 
 <div class="rounded-lg bg-oriens-card border border-oriens-border p-4">
 
@@ -10,7 +11,7 @@
        class="text-oriens-primary text-sm font-medium leading-snug hover:text-oriens-accent transition-colors min-w-0">
       {{ p.name }}
     </a>
-    <span class="text-oriens-secondary text-[11px] font-mono flex-shrink-0">P{{ p.priority }}</span>
+    <span class="text-oriens-secondary text-[11px] flex-shrink-0">{{ priority_label.get(p.priority, 'Média') }}</span>
   </div>
 
   {% if p.deadline %}

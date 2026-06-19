@@ -119,6 +119,7 @@
   </div>
 
   <!-- Ações (hover) -->
+  {% if not (hide_actions is defined and hide_actions) %}
   <div class="flex items-center gap-2 flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
     {% if show_adiar is defined and show_adiar %}
     <button type="button" @click="adiar = !adiar"
@@ -138,5 +139,6 @@
       class="text-oriens-secondary text-xs hover:text-oriens-muted transition-colors">arquivar</button>
     {% endif %}
   </div>
+  {% endif %}
 
 </div>

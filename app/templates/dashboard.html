@@ -5,33 +5,32 @@
 
 {% block content %}
 
+<!-- Data + energia (cabeçalho compacto) -->
+<div class="flex items-end justify-between gap-4 mb-5 flex-wrap">
+  <div>
+    <p class="text-[11px] font-semibold text-oriens-secondary tracking-wide uppercase">{{ day_of_week }}</p>
+    <h1 class="text-xl font-bold text-oriens-primary tracking-tight mt-0.5">{{ current_date }}</h1>
+  </div>
+  <div class="flex items-center gap-1.5 flex-wrap">
+    <span class="text-oriens-secondary text-[11px] font-semibold tracking-wide uppercase mr-0.5">Energia</span>
+    {% for level, label in energy_labels.items() %}
+    <a href="/dashboard?energy={{ level }}"
+       class="px-2.5 py-1 rounded-md text-xs transition-colors border
+       {% if energy_filter == level %}bg-oriens-accent text-oriens-accent-text border-oriens-accent{% else %}bg-transparent border-oriens-border text-oriens-secondary hover:text-oriens-primary{% endif %}">
+      {{ label }}
+    </a>
+    {% endfor %}
+    {% if energy_filter %}
+    <a href="/dashboard?energy=" class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors">× limpar</a>
+    {% endif %}
+  </div>
+</div>
+
 <!-- Foco do dia (âncora) -->
 {% include "partials/foco_do_dia.html" %}
 
-<!-- Date header -->
-<div class="mb-6">
-  <p class="text-[11px] font-semibold text-oriens-muted tracking-wide uppercase">{{ day_of_week }}</p>
-  <h1 class="text-3xl font-bold text-oriens-primary tracking-tight mt-1">{{ current_date }}</h1>
-</div>
-
-<!-- Energia (seletor discreto) -->
-<div class="flex items-center gap-2 mb-8 flex-wrap">
-  <span class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mr-1">Energia</span>
-  {% for level, label in energy_labels.items() %}
-  <a href="/dashboard?energy={{ level }}"
-     class="px-3 py-1.5 rounded-md text-xs transition-colors border
-     {% if energy_filter == level %}
-       bg-oriens-accent text-white border-oriens-accent
-     {% else %}
-       bg-transparent border-oriens-border text-oriens-secondary hover:text-oriens-primary
-     {% endif %}">
-    {{ label }}
-  </a>
-  {% endfor %}
-  {% if energy_filter %}
-  <a href="/dashboard?energy=" class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">× limpar</a>
-  {% endif %}
-</div>
+<!-- Bloco "Agora": a única ação dominante -->
+{% include "partials/dashboard_now.html" %}
 
 <!-- Overload banner (informativo) -->
 {% if data.overload.is_overload %}

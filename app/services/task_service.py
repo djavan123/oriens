@@ -55,9 +55,8 @@ class TaskService:
         is_quick_win: bool = False,
         **extra,
     ) -> Task:
-        valid, suggestions = validate_starts_with_verb(title)
-        if not valid:
-            raise TaskVerbError(title, suggestions)
+        # Validação de verbo desativada (SCRIPT 12): qualquer título não vazio é aceito.
+        # O helper validate_starts_with_verb continua disponível, apenas não é chamado.
         extra["priority_score"] = _calc_score(**extra)
         # Tarefas de topo num projeto recebem order_index = max+1 (append ao final).
         is_subtask = extra.get("parent_id") is not None
@@ -110,10 +109,7 @@ class TaskService:
         task = await self.repo.get_by_id(task_id, user_id)
         if not task:
             return None
-        if "title" in kwargs and kwargs["title"]:
-            valid, suggestions = validate_starts_with_verb(kwargs["title"])
-            if not valid:
-                raise TaskVerbError(kwargs["title"], suggestions)
+        # Validação de verbo desativada (SCRIPT 12) — qualquer título não vazio é aceito.
         if any(f in kwargs for f in _SCORE_FIELDS):
             kwargs["priority_score"] = _score_from_task(task, kwargs)
         return await self.repo.update(task, **kwargs)

@@ -1,0 +1,70 @@
+{# Bloco "Agora" — UMA única ação dominante. Auto-recarrega ao concluir.
+   Var: now_action (dict | None), context_labels, energy_filter. #}
+{% set energy_dot = {'high': 'bg-oriens-alert', 'medium': 'bg-oriens-btn', 'low': 'bg-oriens-secondary'} %}
+{% set energy_label = {'high': 'alta', 'medium': 'média', 'low': 'baixa'} %}
+
+<div id="now-block"
+     hx-get="/dashboard/now?energy={{ energy_filter or '' }}"
+     hx-trigger="refreshProjectsFocus from:body, refreshPriorities from:body"
+     hx-swap="outerHTML"
+     class="mb-8 rounded-xl bg-oriens-surface p-6"
+     style="border: 1px solid var(--oriens-accent);">
+
+  <p class="text-oriens-accent text-[11px] font-bold uppercase tracking-[0.15em] mb-3">Agora</p>
+
+  {% if not now_action %}
+  <p class="text-oriens-secondary text-sm">Sem ação executável agora.</p>
+
+  {% else %}
+  {% set na = now_action %}
+  {% set t = na.task if na.kind in ('project_task', 'standalone') else None %}
+
+  <div class="flex items-start gap-4">
+    {% if t %}
+    <button
+      hx-patch="/api/tasks/{{ t.id }}/done"
+      hx-swap="none"
+      hx-on::after-request="if(event.detail.successful){ htmx.trigger(document.body, '{{ 'refreshProjectsFocus' if na.kind == 'project_task' else 'refreshPriorities' }}') }"
+      title="Concluir"
+      class="flex-shrink-0 mt-1 w-6 h-6 border-2 border-oriens-accent rounded-md hover:bg-oriens-accent/20 transition-colors"></button>
+    {% endif %}
+
+    <div class="min-w-0 flex-1">
+      <p class="text-oriens-primary text-lg font-semibold leading-snug">
+        {{ t.title if t else na.text }}
+      </p>
+
+      <div class="flex items-center gap-3 mt-2 flex-wrap text-[12px] text-oriens-secondary">
+        <!-- Origem -->
+        {% if na.kind == 'standalone' %}
+        <span>Tarefa avulsa</span>
+        {% else %}
+        <a href="/projects/{{ na.project.id }}" class="text-oriens-link hover:opacity-80 transition-opacity">{{ na.project.name }}</a>
+        {% endif %}
+
+        <!-- Contexto -->
+        {% if t and t.context_id and context_labels is defined and context_labels.get(t.context_id) %}
+        <span class="text-oriens-secondary">·</span>
+        <span>{{ context_labels[t.context_id] }}</span>
+        {% endif %}
+
+        <!-- Energia -->
+        {% if t %}
+        <span class="text-oriens-secondary">·</span>
+        <span class="inline-flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full {{ energy_dot.get(t.energy.value, 'bg-oriens-secondary') }}"></span>
+          energia {{ energy_label.get(t.energy.value, t.energy.value) }}
+        </span>
+        {% endif %}
+      </div>
+
+      {% if na.kind != 'standalone' %}
+      <a href="/projects/{{ na.project.id }}"
+         class="inline-block mt-3 text-oriens-link text-xs hover:opacity-80 transition-opacity">
+        abrir projeto →
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
