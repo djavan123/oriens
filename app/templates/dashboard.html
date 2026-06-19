@@ -74,8 +74,8 @@
   <section>
     <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Próximas 3</h2>
     {% if data.priority_tasks %}
-    <div class="bg-oriens-surface rounded-xl px-4">
-      {% with show_importancia = true %}
+    <div class="bg-oriens-surface rounded-xl px-1 py-1">
+      {% with show_importancia=true %}
       {% for task in data.priority_tasks %}{% include "partials/task_item.html" %}{% endfor %}
       {% endwith %}
     </div>
@@ -87,7 +87,7 @@
   {% if data.quick_wins %}
   <section class="border-l-2 border-oriens-success pl-5">
     <h2 class="text-oriens-success text-[11px] font-bold tracking-wide uppercase mb-4">Quick wins</h2>
-    <div class="bg-oriens-surface rounded-xl px-4">
+    <div class="bg-oriens-surface rounded-xl px-1 py-1">
       {% for task in data.quick_wins %}{% include "partials/task_item.html" %}{% endfor %}
     </div>
   </section>
@@ -106,7 +106,7 @@
   {% if data.quick_wins %}
   <section class="border-l-2 border-oriens-success pl-5">
     <h2 class="text-oriens-success text-[11px] font-bold tracking-wide uppercase mb-4">Quick wins disponíveis</h2>
-    <div class="bg-oriens-surface rounded-xl px-4">
+    <div class="bg-oriens-surface rounded-xl px-1 py-1">
       {% for task in data.quick_wins %}{% include "partials/task_item.html" %}{% endfor %}
     </div>
   </section>
@@ -145,7 +145,7 @@
       <h2 class="text-oriens-success text-[11px] font-bold tracking-wide uppercase mb-4">
         Quick wins{% if energy_filter %} · {{ energy_labels.get(energy_filter, '') | lower }}{% endif %}
       </h2>
-      <div class="bg-oriens-surface rounded-xl px-4">
+      <div class="bg-oriens-surface rounded-xl px-1 py-1">
         {% for task in data.quick_wins %}{% include "partials/task_item.html" %}{% endfor %}
       </div>
     </section>
@@ -154,7 +154,7 @@
     {% if data.blocked_tasks %}
     <section>
       <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Bloqueios</h2>
-      <div class="bg-oriens-surface rounded-xl px-4">
+      <div class="bg-oriens-surface rounded-xl px-1 py-1">
         {% for task in data.blocked_tasks %}{% include "partials/task_item.html" %}{% endfor %}
       </div>
     </section>

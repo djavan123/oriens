@@ -54,21 +54,21 @@ Se a resposta for "mais difícil", a escolha está errada.
 
 ---
 
-## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS SCRIPT 3 + DEPLOY)
+## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS SCRIPT 8)
 
 ```
 C:\Projetos\Sistema tarefas\
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                        # FastAPI app, routers, lifespan (init_db sempre) + loop de lembretes (SCRIPT 4)
+│   ├── main.py                        # FastAPI app, routers, lifespan (init_db; seed contextos + critérios) + loop de lembretes (SCRIPT 4/8)
 │   ├── config.py                      # Pydantic Settings (DATABASE_URL, SECRET_KEY, AI_*, COOKIE_SECURE, TELEGRAM_*)
 │   ├── database.py                    # init_db(); _ensure_columns/_migrate_data (SQLite) + _ensure_columns_postgres (PG)
-│   ├── templates_env.py               # Jinja2 env global (`now`, `fmt_size`, `due_status` — SCRIPT 6)
+│   ├── templates_env.py               # Jinja2 env global (`now`, `fmt_size`, `due_status` — SCRIPT 6; `faixa_importancia` — SCRIPT 8)
 │   ├── models/
-│   │   ├── __init__.py                # Exporta todos os models (+ Label)
-│   │   ├── user.py
+│   │   ├── __init__.py                # Exporta todos os models (+ Label, CriterioContexto, TarefaCriterioValor)
+│   │   ├── user.py                    # + foco_do_dia (text, singleton) — SCRIPT 8
 │   │   ├── project.py                 # + proxima_acao, premissas, responsavel_id, archived (SCRIPT 5); status: nao_iniciado/em_andamento/concluido
-│   │   ├── task.py                    # EnergyLevel aqui; + responsavel_id; + tags
+│   │   ├── task.py                    # EnergyLevel aqui; + responsavel_id; + tags; + importancia/sem_nota (SCRIPT 8)
 │   │   ├── note.py
 │   │   ├── capture.py
 │   │   ├── context.py                 # type → String(50) nullable; + user_id (contextos dinâmicos)
@@ -79,43 +79,49 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── project_risk.py
 │   │   ├── project_audit.py
 │   │   ├── project_timeline.py        # TimelineEventType enum (+ decision_recorded, SCRIPT 5) + ProjectTimeline model
-│   │   └── label.py                   # Label (etiquetas por usuário) — SCRIPT 3
+│   │   ├── label.py                   # Label (etiquetas por usuário) — SCRIPT 3
+│   │   ├── criterio_contexto.py       # critério de importância por contexto (peso, inverter) — SCRIPT 8
+│   │   └── tarefa_criterio_valor.py   # nota 0-5 da tarefa em cada critério — SCRIPT 8
 │   ├── schemas/
 │   ├── repositories/
 │   │   ├── ... (user, project, task, note, capture, weekly, comment, attachment, decision, risk, audit, timeline)
 │   │   ├── context_repo.py            # + get_all_by_user/get_by_id/create/delete (SCRIPT 3)
+│   │   ├── user_repo.py               # + update_foco (SCRIPT 8)
+│   │   ├── task_repo.py               # _urgency_rank/_priority_sort_key; get_pending_for_dashboard (SCRIPT 8)
+│   │   ├── criterio_repo.py           # CRUD/replace de critérios + seed inicial — SCRIPT 8
 │   │   └── label_repo.py              # CRUD de etiquetas — SCRIPT 3
 │   ├── services/
 │   │   ├── project_service.py         # audit trail (+ proxima_acao) + timeline; create aceita proxima_acao; get_all filtra archived (SCRIPT 5)
 │   │   ├── task_service.py            # verb validation, priority_score + timeline (task_created, task_done)
-│   │   ├── capture_service.py         # process_as_task/project/note/discard
-│   │   ├── dashboard_service.py       # DashboardData: tasks + weekly_theme
+│   │   ├── capture_service.py         # process_as_task (aceita context_id) /project/note/discard
+│   │   ├── dashboard_service.py       # DashboardData + get_priorities_grouped (grupos/filtro/expand — SCRIPT 8)
+│   │   ├── importancia_service.py     # calcular_importancia, faixa_importancia, parse/apply de valores — SCRIPT 8
 │   │   ├── weekly_directive_service.py
 │   │   ├── ai_service.py              # Protocol + ClaudeProvider + OpenAIProvider + NullProvider
 │   │   └── reminder_service.py        # lembretes: send_telegram, process_due_telegram, get_due_popups — SCRIPT 4
 │   ├── routes/
 │   │   ├── auth.py                    # cookies com secure=COOKIE_SECURE
-│   │   ├── dashboard.py               # usa resolve_active_context()
-│   │   ├── projects.py                # usa resolve_active_context(); list aceita ?filter=active|archived|all (SCRIPT 5)
-│   │   ├── capture.py                 # usa resolve_active_context()
+│   │   ├── dashboard.py               # resolve_active_context(); GET /dashboard/priorities (fragmento), PATCH /dashboard/foco (SCRIPT 8)
+│   │   ├── projects.py                # usa resolve_active_context(); list aceita ?filter=active|archived|all (SCRIPT 5); passa criterios ao detalhe (SCRIPT 8)
+│   │   ├── capture.py                 # resolve_active_context(); process passa criterios_by_context + contexto ativo (SCRIPT 8)
 │   │   ├── weekly.py                  # usa resolve_active_context()
-│   │   ├── settings.py               # GET /settings (etiquetas + contextos) — SCRIPT 3
+│   │   ├── settings.py               # GET /settings (etiquetas + contextos + critérios) — SCRIPT 3/8
 │   │   └── api/
-│   │       ├── tasks.py               # aceita responsavel_id, context_id, tags
+│   │       ├── tasks.py               # responsavel_id/context_id/tags; valida+calcula critérios (create/update); PATCH /{id}/adiar (SCRIPT 8)
 │   │       ├── projects.py            # aceita responsavel_id, proxima_acao, archived; anexos em disco; CRUD de decisões (SCRIPT 5)
-│   │       ├── capture.py
+│   │       ├── capture.py             # process: contexto obrigatório + critérios (SCRIPT 8)
 │   │       ├── ai.py
 │   │       ├── context.py             # cookie agora guarda context_id (int) — SCRIPT 3
-│   │       ├── settings.py            # CRUD etiquetas + contextos — SCRIPT 3
+│   │       ├── settings.py            # CRUD etiquetas + contextos + POST /criterios/{ctx} (replace) — SCRIPT 3/8
 │   │       └── reminders.py           # GET /due (popup) + POST /{id}/ack — SCRIPT 4
 │   ├── templates/
 │   │   ├── base.html                  # tokens oriens-*→var(); theme.css; init de tema sem flash; x-data theme no <html> (SCRIPT 6)
 │   │   ├── base_app.html              # sidebar RESPONSIVA + contextos dinâmicos + seletor de tema "Aparência" (SCRIPT 6)
-│   │   ├── dashboard.html             # grid-cols-1 md:grid-cols-2 (responsivo)
+│   │   ├── dashboard.html             # foco do dia + componente de Prioridades (grupos/pills/polling) — SCRIPT 8
 │   │   ├── capture.html
-│   │   ├── process.html
+│   │   ├── process.html               # form de tarefa: contexto obrigatório + critérios dinâmicos (SCRIPT 8)
 │   │   ├── weekly.html
-│   │   ├── settings.html              # etiquetas + contextos (SCRIPT 3)
+│   │   ├── settings.html              # etiquetas + contextos + "Critérios de importância" (SCRIPT 3/8)
 │   │   ├── auth/ (login.html, setup.html)
 │   │   ├── projects/
 │   │   │   ├── list.html              # kanban responsivo + filtro Ativos/Arquivados/Todos (SCRIPT 5)
@@ -127,8 +133,12 @@ C:\Projetos\Sistema tarefas\
 │   │       ├── task_form.html         # CRIAÇÃO só com título (SCRIPT 4)
 │   │       ├── task_edit_form.html    # energia/prazo/resp/etiquetas/quick win/lembrete; contexto travado se for de projeto
 │   │       ├── reminder_popup.html    # toasts de lembrete (SCRIPT 4)
-│   │       ├── project_form.html       # criação: + campo "Próxima ação" (opcional) — SCRIPT 5
+│   │       ├── project_form.html       # criação: + "Próxima ação" + critérios quando o contexto tem (SCRIPT 5/8)
 │   │       ├── project_decision.html   # item de decisão (data + texto + excluir) — SCRIPT 5
+│   │       ├── criterio_selector.html  # botões 0-5 obrigatórios por critério (radios) — SCRIPT 8
+│   │       ├── foco_do_dia.html        # card âncora do Dashboard (borda accent, edição inline) — SCRIPT 8
+│   │       ├── dashboard_priorities.html # wrapper: resumo + pills + grupos + polling 30s — SCRIPT 8
+│   │       ├── dashboard_task.html     # card de prioridade (projeto/urgência/importância/esforço/adiar) — SCRIPT 8
 │   │       └── ... (subtasks, project_card/comment/attachment/risk, capture, process, ai_result)
 │   ├── static/                        # PWA: manifest.webmanifest, sw.js, icon.svg + css/theme.css (3 temas — SCRIPT 6)
 │   └── utils/
@@ -523,14 +533,14 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualiza
 
 | Item | Quantidade |
 |---|---|
-| Tabelas no banco | 14 (`project_milestones` → `project_decisions`) |
-| Models SQLAlchemy | 14 (`project_decision` substituiu `project_milestone`) |
-| Repositories | 14 (`project_decision_repo` substituiu milestone) |
-| Services | 7 (+ `reminder_service`) |
+| Tabelas no banco | 16 (+ `criterio_contexto`, `tarefa_criterio_valor` — SCRIPT 8) |
+| Models SQLAlchemy | 16 (+ `CriterioContexto`, `TarefaCriterioValor`) |
+| Repositories | 15 (+ `criterio_repo`) |
+| Services | 8 (+ `importancia_service`) |
 | Rotas principais | 6 arquivos (+ `settings.py`) |
 | Rotas API | 7 arquivos (+ `api/settings.py`, `api/reminders.py`) |
-| Endpoints totais | ~39 |
-| Templates HTML | ~27 (+ `theme_switcher.html`) |
+| Endpoints totais | ~43 |
+| Templates HTML | ~31 (+ critérios/foco/dashboard de prioridades — SCRIPT 8) |
 | Temas | 3 (`dark`/`light`/`warm`) via `static/css/theme.css` |
 | Ambiente | Dev (SQLite) + Produção (PostgreSQL na VPS) |
 

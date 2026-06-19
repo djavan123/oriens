@@ -44,10 +44,10 @@
   </div>
 
   <!-- Grupos -->
-  <div class="bg-oriens-surface rounded-xl p-4">
+  <div class="bg-oriens-surface rounded-xl px-1 py-1">
     {% for g in priorities.groups %}
-    <div class="{% if not loop.last %}mb-5{% endif %}">
-      <p class="text-{{ color.get(g.key, 'oriens-secondary') }} text-[11px] font-bold tracking-wide uppercase mb-2">
+    <div class="{% if not loop.last %}mb-4{% endif %}">
+      <p class="text-{{ color.get(g.key, 'oriens-secondary') }} text-[11px] font-bold tracking-wide uppercase px-3 pt-2.5 pb-1">
         {{ g.label }}{% if g.hidden %} <span class="text-oriens-muted normal-case font-normal tracking-normal">+{{ g.hidden }} ocultas</span>{% endif %}
       </p>
       {% if g.visible %}

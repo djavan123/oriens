@@ -478,7 +478,7 @@
           <span x-text="show ? '▾' : '▸'"></span>
           <span>Concluídas ({{ done_tasks | length }})</span>
         </button>
-        <div x-show="show" x-transition>
+        <div x-show="show" x-transition class="bg-oriens-card rounded-lg px-1 py-1">
           {% for task in done_tasks %}
             {% include "partials/task_item.html" %}
           {% endfor %}

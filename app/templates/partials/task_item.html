@@ -1,26 +1,37 @@
-{% set energy_dot = {'high': 'bg-oriens-alert', 'medium': 'bg-oriens-btn', 'low': 'bg-oriens-secondary'} %}
+{# Partial unificado de item de tarefa — usado em projeto, dashboard e modos overload/minimal.
+   Vars opcionais (via {% with %}):
+     allow_subtask (bool)   — botão + para subtarefa (projeto)
+     show_importancia (bool) — badge alta/⚠ de importância
+     show_project (bool)    — badge 📁 com nome do projeto (dashboard)
+     project_map (dict)     — {project_id: name}
+     show_adiar (bool)      — botão "adiar" no hover (dashboard)
+     refresh_priorities (bool) — ao concluir, dispara refreshPriorities em vez de remover DOM
+     context_labels (dict)  — {context_id: name}
+#}
+{% set ds = due_status(task.deadline) if task.deadline and task.status.value != 'done' else None %}
+{% set cb_border = 'border-oriens-urgent' if ds == 'overdue' else ('border-oriens-today' if ds == 'today' else 'border-oriens-border') %}
 
 <div id="task-{{ task.id }}"
-     class="group flex items-start gap-3 p-3 mb-2 rounded-lg bg-oriens-card border border-oriens-border">
+     x-data="{ adiar: false }"
+     class="group flex items-start gap-3 px-3 py-2.5 border-b border-oriens-divider last:border-b-0 hover:bg-oriens-card-hover rounded-md transition-colors{% if task.status.value == 'done' %} opacity-40{% endif %}">
 
-  <!-- Checkbox / status indicator -->
+  <!-- Checkbox / indicador de status -->
   {% if task.status.value == 'pending' %}
   <button
     hx-patch="/api/tasks/{{ task.id }}/done"
     hx-swap="none"
     hx-on:click="document.getElementById('task-{{ task.id }}').classList.add('task-completing')"
-    hx-on::after-request="if(event.detail.successful){ setTimeout(function(){ var el=document.getElementById('task-{{ task.id }}'); if(el) el.remove(); }, 450) }"
-    title="Marcar como feito"
-    class="flex-shrink-0 mt-0.5 w-4 h-4 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors">
+    hx-on::after-request="if(event.detail.successful){ {% if refresh_priorities is defined and refresh_priorities %}htmx.trigger(document.body,'refreshPriorities'){% else %}setTimeout(()=>{var e=document.getElementById('task-{{ task.id }}');if(e)e.remove();},450){% endif %} }"
+    title="Concluir"
+    class="flex-shrink-0 mt-0.5 w-4 h-4 border {{ cb_border }} rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors">
   </button>
   {% elif task.status.value == 'done' %}
   <button
     hx-patch="/api/tasks/{{ task.id }}/pending"
-    hx-target="#task-{{ task.id }}"
-    hx-swap="outerHTML"
+    hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
     title="Desfazer"
-    class="flex-shrink-0 mt-0.5 w-4 h-4 border border-oriens-accent bg-oriens-btn rounded flex items-center justify-center">
-    <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    class="flex-shrink-0 mt-0.5 w-4 h-4 border border-oriens-success bg-oriens-success/20 rounded flex items-center justify-center">
+    <svg class="w-2.5 h-2.5 text-oriens-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
     </svg>
   </button>
@@ -30,108 +41,101 @@
   </span>
   {% endif %}
 
-  <!-- Content -->
+  <!-- Conteúdo -->
   <div class="flex-1 min-w-0">
+
+    <!-- Título -->
     <div class="flex items-start gap-2">
       <p class="flex-1 min-w-0 text-sm leading-snug
-        {% if task.status.value == 'done' %}text-oriens-empty line-through
+        {% if task.status.value == 'done' %}line-through text-oriens-empty
         {% elif task.status.value == 'blocked' %}text-oriens-alert
-        {% else %}text-oriens-primary{% endif %}">
-        {{ task.title }}
-      </p>
-      {% if allow_subtask %}
+        {% else %}text-oriens-primary{% endif %}">{{ task.title }}</p>
+      {% if allow_subtask is defined and allow_subtask %}
       <button type="button"
-        onclick="var f=document.getElementById('subtask-form-{{ task.id }}'); if(f){var open=f.style.display==='flex'; f.style.display=open?'none':'flex'; if(!open){var i=document.getElementById('subtask-input-{{ task.id }}'); if(i) i.focus();}}"
+        onclick="var f=document.getElementById('subtask-form-{{ task.id }}');if(f){var o=f.style.display==='flex';f.style.display=o?'none':'flex';if(!o){var i=document.getElementById('subtask-input-{{ task.id }}');if(i)i.focus();}}"
         title="Adicionar subtarefa"
-        class="flex-shrink-0 mt-0.5 w-5 h-5 flex items-center justify-center rounded text-oriens-muted hover:text-oriens-accent hover:bg-oriens-surface text-base leading-none transition-colors">
-        +
-      </button>
+        class="flex-shrink-0 mt-0.5 w-5 h-5 flex items-center justify-center rounded text-oriens-muted hover:text-oriens-accent hover:bg-oriens-surface text-base leading-none transition-colors">+</button>
       {% endif %}
     </div>
-    <div class="flex items-center gap-2 mt-0.5 flex-wrap">
-      {% if task.is_quick_win and task.status.value != 'done' %}
-      <span class="text-oriens-success text-xs font-medium">quick win</span>
+
+    <!-- Badges -->
+    <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+
+      {% if (show_project is defined and show_project) and task.project_id and project_map is defined and project_map.get(task.project_id) %}
+      <span class="text-[11px] text-oriens-muted inline-flex items-center gap-1">📁 {{ project_map[task.project_id] }}</span>
       {% endif %}
-      {% if show_importancia is defined and show_importancia and task.status.value != 'done' %}
+
+      {% if ds == 'overdue' %}
+      <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-urgent/15 text-oriens-urgent">atrasado · {{ (now().date() - task.deadline.date()).days }}d</span>
+      {% elif ds == 'today' %}
+      <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-today/15 text-oriens-today">hoje</span>
+      {% elif task.deadline and task.status.value != 'done' %}
+      <span class="text-[11px] text-oriens-muted">{{ task.deadline.strftime('%d/%m/%y') }}</span>
+      {% endif %}
+
+      {% if (show_importancia is defined and show_importancia) and task.status.value != 'done' %}
         {% if faixa_importancia(task.importancia, task.sem_nota) == 'alta' %}
-        <span class="text-xs px-1.5 py-0.5 rounded leading-none font-medium bg-oriens-surface border border-oriens-border text-oriens-primary" title="Importância alta">★ importante</span>
+        <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-accent/10 text-oriens-accent border border-oriens-accent/20" title="Importância alta">alta · {{ '%.1f'|format(task.importancia) }}</span>
         {% elif task.sem_nota %}
-        <span class="text-oriens-muted text-xs leading-none" title="Sem nota de importância">⚠</span>
+        <span class="text-[11px] text-oriens-muted" title="Sem nota de importância">⚠</span>
         {% endif %}
       {% endif %}
-      {% if task.context_id and context_labels is defined and context_labels.get(task.context_id) %}
-      <span class="text-xs px-1.5 py-0.5 rounded leading-none bg-oriens-surface border border-oriens-border text-oriens-secondary">
-        {{ context_labels[task.context_id] }}
-      </span>
+
+      {% if task.effort and task.effort > 0 and task.status.value != 'done' %}
+      <span class="text-[11px] text-oriens-muted" title="Esforço estimado">⏱ {{ task.effort }}</span>
       {% endif %}
+
+      {% if task.is_quick_win and task.status.value != 'done' %}
+      <span class="text-[11px] text-oriens-success font-medium">quick win</span>
+      {% endif %}
+
+      {% if context_labels is defined and task.context_id and context_labels.get(task.context_id) %}
+      <span class="text-[11px] px-1.5 py-0.5 rounded bg-oriens-surface border border-oriens-border text-oriens-secondary">{{ context_labels[task.context_id] }}</span>
+      {% endif %}
+
       {% if task.tags %}
-      {% for tag in task.tags.split(',') %}
-      {% set t = tag.strip() %}
-      {% if t %}<span class="text-xs px-1.5 py-0.5 rounded leading-none bg-oriens-surface text-oriens-muted">{{ t }}</span>{% endif %}
-      {% endfor %}
+      {% for tag in task.tags.split(',') %}{% set t = tag.strip() %}{% if t %}<span class="text-[11px] text-oriens-muted">{{ t }}</span>{% endif %}{% endfor %}
       {% endif %}
+
       {% if task.remind_at and task.status.value != 'done' %}
-      <span class="text-xs leading-none text-oriens-accent">🔔 {{ task.remind_at.strftime('%d/%m %H:%M') }}</span>
+      <span class="text-[11px] text-oriens-accent">🔔 {{ task.remind_at.strftime('%d/%m %H:%M') }}</span>
       {% endif %}
-      {% if task.deadline %}
-      {% set ds = due_status(task.deadline) %}
-      {% if ds == 'overdue' and task.status.value != 'done' %}
-      <span class="text-xs px-1.5 py-0.5 rounded leading-none font-medium bg-oriens-urgent/15 text-oriens-urgent">
-        atrasado · {{ task.deadline.strftime('%d/%m') }}
-      </span>
-      {% elif ds == 'today' and task.status.value != 'done' %}
-      <span class="text-xs px-1.5 py-0.5 rounded leading-none font-medium bg-oriens-today/15 text-oriens-today">
-        hoje
-      </span>
-      {% else %}
-      <span class="text-xs text-oriens-muted">{{ task.deadline.strftime('%d/%m/%y') }}</span>
-      {% endif %}
-      {% endif %}
+
     </div>
-  </div>
 
-  <!-- Actions (hover) -->
-  <div class="flex items-center gap-2.5 flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-    <span class="w-1.5 h-1.5 rounded-full {{ energy_dot.get(task.energy.value, 'bg-oriens-secondary') }}"></span>
-
-    {% if task.status.value == 'pending' %}
-    <button
-      hx-patch="/api/tasks/{{ task.id }}/blocked"
-      hx-target="#task-{{ task.id }}"
-      hx-swap="outerHTML"
-      title="Marcar como bloqueado"
-      class="text-oriens-secondary text-xs hover:text-oriens-alert transition-colors">
-      bloquear
-    </button>
-    {% elif task.status.value == 'blocked' %}
-    <button
-      hx-patch="/api/tasks/{{ task.id }}/pending"
-      hx-target="#task-{{ task.id }}"
-      hx-swap="outerHTML"
-      title="Desbloquear"
-      class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">
-      desbloquear
-    </button>
+    <!-- Adiar: campo de data (dashboard) -->
+    {% if show_adiar is defined and show_adiar %}
+    <div x-show="adiar" style="display:none" class="mt-2">
+      <input type="date" name="deadline"
+        value="{{ task.deadline.strftime('%Y-%m-%d') if task.deadline else '' }}"
+        hx-patch="/api/tasks/{{ task.id }}/adiar"
+        hx-trigger="change" hx-swap="none"
+        @change="adiar = false"
+        class="bg-oriens-card border border-oriens-border text-oriens-primary rounded px-2 py-1 text-[11px] focus:outline-none focus:border-oriens-accent transition-colors">
+    </div>
     {% endif %}
 
-    <button
-      hx-get="/api/tasks/{{ task.id }}/edit"
-      hx-target="#task-{{ task.id }}"
-      hx-swap="outerHTML"
-      title="Editar"
-      class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">
-      editar
-    </button>
+  </div>
 
-    <button
-      hx-patch="/api/tasks/{{ task.id }}/archive"
-      hx-target="#task-{{ task.id }}"
-      hx-swap="outerHTML"
+  <!-- Ações (hover) -->
+  <div class="flex items-center gap-2 flex-shrink-0 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+    {% if show_adiar is defined and show_adiar %}
+    <button type="button" @click="adiar = !adiar"
+      class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">adiar</button>
+    {% else %}
+    {% if task.status.value == 'pending' %}
+    <button hx-patch="/api/tasks/{{ task.id }}/blocked" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+      class="text-oriens-secondary text-xs hover:text-oriens-alert transition-colors">bloquear</button>
+    {% elif task.status.value == 'blocked' %}
+    <button hx-patch="/api/tasks/{{ task.id }}/pending" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+      class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">desbloquear</button>
+    {% endif %}
+    <button hx-get="/api/tasks/{{ task.id }}/edit" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+      class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">editar</button>
+    <button hx-patch="/api/tasks/{{ task.id }}/archive" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
       hx-confirm="Arquivar esta tarefa?"
-      title="Arquivar"
-      class="text-oriens-secondary text-xs hover:text-oriens-muted transition-colors">
-      arquivar
-    </button>
+      class="text-oriens-secondary text-xs hover:text-oriens-muted transition-colors">arquivar</button>
+    {% endif %}
   </div>
 
 </div>

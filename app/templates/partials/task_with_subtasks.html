@@ -1,5 +1,5 @@
 {% set parent = task %}
-{% with allow_subtask = true %}{% include "partials/task_item.html" %}{% endwith %}
+{% with allow_subtask=true, show_importancia=true %}{% include "partials/task_item.html" %}{% endwith %}
 <div class="ml-7 border-l border-oriens-border pl-3">
   <div id="subtasks-{{ parent.id }}">
     {% for sub in (subtasks.get(parent.id) if subtasks is defined and subtasks else None) or [] %}
