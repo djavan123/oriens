@@ -54,7 +54,7 @@ Se a resposta for "mais difícil", a escolha está errada.
 
 ---
 
-## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS SCRIPT 12)
+## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS SCRIPT 16B)
 
 ```
 C:\Projetos\Sistema tarefas\
@@ -76,6 +76,7 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── project_comment.py
 │   │   ├── project_attachment.py      # anexos em DISCO: /app/data/attachments/{project_id}/
 │   │   ├── project_decision.py        # Decisões (data + texto) — SCRIPT 5 (substituiu project_milestone)
+│   │   ├── project_section.py         # Seção de projeto (nome, order_index) — SCRIPT 16A
 │   │   ├── project_risk.py
 │   │   ├── project_audit.py
 │   │   ├── project_timeline.py        # TimelineEventType enum (+ decision_recorded, SCRIPT 5) + ProjectTimeline model
@@ -91,6 +92,7 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── project_repo.py            # get_active_by_user(context_id=...) — contexto antes de prioridade (SCRIPT 11)
 │   │   ├── project_timeline_repo.py   # + last_activity_by_projects (batched) — SCRIPT 10C
 │   │   ├── criterio_repo.py           # CRUD/replace de critérios + seed inicial — SCRIPT 8
+│   │   ├── project_section_repo.py    # CRUD de seções de projeto — SCRIPT 16A
 │   │   └── label_repo.py              # CRUD de etiquetas — SCRIPT 3
 │   ├── services/
 │   │   ├── project_service.py         # +get_project_next_action (10A) +get_executability (10C); audit/timeline; archived (SCRIPT 5)
@@ -104,13 +106,13 @@ C:\Projetos\Sistema tarefas\
 │   ├── routes/
 │   │   ├── auth.py                    # cookies com secure=COOKIE_SECURE
 │   │   ├── dashboard.py               # GET /dashboard/now + /projects-focus + /standalone (11/12); PATCH /dashboard/foco; /priorities legado
-│   │   ├── projects.py                # usa resolve_active_context(); list aceita ?filter=active|archived|all (SCRIPT 5); passa criterios ao detalhe (SCRIPT 8)
+│   │   ├── projects.py                # usa resolve_active_context(); list aceita ?filter=active|archived|all (SCRIPT 5); section_groups/sem_secao_tasks/responsavel_map (SCRIPT 16A)
 │   │   ├── capture.py                 # resolve_active_context(); process passa criterios_by_context + contexto ativo (SCRIPT 8)
 │   │   ├── weekly.py                  # usa resolve_active_context()
 │   │   ├── settings.py               # GET /settings (etiquetas + contextos + critérios) — SCRIPT 3/8
 │   │   └── api/
 │   │       ├── tasks.py               # critérios SÓ p/ avulsas de topo (10B); tarefa de projeto devolve wrapper drag; PATCH /{id}/adiar
-│   │       ├── projects.py            # + PATCH /{id}/task-order (reordena, SCRIPT 10A); responsavel/proxima_acao/archived; decisões (SCRIPT 5)
+│   │       ├── projects.py            # + PATCH /{id}/task-order (reordena, SCRIPT 10A); responsavel/proxima_acao/archived; decisões (SCRIPT 5); seções CRUD (SCRIPT 16A)
 │   │       ├── capture.py             # process: contexto obrigatório + critérios (SCRIPT 8)
 │   │       ├── ai.py
 │   │       ├── context.py             # cookie agora guarda context_id (int) — SCRIPT 3
@@ -126,12 +128,13 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── settings.html              # etiquetas + contextos + "Critérios de importância" (SCRIPT 3/8)
 │   │   ├── auth/ (login.html, setup.html)
 │   │   ├── projects/
-│   │   │   ├── list.html              # kanban; cards de executabilidade limpos; estados vazios padronizados (SCRIPT 10C/12)
-│   │   │   ├── detail.html            # execução: Próxima Ação + Tarefas (drag-and-drop SortableJS); prioridade Alta/Média/Baixa (SCRIPT 10B/12)
+│   │   │   ├── list.html              # kanban; cards minimalistas (só nome/prioridade/contexto/prazo, sem objetivo nem progresso — SCRIPT 16B)
+│   │   │   ├── detail.html            # orientado a execução: objetivo inline, tabela Asana (Tarefa/Energia/Prazo/Responsável), seções, SortableJS (SCRIPT 16A/16B)
 │   │   │   └── reports.html           # coluna "Decisões" (era "Marcos") — SCRIPT 5
 │   │   └── partials/
-│   │       ├── task_item.html         # PARTIAL UNIFICADO de tarefa — flags: reload_on_done (10B), hide_actions (12)
-│   │       ├── task_with_subtasks.html # wrapper de tarefa de projeto; alça drag (.drag-handle), is_next destaca a 1ª (10B/12)
+│   │       ├── task_item.html         # PARTIAL UNIFICADO de tarefa — usado por Dashboard, concluídas, overload; flags: reload_on_done, hide_actions
+│   │       ├── task_with_subtasks.html # wrapper de tarefa de projeto — LEGADO, usado só pelo bloco "Agora" do Dashboard (SCRIPT 12); NÃO usar em detalhe de projeto
+│   │       ├── project_task_row.html  # linha densa Asana: drag | checkbox | título | energia | prazo | responsável | ações hover; usado em detail + seções (SCRIPT 16B)
 │   │       ├── dashboard_task.html     # thin wrapper → task_item com show_project/show_adiar/refresh_priorities (SCRIPT 9)
 │   │       ├── capture_item.html      # item de captura — mesmo estilo visual denso (SCRIPT 9)
 │   │       ├── theme_switcher.html      # 3 bolinhas dark/light/warm (Alpine `theme`) — SCRIPT 6
@@ -147,7 +150,8 @@ C:\Projetos\Sistema tarefas\
 │   │       ├── dashboard_project_card.html   # card de projeto em foco (próxima ação/energia/prazo) (SCRIPT 11/12)
 │   │       ├── dashboard_standalone.html     # coluna "Tarefas avulsas" (task_item hide_actions) (SCRIPT 11/12)
 │   │       ├── dashboard_priorities.html # LEGADO (SCRIPT 8) — não usado no dashboard atual, mantido
-│   │       ├── project_card.html        # card limpo: estado operacional + próxima ação/revisão (SCRIPT 10C/12)
+│   │       ├── project_card.html        # card minimalista: nome + prioridade/contexto/prazo + ações hover (SCRIPT 16B — sem objetivo/próxima-ação/progresso)
+│   │       ├── project_section.html     # bloco de seção: rename Alpine, delete HTMX, task-list + task_form inline (SCRIPT 16A)
 │   │       └── ... (comment/attachment/risk, process, ai_result)
 │   ├── static/                        # PWA: manifest.webmanifest, sw.js, icon.svg + css/theme.css (3 temas — SCRIPT 6)
 │   └── utils/
@@ -603,6 +607,22 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
   (premissa: 1 worker uvicorn). No-op se `TELEGRAM_*` vazios. Reusa `send_telegram` e `httpx`.
 - **Sem migração de schema. Sem novo model/tabela.**
 
+### ✅ SCRIPT 16A — Projetos orientados a tarefas (backend + estrutura)
+- **`project_section` model/repo/endpoints:** seções nomeadas por projeto (order_index, cascade delete). Endpoints: `POST/PATCH/DELETE /api/projects/{id}/sections/{sid}`. Rename retorna o `<span id="section-name-{id}">` via HTMX outerHTML.
+- **`tasks.section_id`** (FK → project_sections, nullable): tarefas de projeto podem ser associadas a uma seção. Migração aditiva SQLite + PG.
+- **`detail.html` reestruturado (16A):** `#project-sections` (seções renderizadas via Jinja) + `#sem-secao-container` (tarefas sem seção). SortableJS inicializado em todos os `.section-task-list`. Formulário de edição simplificado (só Status/Prioridade/Contexto/Responsável). `proxima_acao` textual removida do backend de criação/edição (projeto é purely task-driven).
+- **`routes/projects.py`:** constrói `section_groups` (lista de tuples `(section, tasks)`) e `sem_secao_tasks`; passa `responsavel_map` e `subtasks` ao template.
+- **`routes/weekly.py`:** usa `pending_count_by_project` para exibir projetos `em_andamento` sem tarefas pendentes como "Projetos sem próxima ação" (`projetos_sem_proxima_acao`).
+- **`weekly.html`:** seção renomeada de "sem atualização" para "Projetos sem próxima ação"; usa `projetos_sem_proxima_acao`.
+- **Sem alteração de Dashboard, Captura, Listas ou regras de importância.**
+
+### ✅ SCRIPT 16B — UI de Projetos Executáveis (somente templates)
+- **`partials/project_card.html`:** card minimalista — acento de status, nome, rodapé com prioridade · contexto · prazo + ações hover (pausar/iniciar/concluir/reabrir). Removidos: objetivo, próxima ação textual, barra de progresso.
+- **`partials/project_task_row.html`** (novo): linha densa estilo Asana para tarefas de projeto no detalhe e nas seções. Colunas desktop: drag(w-5) | checkbox(w-5) | Título(flex-1) | Energia(w-20) | Prazo(w-24) | Responsável(w-20) | ações hover. "↗ Próxima ação" acima do título quando `is_next`. Lembrete: `⏱ dd/mm hh:mm` (sem sino). Ações hover: bloquear/desbloquear · editar · arquivar · +sub. Subtarefas indentadas (`ml-10 border-l`). Substitui `task_with_subtasks.html` no contexto de projeto; **`task_with_subtasks.html` preservado** (usado pelo bloco "Agora" do Dashboard).
+- **`partials/project_section.html`:** atualizado para usar `project_task_row.html`; `is_next` calculado por `task.id == next_action.task.id`.
+- **`projects/detail.html`:** bloco "Próxima ação operacional" removido do topo; objetivo movido do sidebar para coluna principal (texto compacto + "Editar" inline ou "+ definir objetivo" como convite accent); cabeçalho de colunas discreto (Tarefa · Energia · Prazo · Responsável, `hidden md:flex`); `sem_secao_tasks` renderiza com `project_task_row.html`; objetivo removido do sidebar (mantidos: prazo, comentários, auditoria).
+- **Sem alteração de banco, backend, rotas, serviços, Dashboard, Captura ou Listas.**
+
 ---
 
 ## PRODUÇÃO E OPERAÇÃO (VPS)
@@ -630,14 +650,14 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualiza
 
 | Item | Quantidade |
 |---|---|
-| Tabelas no banco | 16 (+ `criterio_contexto`, `tarefa_criterio_valor` — SCRIPT 8) |
-| Models SQLAlchemy | 16 (+ `CriterioContexto`, `TarefaCriterioValor`) |
-| Repositories | 15 (+ `criterio_repo`) |
-| Services | 8 (+ `importancia_service`) |
-| Rotas principais | 6 arquivos (+ `settings.py`) |
-| Rotas API | 7 arquivos (+ `api/settings.py`, `api/reminders.py`) |
-| Endpoints totais | ~43 |
-| Templates HTML | ~31 (partial unificado task_item — SCRIPT 9) |
+| Tabelas no banco | 17 (+ `project_sections` — SCRIPT 16A) |
+| Models SQLAlchemy | 17 (+ `ProjectSection`) |
+| Repositories | 16 (+ `project_section_repo`) |
+| Services | 8 |
+| Rotas principais | 6 arquivos |
+| Rotas API | 7 arquivos |
+| Endpoints totais | ~47 |
+| Templates HTML | ~34 (+ `project_task_row.html`, `project_section.html` — SCRIPT 16A/16B) |
 | Temas | 3 (`dark`/`light`/`warm`) via `static/css/theme.css` |
 | Ambiente | Dev (SQLite) + Produção (PostgreSQL na VPS) |
 

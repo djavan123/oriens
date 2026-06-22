@@ -55,7 +55,7 @@
     {% if is_next is defined and is_next %}
     <p class="text-oriens-accent text-[10px] font-bold uppercase tracking-wide leading-none mb-0.5">↗ Próxima ação</p>
     {% endif %}
-    <p class="text-sm leading-snug truncate
+    <p class="text-sm leading-snug break-words
       {% if task.status.value == 'done' %}line-through text-oriens-empty
       {% elif task.status.value == 'blocked' %}text-oriens-alert
       {% else %}text-oriens-primary{% endif %}">{{ task.title }}</p>
