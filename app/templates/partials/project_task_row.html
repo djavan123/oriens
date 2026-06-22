@@ -1,0 +1,186 @@
+{# Linha de tarefa de projeto (estilo lista densa).
+   Vars: task, project, subtasks (dict), responsavel_map (dict), draggable, reload_on_done, is_next.
+   Colunas desktop: Drag | Checkbox | Título | Energia | Prazo | Responsável | Ações hover
+#}
+{% set parent = task %}
+{% set ds = due_status(task.deadline) if task.deadline and task.status.value != 'done' else None %}
+{% set energy_label = {'high': 'Alta', 'medium': 'Média', 'low': 'Baixa'} %}
+{% set cb_border = 'border-oriens-urgent' if ds == 'overdue' else ('border-oriens-today' if ds == 'today' else 'border-oriens-border') %}
+
+<div id="task-{{ task.id }}"
+     class="project-task-row group flex items-center gap-0 border-b border-oriens-divider last:border-b-0
+            hover:bg-oriens-card-hover transition-colors
+            {% if is_next is defined and is_next %}border-l-2 border-l-oriens-accent{% endif %}
+            {% if task.status.value == 'done' %}opacity-40{% endif %}"
+     data-task-id="{{ task.id }}">
+
+  <!-- Drag handle -->
+  {% if draggable is defined and draggable %}
+  <span class="drag-handle flex-shrink-0 w-5 flex items-center justify-center cursor-grab text-oriens-muted
+               hover:text-oriens-secondary select-none text-sm leading-none self-stretch"
+        title="Reordenar">⠿</span>
+  {% else %}
+  <span class="w-5 flex-shrink-0"></span>
+  {% endif %}
+
+  <!-- Checkbox -->
+  <div class="flex-shrink-0 w-5 flex items-center justify-center self-stretch py-2.5">
+    {% if task.status.value == 'pending' %}
+    <button
+      hx-patch="/api/tasks/{{ task.id }}/done"
+      hx-swap="none"
+      hx-on::after-request="if(event.detail.successful){ {% if reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}document.getElementById('task-{{ task.id }}').remove(){% endif %} }"
+      title="Concluir"
+      class="w-4 h-4 border {{ cb_border }} rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors flex-shrink-0">
+    </button>
+    {% elif task.status.value == 'done' %}
+    <button
+      hx-patch="/api/tasks/{{ task.id }}/pending"
+      hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+      title="Desfazer"
+      class="w-4 h-4 border border-oriens-success bg-oriens-success/20 rounded flex items-center justify-center flex-shrink-0">
+      <svg class="w-2.5 h-2.5 text-oriens-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+      </svg>
+    </button>
+    {% else %}
+    <span class="w-4 h-4 border border-oriens-alert rounded flex items-center justify-center flex-shrink-0">
+      <span class="w-2 h-0.5 bg-oriens-alert rounded-full"></span>
+    </span>
+    {% endif %}
+  </div>
+
+  <!-- Título (flex-1) -->
+  <div class="flex-1 min-w-0 py-2.5 pl-2 pr-2">
+    {% if is_next is defined and is_next %}
+    <p class="text-oriens-accent text-[10px] font-bold uppercase tracking-wide leading-none mb-0.5">↗ Próxima ação</p>
+    {% endif %}
+    <p class="text-sm leading-snug truncate
+      {% if task.status.value == 'done' %}line-through text-oriens-empty
+      {% elif task.status.value == 'blocked' %}text-oriens-alert
+      {% else %}text-oriens-primary{% endif %}">{{ task.title }}</p>
+    {% if task.remind_at and task.status.value != 'done' %}
+    <p class="text-[11px] text-oriens-muted mt-0.5">⏱ {{ task.remind_at.strftime('%d/%m %H:%M') }}</p>
+    {% endif %}
+  </div>
+
+  <!-- Energia (desktop) -->
+  <div class="hidden md:flex flex-shrink-0 w-20 items-center">
+    {% if task.status.value != 'done' %}
+    <span class="text-xs text-oriens-secondary">{{ energy_label.get(task.energy.value, '') }}</span>
+    {% endif %}
+  </div>
+
+  <!-- Prazo (desktop) -->
+  <div class="hidden md:flex flex-shrink-0 w-24 items-center">
+    {% if task.deadline and task.status.value != 'done' %}
+      {% if ds == 'overdue' %}
+      <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-urgent/15 text-oriens-urgent">{{ task.deadline.strftime('%d/%m/%y') }}</span>
+      {% elif ds == 'today' %}
+      <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-today/15 text-oriens-today">hoje</span>
+      {% else %}
+      <span class="text-[11px] text-oriens-muted">{{ task.deadline.strftime('%d/%m/%y') }}</span>
+      {% endif %}
+    {% endif %}
+  </div>
+
+  <!-- Responsável (desktop) -->
+  <div class="hidden md:flex flex-shrink-0 w-20 items-center">
+    {% if responsavel_map is defined and task.responsavel_id and responsavel_map.get(task.responsavel_id) %}
+    <span class="text-[11px] text-oriens-muted truncate">{{ responsavel_map[task.responsavel_id] }}</span>
+    {% endif %}
+  </div>
+
+  <!-- Ações hover -->
+  <div class="flex items-center gap-1.5 flex-shrink-0 pr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+    {% if task.status.value == 'pending' %}
+    <button hx-patch="/api/tasks/{{ task.id }}/blocked"
+      hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+      class="text-oriens-secondary text-xs hover:text-oriens-alert transition-colors">bloquear</button>
+    <span class="text-oriens-border text-[10px]">·</span>
+    {% elif task.status.value == 'blocked' %}
+    <button hx-patch="/api/tasks/{{ task.id }}/pending"
+      hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+      class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">desbloquear</button>
+    <span class="text-oriens-border text-[10px]">·</span>
+    {% endif %}
+    <button hx-get="/api/tasks/{{ task.id }}/edit"
+      hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+      class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">editar</button>
+    <span class="text-oriens-border text-[10px]">·</span>
+    <button hx-patch="/api/tasks/{{ task.id }}/archive"
+      hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+      hx-confirm="Arquivar esta tarefa?"
+      class="text-oriens-secondary text-xs hover:text-oriens-muted transition-colors">arquivar</button>
+    <span class="text-oriens-border text-[10px]">·</span>
+    <button type="button"
+      onclick="var f=document.getElementById('subtask-form-{{ task.id }}');if(f){var o=f.style.display==='flex';f.style.display=o?'none':'flex';if(!o){var i=document.getElementById('subtask-input-{{ task.id }}');if(i)i.focus();}}"
+      title="Adicionar subtarefa"
+      class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">+ sub</button>
+  </div>
+
+</div>
+
+<!-- Subtarefas -->
+<div class="ml-10 border-l border-oriens-divider pl-2">
+  <div id="subtasks-{{ parent.id }}">
+    {% for sub in (subtasks.get(parent.id) if subtasks is defined and subtasks else None) or [] %}
+    <div id="task-{{ sub.id }}"
+         class="group flex items-center gap-2 py-2 border-b border-oriens-divider last:border-b-0
+                hover:bg-oriens-card-hover transition-colors
+                {% if sub.status.value == 'done' %}opacity-40{% endif %}">
+      <!-- Checkbox sub -->
+      <div class="flex-shrink-0 w-4 flex items-center justify-center">
+        {% if sub.status.value == 'pending' %}
+        <button hx-patch="/api/tasks/{{ sub.id }}/done" hx-swap="none"
+          hx-on::after-request="if(event.detail.successful){ {% if reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}document.getElementById('task-{{ sub.id }}').remove(){% endif %} }"
+          class="w-3.5 h-3.5 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors flex-shrink-0"></button>
+        {% elif sub.status.value == 'done' %}
+        <button hx-patch="/api/tasks/{{ sub.id }}/pending"
+          hx-target="#task-{{ sub.id }}" hx-swap="outerHTML"
+          class="w-3.5 h-3.5 border border-oriens-success bg-oriens-success/20 rounded flex items-center justify-center flex-shrink-0">
+          <svg class="w-2 h-2 text-oriens-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+          </svg>
+        </button>
+        {% else %}
+        <span class="w-3.5 h-3.5 border border-oriens-alert rounded flex items-center justify-center flex-shrink-0">
+          <span class="w-1.5 h-0.5 bg-oriens-alert rounded-full"></span>
+        </span>
+        {% endif %}
+      </div>
+      <!-- Título sub -->
+      <p class="flex-1 min-w-0 text-xs leading-snug truncate
+        {% if sub.status.value == 'done' %}line-through text-oriens-empty
+        {% elif sub.status.value == 'blocked' %}text-oriens-alert
+        {% else %}text-oriens-secondary{% endif %}">{{ sub.title }}</p>
+      <!-- Ações sub hover -->
+      <div class="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+        <button hx-get="/api/tasks/{{ sub.id }}/edit"
+          hx-target="#task-{{ sub.id }}" hx-swap="outerHTML"
+          class="text-oriens-muted text-xs hover:text-oriens-accent transition-colors">editar</button>
+        <span class="text-oriens-border text-[10px]">·</span>
+        <button hx-patch="/api/tasks/{{ sub.id }}/archive"
+          hx-target="#task-{{ sub.id }}" hx-swap="outerHTML"
+          hx-confirm="Arquivar subtarefa?"
+          class="text-oriens-muted text-xs hover:text-oriens-muted transition-colors">arquivar</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  <form id="subtask-form-{{ parent.id }}"
+    hx-post="/api/tasks"
+    hx-target="#subtasks-{{ parent.id }}"
+    hx-swap="beforeend"
+    hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); }"
+    style="display:none"
+    class="flex items-center gap-2 py-1.5">
+    <input type="hidden" name="parent_id" value="{{ parent.id }}">
+    <input type="hidden" name="project_id" value="{{ project.id }}">
+    <input type="text" name="title" id="subtask-input-{{ parent.id }}"
+      placeholder="Nova subtarefa..."
+      class="flex-1 bg-transparent border-b border-oriens-border focus:border-oriens-accent
+             text-oriens-secondary text-xs px-1 py-1 focus:outline-none focus:text-oriens-primary
+             transition-colors placeholder-oriens-muted">
+  </form>
+</div>

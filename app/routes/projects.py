@@ -18,6 +18,7 @@ from app.repositories.project_risk_repo import ProjectRiskRepository
 from app.repositories.project_audit_repo import ProjectAuditRepository
 from app.repositories.project_timeline_repo import ProjectTimelineRepository
 from app.repositories.label_repo import LabelRepository
+from app.repositories.project_section_repo import ProjectSectionRepository
 from app.services.project_service import ProjectService
 from app.utils.auth import get_current_user
 from app.utils.context_utils import resolve_active_context
@@ -181,6 +182,15 @@ async def project_detail(
     audit = await ProjectAuditRepository(db).get_by_project(project_id)
     timeline = await ProjectTimelineRepository(db).get_by_project(project_id)
 
+    sections = await ProjectSectionRepository(db).get_all_by_project(project_id)
+    section_ids = {s.id for s in sections}
+    tasks_by_section: dict = {}
+    for task in pending_tasks:
+        key = task.section_id if (task.section_id in section_ids) else None
+        tasks_by_section.setdefault(key, []).append(task)
+    section_groups = [(s, tasks_by_section.get(s.id, [])) for s in sections]
+    sem_secao_tasks = tasks_by_section.get(None, [])
+
     raw = await task_repo.progress_by_project(current_user.id, [project_id])
     done, total = raw.get(project_id, (0, 0))
     progress = {
@@ -203,6 +213,9 @@ async def project_detail(
             "pending_tasks": pending_tasks,
             "blocked_tasks": blocked_tasks,
             "done_tasks": done_tasks,
+            "sections": sections,
+            "section_groups": section_groups,
+            "sem_secao_tasks": sem_secao_tasks,
             "contexts": all_contexts,
             "context_labels": context_labels,
             "active_context_obj": active_context_obj,

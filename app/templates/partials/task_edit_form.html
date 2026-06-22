@@ -113,7 +113,8 @@
       <span class="text-oriens-empty text-xs">deixe a data vazia para remover</span>
     </div>
 
-    <!-- Etiquetas -->
+    <!-- Etiquetas (apenas tarefas avulsas) -->
+    {% if not (is_project_task is defined and is_project_task) %}
     <div class="flex items-center gap-2 flex-wrap" x-data="{ tagsVal: '{{ task.tags or '' }}' }">
       <label class="text-oriens-secondary text-xs">Etiquetas</label>
       <input type="text" name="tags" x-model="tagsVal"
@@ -130,6 +131,7 @@
       {% endfor %}
       {% endif %}
     </div>
+    {% endif %}
 
   </form>
 </div>

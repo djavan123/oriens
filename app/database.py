@@ -55,6 +55,7 @@ _ENSURE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("importancia", "REAL NOT NULL DEFAULT 0"),
         ("sem_nota", "BOOLEAN NOT NULL DEFAULT 1"),
         ("order_index", "INTEGER"),
+        ("section_id", "INTEGER"),
     ],
     "users": [
         ("foco_do_dia", "TEXT"),
@@ -100,6 +101,7 @@ _ENSURE_COLUMNS_PG: dict[str, list[tuple[str, str]]] = {
         ("importancia", "DOUBLE PRECISION NOT NULL DEFAULT 0"),
         ("sem_nota", "BOOLEAN NOT NULL DEFAULT TRUE"),
         ("order_index", "INTEGER"),
+        ("section_id", "INTEGER"),
     ],
     "projects": [
         ("archived", "BOOLEAN NOT NULL DEFAULT FALSE"),

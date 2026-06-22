@@ -18,6 +18,7 @@ from app.repositories.project_decision_repo import ProjectDecisionRepository
 from app.repositories.project_timeline_repo import ProjectTimelineRepository
 from app.repositories.project_risk_repo import ProjectRiskRepository
 from app.repositories.task_repo import TaskRepository
+from app.repositories.project_section_repo import ProjectSectionRepository
 from app.models.project_risk import RiskLevel, RiskStatus
 from app.models.project_timeline import TimelineEventType
 from app.services.project_service import ProjectService
@@ -197,6 +198,65 @@ async def reorder_tasks(
             detail="IDs inválidos: verifique ownership e pertencimento ao projeto",
         )
     return {"ok": True}
+
+
+# ── Sections ──────────────────────────────────────────────────────────────────
+
+@router.post("/{project_id}/sections", response_class=HTMLResponse)
+async def create_section(
+    project_id: int,
+    request: Request,
+    name: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _assert_owns_project(db, project_id, current_user.id)
+    name = name.strip()
+    if not name:
+        return HTMLResponse("")
+    project = await ProjectService(db).get_by_id(project_id, current_user.id)
+    section = await ProjectSectionRepository(db).create(project_id, name)
+    return templates.TemplateResponse(
+        request,
+        "partials/project_section.html",
+        {"section": section, "project": project},
+    )
+
+
+@router.patch("/{project_id}/sections/{section_id}", response_class=HTMLResponse)
+async def rename_section(
+    project_id: int,
+    section_id: int,
+    name: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _assert_owns_project(db, project_id, current_user.id)
+    repo = ProjectSectionRepository(db)
+    section = await repo.get_by_id(section_id, project_id)
+    if not section:
+        raise HTTPException(status_code=404)
+    name = name.strip()
+    if not name:
+        return HTMLResponse(f'<span class="section-name-display">{section.name}</span>')
+    section = await repo.update(section, name=name)
+    return HTMLResponse(
+        f'<span id="section-name-{section.id}" '
+        f'class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide flex-1">'
+        f'{section.name}</span>'
+    )
+
+
+@router.delete("/{project_id}/sections/{section_id}", response_class=HTMLResponse)
+async def delete_section(
+    project_id: int,
+    section_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await _assert_owns_project(db, project_id, current_user.id)
+    await ProjectSectionRepository(db).delete_with_nullify(section_id, project_id)
+    return HTMLResponse("")
 
 
 # ── Comments ──────────────────────────────────────────────────────────────────

@@ -104,27 +104,22 @@
 
 </div>
 
-<!-- Projetos sem atualização -->
-{% if projetos_sem_atualizacao %}
+<!-- Projetos sem próxima ação (em andamento sem nenhuma tarefa pendente) -->
+{% if projetos_sem_proxima_acao %}
 <div class="max-w-xl mt-14">
-  <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-5">Projetos sem atualização</h2>
+  <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-5">Projetos sem próxima ação</h2>
   <div class="bg-oriens-surface rounded-xl divide-y divide-oriens-divider">
-    {% for item in projetos_sem_atualizacao %}
+    {% for item in projetos_sem_proxima_acao %}
     <div class="flex items-center gap-4 px-5 py-4">
-      <div class="flex-1 min-w-0">
-        <a href="/projects/{{ item.project.id }}"
-           class="text-oriens-primary text-sm hover:text-oriens-accent transition-colors truncate block">
-          {{ item.project.name }}
-        </a>
-        {% if item.project.proxima_acao %}
-        <p class="text-oriens-muted text-xs mt-0.5 truncate">→ {{ item.project.proxima_acao }}</p>
-        {% endif %}
-      </div>
+      <a href="/projects/{{ item.project.id }}"
+         class="flex-1 text-oriens-primary text-sm hover:text-oriens-accent transition-colors truncate block">
+        {{ item.project.name }}
+      </a>
       <span class="flex-shrink-0 text-xs font-mono px-2.5 py-1 rounded-md
         {% if item.dias >= 14 %}text-oriens-alert bg-oriens-alert/10
         {% elif item.dias >= 7 %}text-oriens-warning bg-oriens-warning/10
         {% else %}text-oriens-muted bg-oriens-card{% endif %}">
-        {{ item.dias }}d
+        {{ item.dias }}d sem tarefa
       </span>
     </div>
     {% endfor %}

@@ -1,10 +1,10 @@
 <form
-  id="new-task-form"
+  id="{{ form_id if form_id is defined else 'new-task-form' }}"
   hx-post="/api/tasks"
   {% if project_id %}
-  hx-target="#task-list-pending"
+  hx-target="{{ task_list_target if task_list_target is defined else '#task-list-pending' }}"
   hx-swap="beforeend"
-  hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); document.getElementById('task-form-error').innerHTML=''; var np=document.getElementById('no-pending'); if(np) np.remove(); }"
+  hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); var er=document.getElementById('task-form-error'); if(er) er.innerHTML=''; var np=document.getElementById('no-pending'); if(np) np.remove(); }"
   {% else %}
   hx-swap="none"
   hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); var er=document.getElementById('task-form-error'); if(er) er.innerHTML=''; htmx.trigger(document.body,'refreshPriorities'); }"
@@ -13,6 +13,9 @@
 
   {% if project_id %}
   <input type="hidden" name="project_id" value="{{ project_id }}">
+  {% endif %}
+  {% if section_id is defined and section_id %}
+  <input type="hidden" name="section_id" value="{{ section_id }}">
   {% endif %}
 
   <div id="task-form-error"></div>

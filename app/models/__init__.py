@@ -15,5 +15,6 @@ from app.models.label import Label
 from app.models.criterio_contexto import CriterioContexto
 from app.models.tarefa_criterio_valor import TarefaCriterioValor
 from app.models.repository import RepositoryItem
+from app.models.project_section import ProjectSection
 
-__all__ = ["Context", "User", "Project", "Task", "CaptureInbox", "Note", "WeeklyDirective", "ProjectComment", "ProjectAttachment", "ProjectDecision", "ProjectRisk", "ProjectAudit", "ProjectTimeline", "TimelineEventType", "Label", "CriterioContexto", "TarefaCriterioValor", "RepositoryItem"]
+__all__ = ["Context", "User", "Project", "Task", "CaptureInbox", "Note", "WeeklyDirective", "ProjectComment", "ProjectAttachment", "ProjectDecision", "ProjectRisk", "ProjectAudit", "ProjectTimeline", "TimelineEventType", "Label", "CriterioContexto", "TarefaCriterioValor", "RepositoryItem", "ProjectSection"]

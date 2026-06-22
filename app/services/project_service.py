@@ -104,18 +104,15 @@ class ProjectService:
         """Próxima ação executável do projeto.
 
         Retorna dict com:
-          task         — primeira tarefa pendente em ordem manual (ou None)
-          proxima_acao — fallback para project.proxima_acao quando não há tarefa (ou None)
-          executable   — True se há algo a fazer
+          task       — primeira tarefa pendente em ordem (seção → order_index) ou None
+          executable — True somente se há tarefa pendente
         """
         from app.repositories.task_repo import TaskRepository
         task = await TaskRepository(self.db).get_project_next_task(project_id, user_id)
-        project = await self.repo.get_by_id(project_id, user_id)
-        fallback = project.proxima_acao if (project and not task) else None
         return {
             "task": task,
-            "proxima_acao": fallback,
-            "executable": task is not None or bool(fallback),
+            "proxima_acao": None,
+            "executable": task is not None,
         }
 
     async def get_executability(self, user_id: int, projects: list[Project]) -> dict:
@@ -137,8 +134,7 @@ class ProjectService:
         out: dict[int, dict] = {}
         for p in projects:
             nt = next_tasks.get(p.id)
-            fallback = p.proxima_acao if (not nt and p.proxima_acao) else None
-            executable = nt is not None or bool(fallback)
+            executable = nt is not None
             last = activity.get(p.id) or p.updated_at
 
             if p.status == ProjectStatus.concluido:
@@ -154,7 +150,7 @@ class ProjectService:
             out[p.id] = {
                 "state": state,
                 "next_task": nt,
-                "next_text": fallback,
+                "next_text": None,
                 "pending_count": counts.get(p.id, 0),
                 "last_activity": last,
                 "executable": executable,

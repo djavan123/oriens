@@ -62,3 +62,5 @@ class Task(Base):
     reminder_acked:          Mapped[bool]               = mapped_column(Boolean, default=False, nullable=False)
     # Ordenação manual dentro do projeto (NULL para tarefas avulsas e subtarefas).
     order_index:             Mapped[Optional[int]]      = mapped_column(Integer, nullable=True)
+    # Seção do projeto (NULL = "Sem seção").
+    section_id:              Mapped[Optional[int]]      = mapped_column(ForeignKey("project_sections.id", ondelete="SET NULL"), nullable=True)

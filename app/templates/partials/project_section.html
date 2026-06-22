@@ -1,0 +1,59 @@
+<div id="section-{{ section.id }}" class="mb-5">
+
+  <!-- Cabeçalho da seção -->
+  <div class="group flex items-center gap-2 mb-2" x-data="{ renaming: false }">
+
+    <span id="section-name-{{ section.id }}"
+          x-show="!renaming"
+          class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide flex-1">
+      {{ section.name }}
+    </span>
+
+    <form x-show="renaming" x-cloak
+      hx-patch="/api/projects/{{ project.id }}/sections/{{ section.id }}"
+      hx-target="#section-name-{{ section.id }}"
+      hx-swap="outerHTML"
+      hx-on::after-request="if(event.detail.successful){ renaming=false }"
+      class="flex items-center gap-1 flex-1">
+      <input type="text" name="name" value="{{ section.name }}" required
+        autofocus
+        class="flex-1 bg-oriens-card border border-oriens-accent text-oriens-primary rounded px-2 py-0.5 text-xs focus:outline-none">
+      <button type="submit" class="text-oriens-accent text-[10px] hover:opacity-80">✓</button>
+      <button type="button" @click="renaming=false" class="text-oriens-secondary text-[10px] hover:text-oriens-primary">✕</button>
+    </form>
+
+    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+      <button type="button" x-show="!renaming" @click="renaming=true"
+        class="text-oriens-secondary text-[10px] hover:text-oriens-primary transition-colors cursor-pointer">
+        Renomear
+      </button>
+      <button
+        hx-delete="/api/projects/{{ project.id }}/sections/{{ section.id }}"
+        hx-target="#section-{{ section.id }}"
+        hx-swap="outerHTML"
+        hx-confirm="Excluir seção '{{ section.name }}'? As tarefas ficam sem seção."
+        class="text-oriens-secondary text-[10px] hover:text-oriens-urgent transition-colors cursor-pointer">
+        Excluir
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Tarefas da seção (renderizadas inicialmente via Jinja; novas tarefas appendadas via HTMX) -->
+  <div id="task-list-section-{{ section.id }}" class="section-task-list pl-2">
+    {% if section_tasks is defined %}
+    {% for task in section_tasks %}
+      {% with draggable=true, reload_on_done=true,
+              is_next=(next_action is defined and next_action.task and task.id == next_action.task.id) %}
+        {% include "partials/project_task_row.html" %}
+      {% endwith %}
+    {% endfor %}
+    {% endif %}
+  </div>
+
+  <!-- Form de adição rápida dentro da seção -->
+  {% with project_id=project.id, section_id=section.id, task_list_target="#task-list-section-" ~ section.id, form_id="task-form-section-" ~ section.id %}
+  {% include "partials/task_form.html" %}
+  {% endwith %}
+
+</div>

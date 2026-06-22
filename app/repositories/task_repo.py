@@ -4,6 +4,7 @@ from sqlalchemy import case, func, nullslast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import Task, TaskStatus, CognitiveLoad, EnergyLevel
+from app.models.project_section import ProjectSection
 
 
 def _urgency_rank(task: Task) -> int:
@@ -140,9 +141,14 @@ class TaskRepository:
             q = q.where(Task.status == status)
         if energy is not None:
             q = q.where(Task.energy == energy)
-        # Tarefas de projeto: ordem manual (order_index). Avulsas: por score/energia.
+        # Tarefas de projeto: seção → order_index. Avulsas: por score/energia.
         if project_id is not None:
-            order = [nullslast(Task.order_index.asc()), Task.created_at.asc()]
+            q = q.outerjoin(ProjectSection, Task.section_id == ProjectSection.id)
+            order = [
+                nullslast(ProjectSection.order_index.asc()),
+                nullslast(Task.order_index.asc()),
+                Task.created_at.asc(),
+            ]
         else:
             order = [Task.priority_score.desc(), _energy_order, Task.created_at.asc()]
         result = await self.db.execute(q.order_by(*order))
@@ -252,9 +258,10 @@ class TaskRepository:
         return task
 
     async def get_project_next_task(self, project_id: int, user_id: int) -> Optional[Task]:
-        """Primeira tarefa pendente de topo do projeto, em ordem manual."""
+        """Primeira tarefa pendente de topo do projeto, em ordem seção → order_index."""
         result = await self.db.execute(
             select(Task)
+            .outerjoin(ProjectSection, Task.section_id == ProjectSection.id)
             .where(
                 Task.project_id == project_id,
                 Task.user_id == user_id,
@@ -262,7 +269,11 @@ class TaskRepository:
                 Task.archived.is_(False),
                 Task.parent_id.is_(None),
             )
-            .order_by(nullslast(Task.order_index.asc()), Task.created_at.asc())
+            .order_by(
+                nullslast(ProjectSection.order_index.asc()),
+                nullslast(Task.order_index.asc()),
+                Task.created_at.asc(),
+            )
             .limit(1)
         )
         return result.scalar_one_or_none()
@@ -299,11 +310,12 @@ class TaskRepository:
     async def next_pending_tasks_by_project(
         self, user_id: int, project_ids: list[int]
     ) -> dict[int, Task]:
-        """{project_id: primeira tarefa pendente de topo em ordem manual}."""
+        """{project_id: primeira tarefa pendente de topo em ordem seção → order_index}."""
         if not project_ids:
             return {}
         result = await self.db.execute(
             select(Task)
+            .outerjoin(ProjectSection, Task.section_id == ProjectSection.id)
             .where(
                 Task.user_id == user_id,
                 Task.project_id.in_(project_ids),
@@ -311,7 +323,12 @@ class TaskRepository:
                 Task.archived.is_(False),
                 Task.parent_id.is_(None),
             )
-            .order_by(Task.project_id, nullslast(Task.order_index.asc()), Task.created_at.asc())
+            .order_by(
+                Task.project_id,
+                nullslast(ProjectSection.order_index.asc()),
+                nullslast(Task.order_index.asc()),
+                Task.created_at.asc(),
+            )
         )
         out: dict[int, Task] = {}
         for t in result.scalars().all():

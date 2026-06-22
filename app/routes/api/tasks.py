@@ -73,6 +73,7 @@ async def create_task(
     title: str = Form(...),
     project_id: Optional[str] = Form(None),
     parent_id: Optional[str] = Form(None),
+    section_id: Optional[str] = Form(None),
     energy: EnergyLevel = Form(EnergyLevel.medium),
     is_quick_win: bool = Form(False),
     context_id: Optional[str] = Form(None),
@@ -98,9 +99,16 @@ async def create_task(
     # Herança de contexto: tarefa dentro de um projeto herda o contexto dele.
     if proj_id is not None:
         from app.services.project_service import ProjectService
+        from app.repositories.project_section_repo import ProjectSectionRepository
         project = await ProjectService(db).get_by_id(proj_id, current_user.id)
         if project is not None:
             extra["context_id"] = project.context_id
+        # Validar e associar section_id quando fornecido
+        sec_id = _parse_int(section_id)
+        if sec_id is not None:
+            sec = await ProjectSectionRepository(db).get_by_id(sec_id, proj_id)
+            if sec is not None:
+                extra["section_id"] = sec_id
     else:
         cid = _parse_int(context_id)
         # Tarefa avulsa de topo (SCRIPT 13): contexto é obrigatório.
@@ -276,6 +284,7 @@ async def edit_form(
 
     # Importância (SCRIPT 13): só tarefa avulsa de topo escolhe Alta/Média/Baixa.
     is_standalone_top = task.parent_id is None and task.project_id is None
+    is_project_task = task.project_id is not None
     prioridade = faixa_importancia(task.importancia, task.sem_nota) or "media"
 
     return templates.TemplateResponse(
@@ -283,7 +292,8 @@ async def edit_form(
         "partials/task_edit_form.html",
         {"task": task, "contexts": contexts, "context_labels": context_labels,
          "user_labels": user_labels, "users": users,
-         "show_prioridade": is_standalone_top, "prioridade": prioridade},
+         "show_prioridade": is_standalone_top, "is_project_task": is_project_task,
+         "prioridade": prioridade},
     )
 
 

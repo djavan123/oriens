@@ -16,14 +16,12 @@
   'nao_iniciado': 'Não iniciado',
   'concluido':    'Concluído',
 } %}
-{% set energy_label = {'high': 'alta', 'medium': 'média', 'low': 'baixa'} %}
-{% set energy_dot = {'high': 'bg-oriens-alert', 'medium': 'bg-oriens-btn', 'low': 'bg-oriens-secondary'} %}
 {% set priority_label = {1: 'Alta', 2: 'Média', 3: 'Baixa'} %}
 
 {% block content %}
 
 <!-- Breadcrumb -->
-<div class="flex items-center gap-2 text-oriens-secondary text-xs mb-8">
+<div class="flex items-center gap-2 text-oriens-secondary text-xs mb-6">
   <a href="/projects" class="hover:text-oriens-primary transition-colors">Projetos</a>
   <span>/</span>
   <span class="text-oriens-primary">{{ project.name }}</span>
@@ -34,142 +32,186 @@
   <!-- ─────────── COLUNA PRINCIPAL ─────────── -->
   <div class="flex-1 min-w-0">
 
-    <!-- Header -->
-    <div class="mb-6">
-      <div class="flex items-start justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-bold text-oriens-primary tracking-tight
-            {% if project.status.value == 'concluido' %}line-through opacity-50{% endif %}">
-            {{ project.name }}
-          </h1>
-          {% if project.tags %}
-          <div class="flex flex-wrap gap-1.5 mt-3">
-            {% for tag in project.tags.split(',') %}
-            {% set t = tag.strip() %}
-            {% if t %}
-            <span class="text-xs px-2 py-0.5 rounded-full border border-oriens-border text-oriens-secondary">{{ t }}</span>
-            {% endif %}
-            {% endfor %}
-          </div>
-          {% endif %}
-        </div>
-        <div class="flex items-center gap-3 flex-shrink-0 mt-1 flex-wrap justify-end">
-          {% set overdue = project.deadline and project.deadline.date() < now().date() and project.status.value != 'concluido' %}
-          {% if overdue %}
-          <span class="text-xs px-2 py-0.5 rounded-full text-oriens-alert bg-oriens-alert/10">Atrasado</span>
-          {% endif %}
-          {% if project.archived %}
-          <span class="text-xs px-2 py-0.5 rounded-full text-oriens-warning bg-oriens-warning/10">Arquivado</span>
-          {% endif %}
-          {% if context_labels is defined and context_labels.get(project.context_id) %}
-          <span class="text-xs px-2 py-0.5 rounded-full bg-oriens-surface border border-oriens-border text-oriens-secondary">{{ context_labels[project.context_id] }}</span>
-          {% endif %}
-          <span class="text-xs {{ status_color.get(project.status.value, 'text-oriens-secondary') }}">
-            {{ status_label.get(project.status.value, project.status.value) }}
-          </span>
-          <span class="text-oriens-secondary text-xs">Prioridade {{ priority_label.get(project.priority, 'Média') | lower }}</span>
-          <button
-            hx-patch="/api/projects/{{ project.id }}"
-            hx-vals='{"archived": {% if project.archived %}false{% else %}true{% endif %}}'
-            hx-swap="none"
-            hx-on::after-request="if(event.detail.successful){ window.location.href = '/projects' }"
-            class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors cursor-pointer">
-            {% if project.archived %}Desarquivar projeto{% else %}Arquivar projeto{% endif %}
+    <!-- Header compacto -->
+    <div class="mb-4">
+      <h1 class="text-xl font-bold text-oriens-primary tracking-tight mb-2
+        {% if project.status.value == 'concluido' %}line-through opacity-50{% endif %}">
+        {{ project.name }}
+      </h1>
+      <div class="flex items-center gap-2 flex-wrap text-xs">
+        <span class="{{ status_color.get(project.status.value, 'text-oriens-secondary') }}">
+          {{ status_label.get(project.status.value, project.status.value) }}
+        </span>
+        <span class="text-oriens-border">·</span>
+        <span class="text-oriens-secondary">{{ priority_label.get(project.priority, 'Média') }}</span>
+        {% if context_labels is defined and context_labels.get(project.context_id) %}
+        <span class="text-oriens-border">·</span>
+        <span class="text-oriens-secondary">{{ context_labels[project.context_id] }}</span>
+        {% endif %}
+        {% if project.deadline %}
+        {% set overdue = project.deadline.date() < now().date() and project.status.value != 'concluido' %}
+        <span class="text-oriens-border">·</span>
+        {% if overdue %}
+        <span class="text-oriens-urgent">atrasado {{ project.deadline.strftime('%d/%m/%y') }}</span>
+        {% else %}
+        <span class="text-oriens-secondary">{{ project.deadline.strftime('%d/%m/%y') }}</span>
+        {% endif %}
+        {% endif %}
+        {% if project.archived %}
+        <span class="text-oriens-border">·</span>
+        <span class="text-oriens-warning">Arquivado</span>
+        {% endif %}
+        <span class="text-oriens-border">·</span>
+        <button
+          hx-patch="/api/projects/{{ project.id }}"
+          hx-vals='{"archived": {% if project.archived %}false{% else %}true{% endif %}}'
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful){ window.location.href = '/projects' }"
+          class="text-oriens-secondary hover:text-oriens-primary transition-colors cursor-pointer">
+          {% if project.archived %}Desarquivar{% else %}Arquivar{% endif %}
+        </button>
+      </div>
+    </div>
+
+    <!-- Objetivo (inline editável, compacto) -->
+    <div x-data="{ editingObj: false }" class="mb-5">
+      <div x-show="!editingObj" class="flex items-start gap-3">
+        {% if project.objective %}
+        <p class="flex-1 text-oriens-secondary text-sm leading-relaxed">{{ project.objective }}</p>
+        <button @click="editingObj=true"
+          class="flex-shrink-0 text-oriens-link text-xs hover:opacity-80 transition-colors cursor-pointer">
+          Editar
+        </button>
+        {% else %}
+        <button @click="editingObj=true"
+          class="text-oriens-accent text-sm hover:opacity-80 transition-opacity cursor-pointer">
+          + definir objetivo claro para esse projeto
+        </button>
+        {% endif %}
+      </div>
+      <form x-show="editingObj" x-cloak
+        hx-patch="/api/projects/{{ project.id }}"
+        hx-swap="none"
+        hx-on::after-request="if(event.detail.successful){ editingObj=false; window.location.reload() }"
+        class="flex items-start gap-2">
+        <textarea name="objective" rows="2"
+          class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm
+                 focus:outline-none focus:border-oriens-accent transition-colors resize-none placeholder-oriens-muted"
+          placeholder="Qual é o resultado esperado?">{{ project.objective or '' }}</textarea>
+        <div class="flex flex-col gap-1 flex-shrink-0">
+          <button type="submit"
+            class="bg-oriens-btn text-white rounded px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-opacity">
+            Salvar
+          </button>
+          <button type="button" @click="editingObj=false"
+            class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors text-center">
+            Cancelar
           </button>
         </div>
-      </div>
+      </form>
     </div>
 
-    <!-- Próxima ação operacional -->
-    <div class="mb-6 bg-oriens-surface border border-oriens-border border-l-[3px] border-l-oriens-accent rounded-lg p-5">
-      <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-2.5">Próxima ação</p>
-
-      {% if next_action.task %}
-      {% set nt = next_action.task %}
-      <div class="flex items-start gap-3">
-        <button
-          hx-patch="/api/tasks/{{ nt.id }}/done"
-          hx-swap="none"
-          hx-on::after-request="if(event.detail.successful){ window.location.reload() }"
-          title="Concluir"
-          class="flex-shrink-0 mt-0.5 w-5 h-5 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors"></button>
-        <div class="min-w-0">
-          <p class="text-oriens-primary text-sm leading-snug">{{ nt.title }}</p>
-          <div class="flex items-center gap-3 mt-1.5 flex-wrap">
-            <span class="text-[11px] text-oriens-muted inline-flex items-center gap-1.5">
-              <span class="w-1.5 h-1.5 rounded-full {{ energy_dot.get(nt.energy.value, 'bg-oriens-secondary') }}"></span>
-              energia {{ energy_label.get(nt.energy.value, nt.energy.value) }}
-            </span>
-            {% if nt.deadline %}
-            {% set ds = due_status(nt.deadline) %}
-            {% if ds == 'overdue' %}
-            <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-urgent/15 text-oriens-urgent">atrasado · {{ (now().date() - nt.deadline.date()).days }}d</span>
-            {% elif ds == 'today' %}
-            <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-today/15 text-oriens-today">hoje</span>
-            {% else %}
-            <span class="text-[11px] text-oriens-muted">{{ nt.deadline.strftime('%d/%m/%y') }}</span>
-            {% endif %}
-            {% endif %}
-          </div>
-        </div>
-      </div>
-
-      {% elif next_action.proxima_acao %}
-      <p class="text-oriens-primary text-sm leading-relaxed">→ {{ next_action.proxima_acao }}</p>
-      <p class="text-oriens-muted text-[11px] mt-1.5">Sem tarefas pendentes — defina uma tarefa para executar em ordem.</p>
-
-      {% else %}
-      <button type="button"
-        onclick="var i=document.getElementById('new-task-input'); if(i){ i.focus(); i.scrollIntoView({behavior:'smooth', block:'center'}); }"
-        class="text-oriens-accent text-sm hover:opacity-80 transition-opacity cursor-pointer">
-        Defina a próxima tarefa
-      </button>
-      {% endif %}
-    </div>
-
-    <!-- Tarefas do projeto (execução) -->
+    <!-- Tarefas do projeto -->
     <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Tarefas do projeto</h2>
+      <div class="flex items-center justify-between mb-2">
+        <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Tarefas</h2>
         {% if progress.total %}
         <span class="text-oriens-muted text-xs font-mono">{{ progress.done }}/{{ progress.total }} · {{ progress.pct }}%</span>
         {% endif %}
       </div>
 
       {% if progress.total %}
-      <div class="h-1.5 rounded-full bg-oriens-card-hover overflow-hidden mb-4">
+      <div class="h-0.5 rounded-full bg-oriens-card-hover overflow-hidden mb-3">
         <div class="h-full rounded-full {% if progress.pct == 100 %}bg-oriens-success{% else %}bg-oriens-btn{% endif %}"
              style="width: {{ progress.pct }}%;"></div>
       </div>
       {% endif %}
 
-      <div class="mb-4">
-        {% set project_id = project.id %}
-        {% with criterios = [] %}{% include "partials/task_form.html" %}{% endwith %}
+      <!-- Cabeçalho de colunas (desktop) -->
+      <div class="hidden md:flex items-center gap-0 border-b border-oriens-divider pb-1 mb-1">
+        <span class="w-5 flex-shrink-0"></span>
+        <span class="w-5 flex-shrink-0"></span>
+        <span class="flex-1 min-w-0 pl-2 text-[10px] text-oriens-muted uppercase tracking-wider">Tarefa</span>
+        <span class="w-20 flex-shrink-0 text-[10px] text-oriens-muted uppercase tracking-wider">Energia</span>
+        <span class="w-24 flex-shrink-0 text-[10px] text-oriens-muted uppercase tracking-wider">Prazo</span>
+        <span class="w-20 flex-shrink-0 text-[10px] text-oriens-muted uppercase tracking-wider">Responsável</span>
+        <span class="w-32 flex-shrink-0"></span>
       </div>
 
-      <div id="task-list-pending">
-        {% for task in pending_tasks %}
-          {% with draggable = true, reload_on_done = true, is_next = loop.first %}{% include "partials/task_with_subtasks.html" %}{% endwith %}
+      <!-- Seções -->
+      <div id="project-sections">
+        {% for section, section_tasks in section_groups %}
+          {% include "partials/project_section.html" %}
         {% endfor %}
       </div>
-      {% if not pending_tasks %}
-      <p id="no-pending" class="text-oriens-empty text-sm italic">Nenhuma tarefa pendente.</p>
-      {% endif %}
 
+      <!-- Tarefas sem seção -->
+      <div id="sem-secao-container">
+        {% if section_groups %}
+        <p class="text-oriens-secondary text-[10px] font-bold uppercase tracking-wider mb-1 mt-4 px-1">Sem seção</p>
+        {% endif %}
+
+        <div id="task-list-pending" class="section-task-list">
+          {% for task in sem_secao_tasks %}
+            {% with draggable=true, reload_on_done=true,
+                    is_next=(next_action.task and task.id == next_action.task.id) %}
+              {% include "partials/project_task_row.html" %}
+            {% endwith %}
+          {% endfor %}
+        </div>
+
+        {% if not sem_secao_tasks and not section_groups %}
+        <p id="no-pending" class="text-oriens-empty text-sm italic py-3">Nenhuma tarefa pendente.</p>
+        {% endif %}
+
+        <div class="mt-3">
+          {% with project_id=project.id %}{% include "partials/task_form.html" %}{% endwith %}
+        </div>
+      </div>
+
+      <!-- + Nova seção -->
+      <div x-data="{ addingSection: false }" class="mt-5">
+        <button x-show="!addingSection" @click="addingSection=true"
+          class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors cursor-pointer">
+          + Nova seção
+        </button>
+        <form x-show="addingSection" x-cloak
+          hx-post="/api/projects/{{ project.id }}/sections"
+          hx-target="#project-sections"
+          hx-swap="beforeend"
+          hx-on::after-request="if(event.detail.successful){ $el.reset(); addingSection=false }"
+          class="flex items-center gap-2">
+          <input type="text" name="name" required placeholder="Nome da seção..."
+            autofocus
+            class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-1.5 text-sm
+                   focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
+          <button type="submit"
+            class="bg-oriens-btn text-white rounded px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-opacity">
+            Criar
+          </button>
+          <button type="button" @click="addingSection=false"
+            class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors">
+            Cancelar
+          </button>
+        </form>
+      </div>
+
+      <!-- Bloqueadas -->
       {% if blocked_tasks %}
-      <div class="mt-4">
-        <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-3">Bloqueadas</p>
+      <div class="mt-5 pt-4 border-t border-oriens-divider">
+        <p class="text-oriens-secondary text-[10px] font-bold uppercase tracking-wider mb-2">Bloqueadas</p>
         {% for task in blocked_tasks %}
-          {% with reload_on_done = true %}{% include "partials/task_with_subtasks.html" %}{% endwith %}
+          {% with reload_on_done=true %}{% include "partials/project_task_row.html" %}{% endwith %}
         {% endfor %}
       </div>
       {% endif %}
 
+      <!-- Concluídas -->
       {% if done_tasks %}
-      <div class="mt-4" x-data="{ show: false }">
+      <div class="mt-4 pt-3 border-t border-oriens-divider" x-data="{ show: false }">
         <button @click="show = !show"
-          class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-3 flex items-center gap-2 hover:text-oriens-primary transition-colors">
+          class="text-oriens-secondary text-[10px] font-bold uppercase tracking-wider flex items-center gap-2
+                 hover:text-oriens-primary transition-colors mb-2">
           <span x-text="show ? '▾' : '▸'"></span>
           <span>Concluídas ({{ done_tasks | length }})</span>
         </button>
@@ -182,13 +224,11 @@
       {% endif %}
     </div>
 
-    <!-- Detalhes do projeto (metadados + edição) -->
+    <!-- Detalhes (Status / Prioridade / Contexto / Responsável) -->
     <div x-data="{ editing: false }"
-         @abrir-edicao.window="editing = true; $nextTick(() => $el.scrollIntoView({ behavior: 'smooth', block: 'center' }))"
          class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
 
-      <!-- Static view -->
-      <div x-show="!editing" class="space-y-3">
+      <div x-show="!editing" class="space-y-2">
         <div class="flex items-center gap-3">
           <span class="text-oriens-primary text-sm font-medium">{{ status_label.get(project.status.value, project.status.value) }}</span>
           <span class="text-oriens-muted text-xs ml-auto">criado em {{ project.created_at.strftime('%d/%m/%y') }}</span>
@@ -209,58 +249,13 @@
           <span class="text-oriens-success text-sm">{{ project.done_at.strftime('%d/%m/%Y') }}</span>
         </div>
         {% endif %}
-        {% if project.scope %}
-        <div class="pt-2">
-          <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-2">Escopo</p>
-          <p class="text-oriens-primary text-sm leading-relaxed whitespace-pre-wrap">{{ project.scope }}</p>
-        </div>
-        {% endif %}
-        {% if project.premissas %}
-        <div class="pt-2">
-          <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-2">Premissas</p>
-          <p class="text-oriens-primary text-sm leading-relaxed whitespace-pre-wrap">{{ project.premissas }}</p>
-        </div>
-        {% endif %}
-        {% if project.notes %}
-        <div class="pt-2">
-          <p class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide mb-2">Notas</p>
-          <p class="text-oriens-primary text-sm leading-relaxed whitespace-pre-wrap">{{ project.notes }}</p>
-        </div>
-        {% endif %}
       </div>
 
-      <!-- Edit form -->
       <form x-show="editing" x-transition
         hx-patch="/api/projects/{{ project.id }}"
         hx-swap="none"
         hx-on::after-request="if(event.detail.successful){ window.location.reload() }"
         class="space-y-3">
-
-        <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Objetivo</label>
-          <input type="text" name="objective"
-            value="{{ project.objective or '' }}"
-            placeholder="Qual é o resultado esperado?"
-            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-        </div>
-
-        <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Escopo</label>
-          <textarea name="scope" rows="2"
-            placeholder="O que está dentro e fora deste projeto?"
-            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors resize-none">{{ project.scope or '' }}</textarea>
-        </div>
-
-        <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Responsável</label>
-          <select name="responsavel_id"
-            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-            <option value="">— nenhum —</option>
-            {% for u in users %}
-            <option value="{{ u.id }}" {% if project.responsavel_id == u.id %}selected{% endif %}>{{ u.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
@@ -285,12 +280,6 @@
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Prazo</label>
-            <input type="date" name="deadline"
-              value="{{ project.deadline.strftime('%Y-%m-%d') if project.deadline else '' }}"
-              class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-          </div>
-          <div>
             <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Contexto *</label>
             <select name="context_id" required
               class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
@@ -300,36 +289,16 @@
               {% endfor %}
             </select>
           </div>
-        </div>
-
-        <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Etiquetas</label>
-          <input type="text" name="tags"
-            value="{{ project.tags or '' }}"
-            placeholder="design, backend, urgente (separadas por vírgula)"
-            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
-        </div>
-
-        <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Próxima ação (fallback)</label>
-          <input type="text" name="proxima_acao"
-            value="{{ project.proxima_acao or '' }}"
-            placeholder="Usada como próxima ação quando não há tarefas pendentes"
-            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
-        </div>
-
-        <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Premissas</label>
-          <textarea name="premissas" rows="2"
-            placeholder="Suposições e dependências externas..."
-            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors resize-none placeholder-oriens-muted">{{ project.premissas or '' }}</textarea>
-        </div>
-
-        <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Notas</label>
-          <textarea name="notes" rows="2"
-            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors resize-none"
-            >{{ project.notes or '' }}</textarea>
+          <div>
+            <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Responsável</label>
+            <select name="responsavel_id"
+              class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+              <option value="">— nenhum —</option>
+              {% for u in users %}
+              <option value="{{ u.id }}" {% if project.responsavel_id == u.id %}selected{% endif %}>{{ u.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
         </div>
 
         <div class="flex items-center gap-3">
@@ -356,9 +325,11 @@
         hx-on::after-request="if(event.detail.successful){ $el.reset() }"
         class="mb-3 flex items-center gap-2">
         <input type="text" id="decision-input" name="content" required placeholder="Nova decisão..."
-          class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
+          class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm
+                 focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
         <button type="submit"
-          class="flex-shrink-0 bg-oriens-surface border border-oriens-border text-oriens-primary rounded-lg px-4 py-2 text-xs hover:bg-oriens-card transition-colors">
+          class="flex-shrink-0 bg-oriens-surface border border-oriens-border text-oriens-primary rounded-lg px-4 py-2
+                 text-xs hover:bg-oriens-card transition-colors">
           Adicionar
         </button>
       </form>
@@ -391,7 +362,6 @@
       <p class="text-oriens-empty text-sm italic">Sem atividade ainda.</p>
       {% endif %}
 
-      <!-- Modal: histórico completo -->
       <div x-show="showHistory" x-transition
            @keydown.escape.window="showHistory = false"
            class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;">
@@ -446,7 +416,8 @@
                  file:bg-oriens-surface file:text-oriens-primary hover:file:bg-oriens-card
                  file:cursor-pointer cursor-pointer">
         <button type="submit"
-          class="flex-shrink-0 bg-oriens-surface border border-oriens-border text-oriens-primary rounded-lg px-4 py-1.5 text-xs hover:bg-oriens-card transition-colors">
+          class="flex-shrink-0 bg-oriens-surface border border-oriens-border text-oriens-primary rounded-lg px-4 py-1.5
+                 text-xs hover:bg-oriens-card transition-colors">
           Enviar
         </button>
       </form>
@@ -455,9 +426,7 @@
     <!-- IA -->
     {% if ai_enabled %}
     <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">IA</h2>
-      </div>
+      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-3">IA</h2>
       <button
         hx-post="/api/ai/suggest-actions/{{ project.id }}"
         hx-target="#ai-project-suggestions"
@@ -471,20 +440,17 @@
     </div>
     {% endif %}
 
-    <!-- Riscos — OCULTO da UI por opção (backend/model/rota intactos). Trocar false→true para reativar. -->
+    <!-- Riscos — oculto da UI (backend intacto) -->
     {% if false %}
     <div class="bg-oriens-surface border border-oriens-border rounded-lg p-5 mb-4" x-data="{ adding: false }">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Riscos</h2>
-        <button @click="adding = !adding"
-          class="text-oriens-link text-xs hover:opacity-80 transition-colors cursor-pointer">
+        <button @click="adding = !adding" class="text-oriens-link text-xs hover:opacity-80 transition-colors cursor-pointer">
           <span x-text="adding ? 'cancelar' : '+ registrar risco'"></span>
         </button>
       </div>
-
       <div id="risks-list">
-        {% for r in risks %}
-          {% include "partials/project_risk.html" %}
+        {% for r in risks %}{% include "partials/project_risk.html" %}
         {% else %}
         <button type="button" @click="adding = true"
           class="text-oriens-accent text-sm hover:opacity-80 transition-opacity cursor-pointer mb-2">
@@ -492,97 +458,72 @@
         </button>
         {% endfor %}
       </div>
-
-      <form x-show="adding" x-transition
-        hx-post="/api/projects/{{ project.id }}/risks"
-        hx-target="#risks-list"
-        hx-swap="beforeend"
-        hx-on::after-request="if(event.detail.successful){ $el.reset(); adding = false }"
-        class="mt-3 space-y-2 border border-oriens-border rounded-lg p-3">
-        <input type="text" name="description" required placeholder="Descreva o risco..."
-          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="block text-oriens-secondary text-xs mb-1">Impacto</label>
-            <select name="impact"
-              class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-2 py-1.5 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
-              <option value="low">Baixo</option>
-              <option value="medium" selected>Médio</option>
-              <option value="high">Alto</option>
-            </select>
-          </div>
-          <div>
-            <label class="block text-oriens-secondary text-xs mb-1">Probabilidade</label>
-            <select name="probability"
-              class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-2 py-1.5 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
-              <option value="low">Baixa</option>
-              <option value="medium" selected>Média</option>
-              <option value="high">Alta</option>
-            </select>
-          </div>
-        </div>
-        <textarea name="mitigation" rows="2" placeholder="Plano de mitigação (opcional)"
-          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors resize-none placeholder-oriens-muted"></textarea>
-        <button type="submit"
-          class="bg-oriens-btn text-white rounded px-4 py-1.5 text-xs font-medium hover:opacity-90 transition-opacity">
-          Registrar
-        </button>
-      </form>
     </div>
     {% endif %}
 
   </div>
 
-  <!-- ─────────── COLUNA DIREITA: OBJETIVO + COMENTÁRIOS ─────────── -->
-  <aside class="w-full lg:w-80 flex-shrink-0">
+  <!-- ─────────── COLUNA DIREITA ─────────── -->
+  <aside class="w-full lg:w-72 flex-shrink-0">
     <div class="bg-oriens-surface border border-oriens-border rounded-xl p-5">
 
-      <!-- Objetivo -->
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-2">Objetivo</h2>
-      {% if project.objective %}
-      <p class="text-oriens-primary text-sm leading-relaxed mb-6">{{ project.objective }}</p>
-      {% else %}
-      <button type="button" @click="$dispatch('abrir-edicao')"
-        class="text-oriens-accent text-sm text-left hover:opacity-80 transition-opacity cursor-pointer mb-6 block">
-        + definir um objetivo claro pra esse projeto
-      </button>
-      {% endif %}
-
-      <!-- Prazo -->
-      <div class="mb-6 pt-5 border-t border-oriens-border">
+      <!-- Prazo (inline editável) -->
+      <div x-data="{ editingDeadline: false }">
         <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-2">Prazo</h2>
-        {% if project.deadline %}
-          {% set dias = (project.deadline.date() - now().date()).days %}
-          {% if project.status.value == 'concluido' %}
-          <p class="text-oriens-primary text-sm">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
-          <p class="text-oriens-muted text-xs mt-0.5">projeto concluído</p>
-          {% elif dias < 0 %}
-          <p class="text-oriens-urgent text-2xl font-bold leading-none">{{ -dias }}<span class="text-sm font-medium"> dia{{ 's' if -dias != 1 else '' }} em atraso</span></p>
-          <p class="text-oriens-muted text-xs mt-1.5">era {{ project.deadline.strftime('%d/%m/%Y') }}</p>
-          {% elif dias == 0 %}
-          <p class="text-oriens-today text-2xl font-bold leading-none">Vence hoje</p>
-          <p class="text-oriens-muted text-xs mt-1.5">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
-          {% elif dias <= 3 %}
-          <p class="text-oriens-today text-2xl font-bold leading-none">{{ dias }}<span class="text-sm font-medium"> dia{{ 's' if dias != 1 else '' }} restante{{ 's' if dias != 1 else '' }}</span></p>
-          <p class="text-oriens-muted text-xs mt-1.5">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+        <div x-show="!editingDeadline">
+          {% if project.deadline %}
+            {% set dias = (project.deadline.date() - now().date()).days %}
+            {% if project.status.value == 'concluido' %}
+            <p class="text-oriens-primary text-sm">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+            <p class="text-oriens-muted text-xs mt-0.5">projeto concluído</p>
+            {% elif dias < 0 %}
+            <p class="text-oriens-urgent text-2xl font-bold leading-none">{{ -dias }}<span class="text-sm font-medium"> dia{{ 's' if -dias != 1 else '' }} em atraso</span></p>
+            <p class="text-oriens-muted text-xs mt-1.5">era {{ project.deadline.strftime('%d/%m/%Y') }}</p>
+            {% elif dias == 0 %}
+            <p class="text-oriens-today text-2xl font-bold leading-none">Vence hoje</p>
+            <p class="text-oriens-muted text-xs mt-1.5">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+            {% elif dias <= 3 %}
+            <p class="text-oriens-today text-2xl font-bold leading-none">{{ dias }}<span class="text-sm font-medium"> dia{{ 's' if dias != 1 else '' }} restante{{ 's' if dias != 1 else '' }}</span></p>
+            <p class="text-oriens-muted text-xs mt-1.5">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+            {% else %}
+            <p class="text-oriens-primary text-2xl font-bold leading-none">{{ dias }}<span class="text-oriens-secondary text-sm font-medium"> dias restantes</span></p>
+            <p class="text-oriens-muted text-xs mt-1.5">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+            {% endif %}
+            <button type="button" @click="editingDeadline=true"
+              class="text-oriens-link text-xs hover:opacity-80 transition-colors cursor-pointer mt-2 block">
+              Editar →
+            </button>
           {% else %}
-          <p class="text-oriens-primary text-2xl font-bold leading-none">{{ dias }}<span class="text-oriens-secondary text-sm font-medium"> dias restantes</span></p>
-          <p class="text-oriens-muted text-xs mt-1.5">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
-          {% endif %}
-          <button type="button" @click="$dispatch('abrir-edicao')"
-            class="text-oriens-link text-xs hover:opacity-80 transition-opacity cursor-pointer mt-2">
-            Editar →
+          <button type="button" @click="editingDeadline=true"
+            class="text-oriens-accent text-sm text-left hover:opacity-80 transition-opacity cursor-pointer block">
+            + definir prazo previsto
           </button>
-        {% else %}
-        <button type="button" @click="$dispatch('abrir-edicao')"
-          class="text-oriens-accent text-sm text-left hover:opacity-80 transition-opacity cursor-pointer block">
-          + definir prazo previsto
-        </button>
-        {% endif %}
+          {% endif %}
+        </div>
+        <form x-show="editingDeadline" x-cloak
+          hx-patch="/api/projects/{{ project.id }}"
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful){ editingDeadline=false; window.location.reload() }"
+          class="space-y-2 mt-2">
+          <input type="date" name="deadline"
+            value="{{ project.deadline.strftime('%Y-%m-%d') if project.deadline else '' }}"
+            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm
+                   focus:outline-none focus:border-oriens-accent transition-colors">
+          <div class="flex gap-2">
+            <button type="submit"
+              class="bg-oriens-btn text-white rounded px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-opacity">
+              Salvar
+            </button>
+            <button type="button" @click="editingDeadline=false"
+              class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </form>
       </div>
 
       <!-- Comentários -->
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-3 pt-5 border-t border-oriens-border">Comentários</h2>
+      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-3 mt-6 pt-5 border-t border-oriens-border">Comentários</h2>
 
       <div id="comments-list" class="mb-3">
         {% for comment in comments %}
@@ -608,7 +549,7 @@
         </button>
       </form>
 
-      <!-- Histórico -->
+      <!-- Histórico de auditoria -->
       {% if audit %}
       <div class="pt-5 mt-5 border-t border-oriens-border" x-data="{ show: false }">
         <button @click="show = !show"
@@ -636,34 +577,36 @@
 
 </div>
 
-<!-- Drag-and-drop das tarefas pendentes (só nesta página) -->
+<!-- SortableJS: inicializa em todos os .section-task-list (inclui #task-list-pending) -->
 <script>
 (function(){
-  function initSort(){
-    var el = document.getElementById('task-list-pending');
-    if(!el || el._sortable || typeof Sortable === 'undefined') return;
-    el._sortable = Sortable.create(el, {
-      handle: '.drag-handle',
-      draggable: '.project-task-row',
-      animation: 150,
-      onEnd: function(){
-        var ids = Array.prototype.slice.call(el.querySelectorAll(':scope > .project-task-row'))
-          .map(function(r){ return parseInt(r.getAttribute('data-task-id'), 10); })
-          .filter(function(n){ return !isNaN(n); });
-        if(!ids.length) return;
-        fetch('/api/projects/{{ project.id }}/task-order', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task_ids: ids })
-        });
-      }
+  function initSortables(){
+    document.querySelectorAll('.section-task-list:not([data-si])').forEach(function(el){
+      el.setAttribute('data-si', '1');
+      Sortable.create(el, {
+        handle: '.drag-handle',
+        draggable: '.project-task-row',
+        animation: 150,
+        onEnd: function(){
+          var ids = Array.prototype.slice.call(el.querySelectorAll(':scope > .project-task-row'))
+            .map(function(r){ return parseInt(r.getAttribute('data-task-id'), 10); })
+            .filter(function(n){ return !isNaN(n); });
+          if(!ids.length) return;
+          fetch('/api/projects/{{ project.id }}/task-order', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ task_ids: ids })
+          });
+        }
+      });
     });
   }
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', initSort);
+    document.addEventListener('DOMContentLoaded', initSortables);
   } else {
-    initSort();
+    initSortables();
   }
+  document.addEventListener('htmx:afterSettle', initSortables);
 })();
 </script>
 
