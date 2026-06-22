@@ -148,6 +148,19 @@ class TaskRepository:
         result = await self.db.execute(q.order_by(*order))
         return list(result.scalars().all())
 
+    async def get_standalone_tasks(self, user_id: int) -> list[Task]:
+        """Tarefas avulsas pendentes (project_id IS NULL) para a página Listas."""
+        result = await self.db.execute(
+            select(Task).where(
+                Task.user_id == user_id,
+                Task.project_id.is_(None),
+                Task.parent_id.is_(None),
+                Task.archived.is_(False),
+                Task.status == TaskStatus.pending,
+            ).order_by(Task.importancia.desc(), Task.created_at.desc())
+        )
+        return list(result.scalars().all())
+
     async def get_children_map(self, user_id: int, parent_ids: list[int]) -> dict[int, list[Task]]:
         """Retorna {parent_id: [subtarefas]} para renderizar aninhado no detalhe."""
         if not parent_ids:

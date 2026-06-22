@@ -33,3 +33,11 @@ class NoteRepository:
             .order_by(Note.created_at.desc())
         )
         return list(result.scalars().all())
+
+    async def get_standalone(self, user_id: int) -> list[Note]:
+        result = await self.db.execute(
+            select(Note)
+            .where(Note.user_id == user_id, Note.project_id.is_(None))
+            .order_by(Note.created_at.desc())
+        )
+        return list(result.scalars().all())

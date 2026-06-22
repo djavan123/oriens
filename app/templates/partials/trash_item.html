@@ -9,13 +9,23 @@
     Descartado {{ capture.discarded_at.strftime('%d/%m/%Y %H:%M') }}
   </span>
 
-  <!-- Restaurar -->
-  <button
-    hx-post="/api/capture/{{ capture.id }}/restore"
-    hx-target="#trash-{{ capture.id }}"
-    hx-swap="outerHTML"
-    class="flex-shrink-0 text-[11px] text-oriens-accent hover:opacity-70 transition-opacity opacity-0 group-hover:opacity-100 cursor-pointer">
-    Restaurar
-  </button>
+  <!-- Ações hover -->
+  <div class="flex items-center gap-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+    <button
+      hx-post="/api/capture/{{ capture.id }}/restore"
+      hx-target="#trash-{{ capture.id }}"
+      hx-swap="outerHTML"
+      class="text-[11px] text-oriens-accent hover:opacity-70 transition-opacity cursor-pointer">
+      Restaurar
+    </button>
+    <button
+      hx-delete="/api/capture/{{ capture.id }}"
+      hx-target="#trash-{{ capture.id }}"
+      hx-swap="outerHTML"
+      hx-confirm="Excluir definitivamente? Esta ação não pode ser desfeita."
+      class="text-[11px] text-oriens-secondary hover:text-oriens-urgent transition-colors cursor-pointer">
+      Excluir
+    </button>
+  </div>
 
 </div>

@@ -17,10 +17,13 @@
 
   <!-- Ações (hover) -->
   <div class="flex items-center gap-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-    <a href="/process"
-       class="text-[11px] text-oriens-accent hover:opacity-70 transition-opacity whitespace-nowrap">
-      processar →
-    </a>
+    <button
+      hx-get="/api/capture/{{ capture.id }}/decide"
+      hx-target="#capture-{{ capture.id }}"
+      hx-swap="outerHTML"
+      class="text-[11px] text-oriens-accent hover:opacity-70 transition-opacity whitespace-nowrap">
+      Decidir
+    </button>
     <button
       hx-patch="/api/capture/{{ capture.id }}/discard"
       hx-target="#capture-{{ capture.id }}"

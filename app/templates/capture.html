@@ -6,15 +6,8 @@
 
 <div class="max-w-2xl">
 
-  <div class="flex items-center justify-between mb-6">
+  <div class="mb-6">
     <h1 class="text-2xl font-bold text-oriens-primary tracking-tight">Caixa de Entrada</h1>
-    <div class="flex items-center gap-4">
-      {% if pending_count > 0 %}
-      <a href="/process" class="text-oriens-accent text-sm hover:opacity-80 transition-colors">
-        Processar {{ pending_count }} {{ 'item' if pending_count == 1 else 'itens' }} →
-      </a>
-      {% endif %}
-    </div>
   </div>
 
   <!-- Quick capture form -->

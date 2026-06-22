@@ -8,6 +8,7 @@ from app.models.project import Project
 from app.models.task import Task, EnergyLevel
 from app.repositories.capture_repo import CaptureRepository
 from app.repositories.note_repo import NoteRepository
+from app.repositories.repository_repo import RepositoryRepository
 from app.services.project_service import ProjectService
 from app.services.task_service import TaskService
 
@@ -75,12 +76,16 @@ class CaptureService:
         name: str,
         objective: Optional[str] = None,
         priority: int = 2,
+        context_id: Optional[int] = None,
+        proxima_acao: Optional[str] = None,
     ) -> tuple[CaptureInbox, Project]:
         project = await ProjectService(self.db).create(
             user_id=user_id,
             name=name,
             objective=objective,
             priority=priority,
+            context_id=context_id,
+            proxima_acao=proxima_acao,
         )
         capture = await self.repo.mark_processed(capture_id, user_id)
         return capture, project
@@ -102,3 +107,16 @@ class CaptureService:
 
     async def discard(self, capture_id: int, user_id: int) -> Optional[CaptureInbox]:
         return await self.repo.mark_processed(capture_id, user_id)
+
+    async def hard_delete(self, capture_id: int, user_id: int) -> None:
+        await self.repo.hard_delete(capture_id, user_id)
+
+    async def process_as_repository(
+        self,
+        capture_id: int,
+        user_id: int,
+        content: str,
+    ):
+        item = await RepositoryRepository(self.db).create(user_id=user_id, content=content)
+        capture = await self.repo.mark_processed(capture_id, user_id)
+        return capture, item

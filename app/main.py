@@ -18,6 +18,8 @@ from app.routes.api.context import router as api_context_router
 from app.routes.api.settings import router as api_settings_router
 from app.routes.api.reminders import router as api_reminders_router
 from app.routes.weekly import router as weekly_router
+from app.routes.lists import router as lists_router
+from app.routes.api.lists import router as api_lists_router
 
 
 async def _reminder_loop():
@@ -90,6 +92,8 @@ app.include_router(api_context_router)
 app.include_router(api_settings_router)
 app.include_router(api_reminders_router)
 app.include_router(weekly_router)
+app.include_router(lists_router)
+app.include_router(api_lists_router)
 
 
 @app.exception_handler(HTTPException)

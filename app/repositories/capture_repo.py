@@ -118,3 +118,12 @@ class CaptureRepository:
             )
         )
         await self.db.commit()
+
+    async def hard_delete(self, capture_id: int, user_id: int) -> None:
+        await self.db.execute(
+            delete(CaptureInbox).where(
+                CaptureInbox.id == capture_id,
+                CaptureInbox.user_id == user_id,
+            )
+        )
+        await self.db.commit()

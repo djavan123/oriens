@@ -1,0 +1,103 @@
+{% extends "base_app.html" %}
+
+{% block title %}Listas — Oriens{% endblock %}
+
+{% block content %}
+
+<div class="max-w-2xl space-y-10">
+
+  <h1 class="text-2xl font-bold text-oriens-primary tracking-tight">Listas</h1>
+
+  <!-- Tarefas avulsas -->
+  <section>
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-xs font-bold uppercase tracking-widest text-oriens-secondary">Tarefas avulsas</h2>
+      {% if tasks %}
+      <span class="text-[11px] text-oriens-muted">{{ tasks | length }}</span>
+      {% endif %}
+    </div>
+
+    {% if tasks %}
+    <div class="rounded-md overflow-hidden border border-oriens-border">
+      {% for task in tasks %}
+        {% with show_importancia=True %}
+          {% include "partials/task_item.html" %}
+        {% endwith %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-oriens-muted text-sm">Nenhuma tarefa avulsa pendente.</p>
+    {% endif %}
+  </section>
+
+  <!-- Notas -->
+  <section>
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-xs font-bold uppercase tracking-widest text-oriens-secondary">Notas</h2>
+      {% if notes %}
+      <span class="text-[11px] text-oriens-muted">{{ notes | length }}</span>
+      {% endif %}
+    </div>
+
+    {% if notes %}
+    <div class="rounded-md overflow-hidden border border-oriens-border">
+      {% for note in notes %}
+      <div class="group flex items-start gap-3 px-3 py-2.5 border-b border-oriens-divider last:border-b-0 hover:bg-oriens-card-hover transition-colors">
+        <p class="flex-1 text-sm text-oriens-primary leading-snug min-w-0">{{ note.content }}</p>
+        <span class="flex-shrink-0 text-[11px] text-oriens-muted mt-0.5 whitespace-nowrap">{{ note.created_at.strftime('%d/%m/%Y') }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-oriens-muted text-sm">Nenhuma nota avulsa.</p>
+    {% endif %}
+  </section>
+
+  <!-- Repositório -->
+  <section>
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-xs font-bold uppercase tracking-widest text-oriens-secondary">Repositório</h2>
+      {% if repo_items %}
+      <span class="text-[11px] text-oriens-muted">{{ repo_items | length }}</span>
+      {% endif %}
+    </div>
+
+    <!-- Form de adição -->
+    <div class="mb-3">
+      <div id="repo-form-error" class="mb-1"></div>
+      <form
+        hx-post="/api/repository"
+        hx-target="#repo-list"
+        hx-swap="afterbegin"
+        hx-on::after-request="if(!event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); $el.querySelector('input').focus(); }"
+        class="flex items-center gap-2">
+        <input
+          type="text"
+          name="content"
+          required
+          placeholder="Adicionar referência..."
+          class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
+        <button type="submit"
+          class="btn-primary rounded-md px-4 py-2 text-sm font-semibold transition-colors flex-shrink-0">
+          Adicionar
+        </button>
+      </form>
+    </div>
+
+    <div id="repo-list" class="rounded-md overflow-hidden border border-oriens-border">
+      {% if repo_items %}
+      {% for item in repo_items %}
+        {% include "partials/repo_item.html" %}
+      {% endfor %}
+      {% else %}
+      <div class="px-3 py-8 text-center">
+        <p class="text-oriens-muted text-sm">Repositório vazio.</p>
+        <p class="text-oriens-muted text-xs mt-1">Salve referências aqui via Caixa de Entrada ou pelo campo acima.</p>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+</div>
+
+{% endblock %}
