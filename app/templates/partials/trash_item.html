@@ -1,0 +1,21 @@
+<div id="trash-{{ capture.id }}"
+     class="group flex items-center gap-3 px-3 py-2.5 border-b border-oriens-divider last:border-b-0 hover:bg-oriens-card-hover transition-colors">
+
+  <!-- Texto (muted: item descartado) -->
+  <span class="flex-1 text-sm text-oriens-secondary leading-snug min-w-0">{{ capture.content }}</span>
+
+  <!-- Data de descarte -->
+  <span class="flex-shrink-0 text-[11px] text-oriens-muted whitespace-nowrap">
+    Descartado {{ capture.discarded_at.strftime('%d/%m/%Y %H:%M') }}
+  </span>
+
+  <!-- Restaurar -->
+  <button
+    hx-post="/api/capture/{{ capture.id }}/restore"
+    hx-target="#trash-{{ capture.id }}"
+    hx-swap="outerHTML"
+    class="flex-shrink-0 text-[11px] text-oriens-accent hover:opacity-70 transition-opacity opacity-0 group-hover:opacity-100 cursor-pointer">
+    Restaurar
+  </button>
+
+</div>

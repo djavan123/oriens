@@ -65,6 +65,10 @@ _ENSURE_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "project_timeline": [
         ("description", "VARCHAR(255)"),
     ],
+    "capture_inbox": [
+        ("resolved_at", "DATETIME"),
+        ("discarded_at", "DATETIME"),
+    ],
 }
 
 
@@ -102,6 +106,10 @@ _ENSURE_COLUMNS_PG: dict[str, list[tuple[str, str]]] = {
     ],
     "users": [
         ("foco_do_dia", "TEXT"),
+    ],
+    "capture_inbox": [
+        ("resolved_at", "TIMESTAMP"),
+        ("discarded_at", "TIMESTAMP"),
     ],
 }
 

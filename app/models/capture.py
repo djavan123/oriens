@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from sqlalchemy import Text, Boolean, DateTime, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -13,3 +14,5 @@ class CaptureInbox(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     processed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    discarded_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

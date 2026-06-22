@@ -21,8 +21,7 @@ async def capture_inbox(
     current_user: User = Depends(get_current_user),
 ):
     service = CaptureService(db)
-    captures = await service.get_all(current_user.id)
-    unprocessed_count = sum(1 for c in captures if not c.processed)
+    captures = await service.get_inbox(current_user.id)
 
     _, active_context_obj, all_contexts = await resolve_active_context(
         request, db, current_user.id
@@ -34,7 +33,33 @@ async def capture_inbox(
         {
             "user": current_user,
             "captures": captures,
-            "unprocessed_count": unprocessed_count,
+            "pending_count": len(captures),
+            "active_context_obj": active_context_obj,
+            "all_contexts": all_contexts,
+        },
+    )
+
+
+@router.get("/lixeira", response_class=HTMLResponse)
+async def lixeira(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = CaptureService(db)
+    await service.cleanup_trash(current_user.id)
+    captures = await service.get_trash(current_user.id)
+
+    _, active_context_obj, all_contexts = await resolve_active_context(
+        request, db, current_user.id
+    )
+
+    return templates.TemplateResponse(
+        request,
+        "lixeira.html",
+        {
+            "user": current_user,
+            "captures": captures,
             "active_context_obj": active_context_obj,
             "all_contexts": all_contexts,
         },

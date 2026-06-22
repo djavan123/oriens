@@ -169,3 +169,33 @@ async def process_capture(
         await service.discard(capture_id, current_user.id)
 
     return _removed_html()
+
+
+@router.patch("/capture/{capture_id}/resolve", response_class=HTMLResponse)
+async def resolve_capture(
+    capture_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await CaptureService(db).resolve(capture_id, current_user.id)
+    return HTMLResponse("")
+
+
+@router.patch("/capture/{capture_id}/discard", response_class=HTMLResponse)
+async def discard_capture_to_trash(
+    capture_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await CaptureService(db).discard_to_trash(capture_id, current_user.id)
+    return HTMLResponse("")
+
+
+@router.post("/capture/{capture_id}/restore", response_class=HTMLResponse)
+async def restore_capture(
+    capture_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    await CaptureService(db).restore(capture_id, current_user.id)
+    return HTMLResponse("")

@@ -21,10 +21,25 @@ class CaptureService:
         return await self.repo.create(user_id=user_id, content=content.strip())
 
     async def get_inbox(self, user_id: int) -> list[CaptureInbox]:
-        return await self.repo.get_unprocessed(user_id)
+        return await self.repo.get_inbox(user_id)
 
     async def get_all(self, user_id: int) -> list[CaptureInbox]:
         return await self.repo.get_all(user_id)
+
+    async def resolve(self, capture_id: int, user_id: int) -> Optional[CaptureInbox]:
+        return await self.repo.resolve(capture_id, user_id)
+
+    async def discard_to_trash(self, capture_id: int, user_id: int) -> Optional[CaptureInbox]:
+        return await self.repo.discard_to_trash(capture_id, user_id)
+
+    async def get_trash(self, user_id: int) -> list[CaptureInbox]:
+        return await self.repo.get_trash(user_id)
+
+    async def restore(self, capture_id: int, user_id: int) -> Optional[CaptureInbox]:
+        return await self.repo.restore(capture_id, user_id)
+
+    async def cleanup_trash(self, user_id: int) -> None:
+        await self.repo.cleanup_old_discarded(user_id)
 
     async def process_as_task(
         self,

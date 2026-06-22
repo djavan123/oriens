@@ -1,66 +1,77 @@
-﻿{% extends "base_app.html" %}
+{% extends "base_app.html" %}
 
-{% block title %}Captura — Oriens{% endblock %}
+{% block title %}Caixa de Entrada — Oriens{% endblock %}
 
 {% block content %}
 
 <div class="max-w-2xl">
 
-  <div class="flex items-center justify-between mb-8">
-    <h1 class="text-3xl font-bold text-oriens-primary tracking-tight">Captura</h1>
-    {% if unprocessed_count > 0 %}
-    <a href="/process"
-       class="text-oriens-link text-sm hover:opacity-80 transition-colors">
-      Processar {{ unprocessed_count }} {{ 'item' if unprocessed_count == 1 else 'itens' }} →
-    </a>
-    {% endif %}
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-oriens-primary tracking-tight">Caixa de Entrada</h1>
+    <div class="flex items-center gap-4">
+      {% if pending_count > 0 %}
+      <a href="/process" class="text-oriens-accent text-sm hover:opacity-80 transition-colors">
+        Processar {{ pending_count }} {{ 'item' if pending_count == 1 else 'itens' }} →
+      </a>
+      {% endif %}
+    </div>
   </div>
 
   <!-- Quick capture form -->
-  <div class="mb-8">
+  <div class="mb-6">
     <div id="capture-form-error" class="mb-2"></div>
     <form
       hx-post="/api/capture"
       hx-target="#capture-list"
       hx-swap="afterbegin"
-      hx-on::after-request="if(!event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); $el.querySelector('textarea').style.height='auto'; }"
+      hx-on::after-request="
+        if(!event.detail.xhr.getResponseHeader('HX-Retarget')){
+          $el.reset();
+          var ta = $el.querySelector('textarea');
+          ta.style.height = 'auto';
+          ta.focus();
+        }
+      "
       class="flex items-start gap-2">
       <textarea
         name="content"
         required
+        autofocus
         placeholder="Capture qualquer coisa que esteja na sua cabeça..."
         rows="1"
         oninput="this.style.height='auto'; this.style.height=this.scrollHeight+'px'"
+        @keydown.ctrl.enter="$el.closest('form').requestSubmit()"
+        @keydown.meta.enter="$el.closest('form').requestSubmit()"
         class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-4 py-3 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted resize-none overflow-hidden leading-relaxed"></textarea>
       <button type="submit"
-        class="bg-oriens-btn hover:bg-oriens-accent-hover text-white rounded-md px-4 py-3 text-sm font-semibold transition-colors flex-shrink-0">
+        class="bg-oriens-btn hover:bg-oriens-accent-hover text-oriens-accent-text rounded-md px-4 py-3 text-sm font-semibold transition-colors flex-shrink-0">
         Capturar
       </button>
     </form>
+    <p class="text-[11px] text-oriens-muted mt-1.5 pl-1">Ctrl+Enter para capturar rapidamente</p>
   </div>
 
-  <!-- Stats -->
-  {% if captures %}
-  {% set pending_count = captures | rejectattr('processed') | list | length %}
-  <div class="flex items-center gap-4 mb-4 text-oriens-muted text-xs">
-    <span>{{ captures | length }} total</span>
-    {% if pending_count %}<span class="text-oriens-secondary">{{ pending_count }} sem processar</span>{% endif %}
+  <!-- List header -->
+  <div class="flex items-center justify-between mb-1">
+    <span class="text-[11px] text-oriens-muted uppercase tracking-wider">
+      {% if captures %}{{ captures | length }} {{ 'item' if captures | length == 1 else 'itens' }}{% endif %}
+    </span>
+    <a href="/lixeira" class="text-[11px] text-oriens-secondary hover:text-oriens-primary transition-colors">
+      Lixeira →
+    </a>
   </div>
-  {% endif %}
 
   <!-- Inbox list -->
+  {% if not captures %}
+  <div id="capture-empty" class="px-4 py-10 text-center">
+    <p class="text-oriens-secondary text-sm">Caixa vazia</p>
+    <p class="text-oriens-muted text-xs mt-1">Capture qualquer ideia ou pensamento acima.</p>
+  </div>
+  {% endif %}
   <div id="capture-list">
-    {% if captures %}
     {% for capture in captures %}
       {% include "partials/capture_item.html" %}
     {% endfor %}
-    {% else %}
-    <div class="bg-oriens-card rounded-lg px-6 py-12 text-center">
-      <p class="text-oriens-primary text-base font-medium">Inbox vazio</p>
-      <p class="text-oriens-empty text-sm italic mt-2">Capture qualquer ideia, tarefa ou pensamento acima.</p>
-      <p class="text-oriens-empty text-xs italic mt-1">Zero categorização — escreva e vá embora.</p>
-    </div>
-    {% endif %}
   </div>
 
 </div>

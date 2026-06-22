@@ -1,0 +1,33 @@
+{% extends "base_app.html" %}
+
+{% block title %}Lixeira — Oriens{% endblock %}
+
+{% block content %}
+
+<div class="max-w-2xl">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-oriens-primary tracking-tight">Lixeira</h1>
+      <p class="text-[11px] text-oriens-muted mt-0.5">Itens são removidos automaticamente após 15 dias</p>
+    </div>
+    <a href="/capture" class="text-sm text-oriens-secondary hover:text-oriens-primary transition-colors">
+      ← Caixa de Entrada
+    </a>
+  </div>
+
+  <div class="rounded-md overflow-hidden border border-oriens-border">
+    {% if captures %}
+    {% for capture in captures %}
+      {% include "partials/trash_item.html" %}
+    {% endfor %}
+    {% else %}
+    <div class="px-4 py-10 text-center">
+      <p class="text-oriens-secondary text-sm">Lixeira vazia</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+{% endblock %}
