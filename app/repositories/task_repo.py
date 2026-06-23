@@ -250,7 +250,7 @@ class TaskRepository:
 
     async def update(self, task: Task, **kwargs) -> Task:
         if "status" in kwargs and kwargs["status"] == TaskStatus.done:
-            kwargs.setdefault("done_at", datetime.now(timezone.utc))
+            kwargs.setdefault("done_at", datetime.utcnow())
         for key, value in kwargs.items():
             setattr(task, key, value)
         await self.db.commit()

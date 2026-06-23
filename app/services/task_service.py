@@ -1,5 +1,5 @@
 # app/services/task_service.py
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -84,7 +84,7 @@ class TaskService:
             self.timeline.record(task.project_id, user_id, TimelineEventType.task_done,
                                  f'Tarefa "{task.title}" concluída')
         return await self.repo.update(
-            task, status=TaskStatus.done, done_at=datetime.now(timezone.utc)
+            task, status=TaskStatus.done, done_at=datetime.utcnow()
         )
 
     async def mark_blocked(self, task_id: int, user_id: int) -> Optional[Task]:

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -166,7 +166,7 @@ class ProjectService:
         new_status = kwargs.get("status")
         if new_status is not None and new_status != project.status:
             if new_status == ProjectStatus.concluido and project.status != ProjectStatus.concluido:
-                kwargs["done_at"] = datetime.now(timezone.utc)
+                kwargs["done_at"] = datetime.utcnow()
             elif new_status != ProjectStatus.concluido and project.status == ProjectStatus.concluido:
                 kwargs["done_at"] = None
         # Registra no histórico cada campo auditado que realmente mudou.
