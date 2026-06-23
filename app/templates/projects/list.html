@@ -1,4 +1,4 @@
-﻿{% extends "base_app.html" %}
+{% extends "base_app.html" %}
 {% block title %}Projetos — Oriens{% endblock %}
 
 {% block content %}
@@ -7,28 +7,99 @@
 {% set paused_projects = projects | selectattr('status.value', 'equalto', 'nao_iniciado') | list %}
 {% set done_projects   = projects | selectattr('status.value', 'equalto', 'concluido')   | list %}
 
-<div class="flex items-center justify-between mb-6">
-  <h1 class="text-3xl font-bold text-oriens-primary tracking-tight">Projetos</h1>
-  <div class="flex items-center gap-3">
+<style>
+.proj-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.proj-table th {
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #6d7073;
+  text-transform: uppercase;
+  border-bottom: 1px solid #404244;
+  white-space: nowrap;
+  background: #1d1f21;
+}
+.proj-row td {
+  padding: 14px 12px;
+  border-bottom: 1px solid #2e3133;
+  color: #f2f3f4;
+  font-size: 14px;
+  background: #1d1f21;
+}
+.proj-row:hover td { background: #25282a; }
+.drag-handle { opacity: 0; transition: opacity .15s; cursor: grab; color: #6d7073; font-size: 16px; }
+.proj-row:hover .drag-handle { opacity: 1; }
+.row-actions { opacity: 0; transition: opacity .15s; display: flex; gap: 6px; }
+.proj-row:hover .row-actions { opacity: 1; }
+.proj-section-hdr td {
+  padding: 12px 12px 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #f2f3f4;
+  border-bottom: 1px solid #404244;
+  cursor: pointer;
+  user-select: none;
+  background: #1d1f21;
+}
+.proj-section-hdr:hover td { background: #1d1f21; }
+.proj-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.proj-btn {
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #404244;
+  background: #2a2d2f;
+  color: #9a9da0;
+  transition: background .12s, color .12s;
+}
+.proj-btn:hover { background: #353839; color: #f2f3f4; }
+.name-cell {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+</style>
+
+<!-- Header -->
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
+  <h1 style="font-size:24px; font-weight:700; color:#f2f3f4; letter-spacing:-0.01em; margin:0;">Projetos</h1>
+  <div style="display:flex; align-items:center; gap:10px;">
     <a href="/projects/reports"
-      class="text-oriens-link text-xs hover:opacity-80 transition-colors">
+       style="color:#6d7073; font-size:13px; text-decoration:none; transition:color .12s;"
+       onmouseover="this.style.color='#9a9da0'" onmouseout="this.style.color='#6d7073'">
       Relatório →
     </a>
     <button
       onclick="document.getElementById('project-form-wrapper').classList.toggle('hidden')"
-      class="px-4 py-2 bg-oriens-btn hover:bg-oriens-accent-hover text-white text-xs font-semibold rounded-md transition-colors">
+      style="padding:7px 14px; background:#4573d2; color:#fff; font-size:13px; font-weight:600; border:none; border-radius:6px; cursor:pointer; transition:opacity .12s;"
+      onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
       + Novo projeto
     </button>
   </div>
 </div>
 
-<!-- Filtro: Ativos / Arquivados / Todos -->
+<!-- Filtro / Tabs -->
 {% set cur = current_filter | default('active') %}
-<div class="flex items-center gap-1 mb-8">
+<div style="display:flex; gap:0; border-bottom:1px solid #404244; margin-bottom:24px;">
   {% for f, label in [('active', 'Ativos'), ('archived', 'Arquivados'), ('all', 'Todos')] %}
   <a href="/projects?filter={{ f }}"
-     class="px-3 py-1.5 text-xs rounded-md transition-colors
-       {% if cur == f %}bg-oriens-surface text-oriens-primary{% else %}text-oriens-secondary hover:text-oriens-primary{% endif %}">
+     style="padding:8px 16px; font-size:14px; text-decoration:none; display:inline-block; margin-bottom:-1px;
+            border-bottom:2px solid {% if cur == f %}#4573d2{% else %}transparent{% endif %};
+            color:{% if cur == f %}#f2f3f4{% else %}#9a9da0{% endif %};
+            transition:color .12s;">
     {{ label }}
   </a>
   {% endfor %}
@@ -39,64 +110,242 @@
   {% include "partials/project_form.html" %}
 </div>
 
-<!-- Kanban board -->
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+<!-- Tabela de projetos -->
+<div style="border-radius:8px; overflow:hidden; border:1px solid #2e3133;">
+  <table class="proj-table">
+    <colgroup>
+      <col style="width:24px">
+      <col>
+      <col style="width:90px">
+      <col style="width:100px">
+      <col style="width:110px">
+      <col style="width:80px">
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="resizable-th" style="width:24px;"></th>
+        <th class="resizable-th">Nome</th>
+        <th class="resizable-th">Prioridade</th>
+        <th class="resizable-th">Contexto</th>
+        <th class="resizable-th">Prazo</th>
+        <th class="resizable-th">Ações</th>
+      </tr>
+    </thead>
 
-  <!-- Em andamento -->
-  <div class="bg-oriens-card rounded-xl overflow-hidden flex flex-col">
-    <div class="flex items-center gap-2 px-3 py-2.5" style="border-top: 1px solid var(--oriens-accent);">
-      <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: var(--oriens-accent);"></span>
-      <h2 class="text-xs font-semibold uppercase tracking-wider flex-1 text-oriens-primary">Em andamento</h2>
-      <span class="text-xs font-mono rounded px-1.5 py-0.5 bg-oriens-card-hover border border-oriens-border text-oriens-secondary">{{ active_projects | length }}</span>
-    </div>
-    <div id="projects-active" class="flex flex-col gap-2 p-2">
+    {# Macro para célula de prioridade #}
+    {# Macro para célula de prazo #}
+
+    <!-- Seção: Em andamento -->
+    <tbody x-data="{ open: true }">
+      <tr class="proj-section-hdr" @click="open = !open">
+        <td colspan="6">
+          <span style="font-size:10px; margin-right:6px; display:inline-block; transition:transform .15s;"
+                :style="open ? '' : 'transform:rotate(-90deg)'">▼</span>
+          <span class="proj-chip" style="background:#1b3a2a; color:#4caf82; border:1px solid #2a5a3a; margin-right:8px;">Em andamento</span>
+          <span style="color:#6d7073; font-size:13px; font-weight:400;">{{ active_projects | length }}</span>
+        </td>
+      </tr>
       {% for project in active_projects %}
-        {% include "partials/project_card.html" %}
+      <tr id="project-{{ project.id }}" class="proj-row" x-show="open" x-cloak>
+        <td style="width:24px; text-align:center;"><span class="drag-handle">⠿</span></td>
+        <td>
+          <a href="/projects/{{ project.id }}" class="name-cell"
+             style="color:#f2f3f4; text-decoration:none; transition:color .12s;"
+             onmouseover="this.style.color='#4573d2'" onmouseout="this.style.color='#f2f3f4'">
+            {{ project.name }}
+          </a>
+        </td>
+        <td>
+          {% if project.priority == 1 %}
+            <span class="proj-chip" style="background:#3a1b1b; color:#e07070;">Alta</span>
+          {% elif project.priority == 2 %}
+            <span class="proj-chip" style="background:#2e2010; color:#d4a040;">Média</span>
+          {% else %}
+            <span class="proj-chip" style="background:#1b3020; color:#50b880;">Baixa</span>
+          {% endif %}
+        </td>
+        <td style="color:#9a9da0; font-size:13px;">
+          {% if project.context_id and context_labels %}{{ context_labels.get(project.context_id, '—') }}{% else %}—{% endif %}
+        </td>
+        <td>
+          {% if project.deadline %}
+            {% set ds = due_status(project.deadline) %}
+            <span style="font-size:13px; {% if ds == 'overdue' %}color:#e08050; font-weight:500;{% elif ds == 'today' %}color:#EF9F27;{% else %}color:#9a9da0;{% endif %}">
+              {{ project.deadline.strftime('%d/%m/%Y') }}
+            </span>
+          {% else %}<span style="color:#6d7073;">—</span>{% endif %}
+        </td>
+        <td>
+          <div class="row-actions">
+            <button class="proj-btn"
+              hx-patch="/api/projects/{{ project.id }}"
+              hx-vals='{"status": "nao_iniciado"}'
+              hx-target="#project-{{ project.id }}"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) window.location.reload()">
+              Pausar
+            </button>
+            <button class="proj-btn"
+              hx-patch="/api/projects/{{ project.id }}"
+              hx-vals='{"status": "concluido"}'
+              hx-target="#project-{{ project.id }}"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) window.location.reload()">
+              Concluir
+            </button>
+          </div>
+        </td>
+      </tr>
       {% else %}
-      <p class="text-oriens-secondary text-xs px-2 py-3">Nenhum projeto aqui.</p>
+      <tr x-show="open" x-cloak>
+        <td colspan="6" style="padding:14px 12px; color:#6d7073; font-size:14px; background:#1d1f21;">Nenhum projeto aqui.</td>
+      </tr>
       {% endfor %}
-    </div>
-    <div class="px-2 pb-2">
-      <button
-        onclick="document.getElementById('project-form-wrapper').classList.remove('hidden')"
-        class="flex items-center gap-1.5 w-full px-3 py-2 text-oriens-secondary text-xs rounded-lg hover:bg-oriens-surface hover:text-oriens-primary transition-colors">
-        <span class="text-sm leading-none">+</span> Adicionar projeto
-      </button>
-    </div>
-  </div>
+    </tbody>
 
-  <!-- Não iniciado -->
-  <div class="bg-oriens-card rounded-xl overflow-hidden flex flex-col">
-    <div class="flex items-center gap-2 px-3 py-2.5" style="border-top: 1px solid var(--oriens-muted);">
-      <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: var(--oriens-muted);"></span>
-      <h2 class="text-xs font-semibold uppercase tracking-wider flex-1 text-oriens-primary">Não iniciado</h2>
-      <span class="text-xs font-mono rounded px-1.5 py-0.5 bg-oriens-card-hover border border-oriens-border text-oriens-secondary">{{ paused_projects | length }}</span>
-    </div>
-    <div class="flex flex-col gap-2 p-2">
+    <!-- Seção: Não iniciado -->
+    <tbody x-data="{ open: true }">
+      <tr class="proj-section-hdr" @click="open = !open">
+        <td colspan="6">
+          <span style="font-size:10px; margin-right:6px; display:inline-block; transition:transform .15s;"
+                :style="open ? '' : 'transform:rotate(-90deg)'">▼</span>
+          <span class="proj-chip" style="background:#2a2d2f; color:#9a9da0; border:1px solid #404244; margin-right:8px;">Não iniciado</span>
+          <span style="color:#6d7073; font-size:13px; font-weight:400;">{{ paused_projects | length }}</span>
+        </td>
+      </tr>
       {% for project in paused_projects %}
-        {% include "partials/project_card.html" %}
+      <tr id="project-{{ project.id }}" class="proj-row" x-show="open" x-cloak>
+        <td style="width:24px; text-align:center;"><span class="drag-handle">⠿</span></td>
+        <td>
+          <a href="/projects/{{ project.id }}" class="name-cell"
+             style="color:#f2f3f4; text-decoration:none; transition:color .12s;"
+             onmouseover="this.style.color='#4573d2'" onmouseout="this.style.color='#f2f3f4'">
+            {{ project.name }}
+          </a>
+        </td>
+        <td>
+          {% if project.priority == 1 %}
+            <span class="proj-chip" style="background:#3a1b1b; color:#e07070;">Alta</span>
+          {% elif project.priority == 2 %}
+            <span class="proj-chip" style="background:#2e2010; color:#d4a040;">Média</span>
+          {% else %}
+            <span class="proj-chip" style="background:#1b3020; color:#50b880;">Baixa</span>
+          {% endif %}
+        </td>
+        <td style="color:#9a9da0; font-size:13px;">
+          {% if project.context_id and context_labels %}{{ context_labels.get(project.context_id, '—') }}{% else %}—{% endif %}
+        </td>
+        <td>
+          {% if project.deadline %}
+            {% set ds = due_status(project.deadline) %}
+            <span style="font-size:13px; {% if ds == 'overdue' %}color:#e08050; font-weight:500;{% elif ds == 'today' %}color:#EF9F27;{% else %}color:#9a9da0;{% endif %}">
+              {{ project.deadline.strftime('%d/%m/%Y') }}
+            </span>
+          {% else %}<span style="color:#6d7073;">—</span>{% endif %}
+        </td>
+        <td>
+          <div class="row-actions">
+            <button class="proj-btn"
+              hx-patch="/api/projects/{{ project.id }}"
+              hx-vals='{"status": "em_andamento"}'
+              hx-target="#project-{{ project.id }}"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) window.location.reload()">
+              Iniciar
+            </button>
+            <button class="proj-btn"
+              hx-patch="/api/projects/{{ project.id }}"
+              hx-vals='{"status": "concluido"}'
+              hx-target="#project-{{ project.id }}"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) window.location.reload()">
+              Concluir
+            </button>
+          </div>
+        </td>
+      </tr>
       {% else %}
-      <p class="text-oriens-secondary text-xs px-2 py-3">Nenhum projeto aqui.</p>
+      <tr x-show="open" x-cloak>
+        <td colspan="6" style="padding:14px 12px; color:#6d7073; font-size:14px; background:#1d1f21;">Nenhum projeto aqui.</td>
+      </tr>
       {% endfor %}
-    </div>
-  </div>
+    </tbody>
 
-  <!-- Concluído -->
-  <div class="bg-oriens-card rounded-xl overflow-hidden flex flex-col">
-    <div class="flex items-center gap-2 px-3 py-2.5" style="border-top: 1px solid var(--oriens-success);">
-      <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: var(--oriens-success);"></span>
-      <h2 class="text-xs font-semibold uppercase tracking-wider flex-1 text-oriens-primary">Concluído</h2>
-      <span class="text-xs font-mono rounded px-1.5 py-0.5 bg-oriens-card-hover border border-oriens-border text-oriens-secondary">{{ done_projects | length }}</span>
-    </div>
-    <div class="flex flex-col gap-2 p-2">
+    <!-- Seção: Concluído -->
+    <tbody x-data="{ open: true }">
+      <tr class="proj-section-hdr" @click="open = !open">
+        <td colspan="6">
+          <span style="font-size:10px; margin-right:6px; display:inline-block; transition:transform .15s;"
+                :style="open ? '' : 'transform:rotate(-90deg)'">▼</span>
+          <span class="proj-chip" style="background:#2a2d2f; color:#6d7073; border:1px solid #404244; margin-right:8px;">Concluído</span>
+          <span style="color:#6d7073; font-size:13px; font-weight:400;">{{ done_projects | length }}</span>
+        </td>
+      </tr>
       {% for project in done_projects %}
-        {% include "partials/project_card.html" %}
+      <tr id="project-{{ project.id }}" class="proj-row" x-show="open" x-cloak style="opacity:0.45;">
+        <td style="width:24px; text-align:center;"><span class="drag-handle">⠿</span></td>
+        <td>
+          <a href="/projects/{{ project.id }}" class="name-cell"
+             style="color:#f2f3f4; text-decoration:line-through; text-decoration-color:#6d7073;">
+            {{ project.name }}
+          </a>
+        </td>
+        <td>
+          {% if project.priority == 1 %}
+            <span class="proj-chip" style="background:#3a1b1b; color:#e07070;">Alta</span>
+          {% elif project.priority == 2 %}
+            <span class="proj-chip" style="background:#2e2010; color:#d4a040;">Média</span>
+          {% else %}
+            <span class="proj-chip" style="background:#1b3020; color:#50b880;">Baixa</span>
+          {% endif %}
+        </td>
+        <td style="color:#9a9da0; font-size:13px;">
+          {% if project.context_id and context_labels %}{{ context_labels.get(project.context_id, '—') }}{% else %}—{% endif %}
+        </td>
+        <td>
+          {% if project.deadline %}
+            <span style="font-size:13px; color:#9a9da0;">{{ project.deadline.strftime('%d/%m/%Y') }}</span>
+          {% else %}<span style="color:#6d7073;">—</span>{% endif %}
+        </td>
+        <td>
+          <div class="row-actions">
+            <button class="proj-btn"
+              hx-patch="/api/projects/{{ project.id }}"
+              hx-vals='{"status": "em_andamento"}'
+              hx-target="#project-{{ project.id }}"
+              hx-swap="outerHTML"
+              hx-on::after-request="if(event.detail.successful) window.location.reload()">
+              Reabrir
+            </button>
+          </div>
+        </td>
+      </tr>
       {% else %}
-      <p class="text-oriens-secondary text-xs px-2 py-3">Nenhum projeto concluído.</p>
+      <tr x-show="open" x-cloak>
+        <td colspan="6" style="padding:14px 12px; color:#6d7073; font-size:14px; background:#1d1f21;">Nenhum projeto concluído.</td>
+      </tr>
       {% endfor %}
-    </div>
-  </div>
+    </tbody>
 
+  </table>
 </div>
+
+<script>
+document.querySelectorAll('.resizable-th').forEach(th => {
+  const resizer = document.createElement('div');
+  resizer.style.cssText = 'position:absolute;right:0;top:0;height:100%;width:6px;cursor:col-resize;user-select:none;z-index:1';
+  th.style.position = 'relative';
+  th.appendChild(resizer);
+  let startX, startW;
+  resizer.addEventListener('mousedown', e => {
+    startX = e.pageX; startW = th.offsetWidth;
+    const onMove = ev => { th.style.width = Math.max(80, startW + ev.pageX - startX) + 'px'; };
+    const onUp   = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    e.preventDefault();
+  });
+});
+</script>
 
 {% endblock %}

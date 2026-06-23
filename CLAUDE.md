@@ -623,6 +623,11 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **`projects/detail.html`:** bloco "Próxima ação operacional" removido do topo; objetivo movido do sidebar para coluna principal (texto compacto + "Editar" inline ou "+ definir objetivo" como convite accent); cabeçalho de colunas discreto (Tarefa · Energia · Prazo · Responsável, `hidden md:flex`); `sem_secao_tasks` renderiza com `project_task_row.html`; objetivo removido do sidebar (mantidos: prazo, comentários, auditoria).
 - **Sem alteração de banco, backend, rotas, serviços, Dashboard, Captura ou Listas.**
 
+### ✅ BUGFIX 16B — Correções pós-SCRIPT 16B (checkbox + done_at)
+- **Checkbox `project_task_row.html`:** alinhado com o padrão comprovado de `task_item.html` — `hx-on:click` adiciona `task-completing` imediatamente; `hx-on::after-request` usa chaves `{ }` (exigido pelo HTMX 1.9.12) + `window.location.reload()` quando `reload_on_done`. Botão "desfazer" (done→pending) trocado de `hx-swap="outerHTML"` para `hx-swap="none"` + reload (evitava substituir a row por `task_item.html` incorretamente). Mesmo padrão aplicado nos checkboxes de subtarefa.
+- **`api/tasks.create_task`:** para tarefas de projeto, retorna `project_task_row.html` (era `task_with_subtasks.html`) — evita inconsistência visual entre tarefas existentes e recém-criadas no detalhe.
+- **`done_at` timezone (PostgreSQL):** `datetime.now(timezone.utc)` (timezone-aware) causava `asyncpg.DataError` ao gravar em `TIMESTAMP WITHOUT TIME ZONE`. Corrigido para `datetime.utcnow()` (naive UTC) nos três locais: `task_service.mark_done`, `project_service.update` (conclusão de projeto), `task_repo.update`. Padrão agora consistente com o restante da codebase.
+
 ---
 
 ## PRODUÇÃO E OPERAÇÃO (VPS)

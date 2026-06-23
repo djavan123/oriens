@@ -6,11 +6,6 @@
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
 {% endblock %}
 
-{% set status_color = {
-  'em_andamento': 'text-oriens-accent',
-  'nao_iniciado': 'text-oriens-secondary',
-  'concluido':    'text-oriens-secondary',
-} %}
 {% set status_label = {
   'em_andamento': 'Em andamento',
   'nao_iniciado': 'Não iniciado',
@@ -20,338 +15,353 @@
 
 {% block content %}
 
-<!-- Breadcrumb -->
-<div class="flex items-center gap-2 text-oriens-secondary text-xs mb-6">
-  <a href="/projects" class="hover:text-oriens-primary transition-colors">Projetos</a>
-  <span>/</span>
-  <span class="text-oriens-primary">{{ project.name }}</span>
-</div>
+<style>
+.pj-card { background:#25282a; border:1px solid #404244; border-radius:8px; padding:18px 22px; }
+.pj-card-label { font-size:11px; font-weight:600; letter-spacing:0.08em; color:#6d7073; text-transform:uppercase; margin-bottom:10px; }
+.pj-chip { display:inline-flex; align-items:center; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:500; white-space:nowrap; }
+.pj-tab { padding:10px 16px; background:none; border:none; border-bottom:2px solid transparent; font-size:14px; cursor:pointer; color:#9a9da0; margin-bottom:-1px; transition:color .12s; }
+.pj-tab.active { color:#f2f3f4; border-bottom-color:#4573d2; }
+.pj-btn-primary { background:#4573d2; color:#fff; border:none; border-radius:6px; padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; transition:opacity .12s; }
+.pj-btn-primary:hover { opacity:0.85; }
+.pj-btn-secondary { background:#25282a; border:1px solid #404244; color:#f2f3f4; border-radius:6px; padding:7px 14px; font-size:13px; cursor:pointer; transition:background .12s; }
+.pj-btn-secondary:hover { background:#353839; }
+.pj-btn-ghost { background:none; border:none; color:#9a9da0; font-size:13px; cursor:pointer; padding:0; transition:color .12s; }
+.pj-btn-ghost:hover { color:#f2f3f4; }
+.pj-btn-sm { background:#25282a; border:1px solid #404244; color:#9a9da0; border-radius:4px; padding:4px 10px; font-size:12px; font-weight:500; cursor:pointer; transition:background .12s, color .12s; }
+.pj-btn-sm:hover { background:#353839; color:#f2f3f4; }
+.pj-form-label { display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:#9a9da0; margin-bottom:6px; }
+.pj-select { width:100%; background:#1d1f21; border:1px solid #404244; color:#f2f3f4; border-radius:6px; padding:8px 12px; font-size:14px; outline:none; }
+.pj-input { background:#1d1f21; border:1px solid #404244; color:#f2f3f4; border-radius:6px; padding:8px 12px; font-size:14px; outline:none; }
+.tasks-th { padding:6px 12px; text-align:left; font-size:11px; font-weight:600; letter-spacing:0.06em; color:#6d7073; text-transform:uppercase; border-bottom:1px solid #404244; white-space:nowrap; background:transparent; }
+</style>
 
-<!-- Wrapper Alpine para controle de edição do projeto -->
-<div x-data="{ editing: false }" class="flex flex-col lg:flex-row gap-6 lg:gap-8 max-w-6xl items-start">
+<div style="max-width:960px; padding:32px 40px; margin:0;" x-data="{ editing: false, tab: 'overview' }">
 
-  <!-- ─────────── COLUNA PRINCIPAL ─────────── -->
-  <div class="flex-1 min-w-0">
+  <!-- Breadcrumb -->
+  <div style="font-size:13px; color:#6d7073; margin-bottom:12px;">
+    <a href="/projects" style="color:#6d7073; text-decoration:none;"
+       onmouseover="this.style.color='#9a9da0'" onmouseout="this.style.color='#6d7073'">Projetos</a>
+    <span style="margin:0 6px;">/</span>
+    <span style="color:#9a9da0;">{{ project.name }}</span>
+  </div>
 
-    <!-- Header: nome + badges + Editar discreto -->
-    <div class="mb-4">
-      <div class="flex items-start justify-between gap-4 mb-2">
-        <h1 class="text-xl font-bold text-oriens-primary tracking-tight
-          {% if project.status.value == 'concluido' %}line-through opacity-50{% endif %}">
-          {{ project.name }}
-        </h1>
-        <button @click="editing = !editing"
-          x-text="editing ? 'Cancelar' : 'Editar'"
-          class="flex-shrink-0 text-oriens-secondary text-xs hover:text-oriens-primary transition-colors cursor-pointer mt-1">
-        </button>
-      </div>
-      <div class="flex items-center gap-2 flex-wrap text-xs">
-        <span class="{{ status_color.get(project.status.value, 'text-oriens-secondary') }}">
-          {{ status_label.get(project.status.value, project.status.value) }}
-        </span>
-        <span class="text-oriens-border">·</span>
-        <span class="text-oriens-secondary">{{ priority_label.get(project.priority, 'Média') }}</span>
-        {% if context_labels is defined and context_labels.get(project.context_id) %}
-        <span class="text-oriens-border">·</span>
-        <span class="text-oriens-secondary">{{ context_labels[project.context_id] }}</span>
-        {% endif %}
-        {% if project.deadline %}
-        {% set overdue = project.deadline.date() < now().date() and project.status.value != 'concluido' %}
-        <span class="text-oriens-border">·</span>
-        {% if overdue %}
-        <span class="text-oriens-urgent">atrasado {{ project.deadline.strftime('%d/%m/%y') }}</span>
-        {% else %}
-        <span class="text-oriens-secondary">{{ project.deadline.strftime('%d/%m/%y') }}</span>
-        {% endif %}
-        {% endif %}
-        {% if project.archived %}
-        <span class="text-oriens-border">·</span>
-        <span class="text-oriens-warning">Arquivado</span>
-        {% endif %}
-        {% if project.responsavel_id and responsavel_map.get(project.responsavel_id) %}
-        <span class="text-oriens-border">·</span>
-        <span class="text-oriens-secondary">{{ responsavel_map[project.responsavel_id] }}</span>
-        {% endif %}
-        <span class="text-oriens-border">·</span>
-        <button
-          hx-patch="/api/projects/{{ project.id }}"
-          hx-vals='{"archived": {% if project.archived %}false{% else %}true{% endif %}}'
-          hx-swap="none"
-          hx-on::after-request="if(event.detail.successful){ window.location.href = '/projects' }"
-          class="text-oriens-secondary hover:text-oriens-primary transition-colors cursor-pointer">
-          {% if project.archived %}Desarquivar{% else %}Arquivar{% endif %}
-        </button>
-      </div>
-    </div>
-
-    <!-- Formulário de edição (aparece ao clicar em Editar, inline) -->
-    <form x-show="editing" x-transition x-cloak
-      hx-patch="/api/projects/{{ project.id }}"
-      hx-swap="none"
-      hx-on::after-request="if(event.detail.successful){ editing=false; window.location.reload() }"
-      class="bg-oriens-surface border border-oriens-border rounded-lg p-4 mb-4 space-y-3">
-
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Status</label>
-          <select name="status"
-            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm
-                   focus:outline-none focus:border-oriens-accent transition-colors">
-            <option value="em_andamento" {% if project.status.value == 'em_andamento' %}selected{% endif %}>Em andamento</option>
-            <option value="nao_iniciado" {% if project.status.value == 'nao_iniciado' %}selected{% endif %}>Não iniciado</option>
-            <option value="concluido" {% if project.status.value == 'concluido' %}selected{% endif %}>Concluído</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Prioridade</label>
-          <select name="priority"
-            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm
-                   focus:outline-none focus:border-oriens-accent transition-colors">
-            <option value="1" {% if project.priority == 1 %}selected{% endif %}>Alta</option>
-            <option value="2" {% if project.priority == 2 %}selected{% endif %}>Média</option>
-            <option value="3" {% if project.priority == 3 %}selected{% endif %}>Baixa</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3">
-        <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Contexto *</label>
-          <select name="context_id" required
-            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm
-                   focus:outline-none focus:border-oriens-accent transition-colors">
-            <option value="" disabled {% if not project.context_id %}selected{% endif %}>Selecione...</option>
-            {% for ctx in contexts %}
-            <option value="{{ ctx.id }}" {% if project.context_id == ctx.id %}selected{% endif %}>{{ ctx.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="block text-oriens-secondary text-xs uppercase tracking-wider mb-1.5">Responsável</label>
-          <select name="responsavel_id"
-            class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm
-                   focus:outline-none focus:border-oriens-accent transition-colors">
-            <option value="">— nenhum —</option>
-            {% for u in users %}
-            <option value="{{ u.id }}" {% if project.responsavel_id == u.id %}selected{% endif %}>{{ u.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-3">
-        <button type="submit"
-          class="bg-oriens-btn text-white rounded px-4 py-2 text-sm font-medium hover:opacity-90 transition-opacity">
-          Salvar
-        </button>
-        <button type="button" @click="editing = false"
-          class="text-oriens-secondary text-sm hover:text-oriens-primary transition-colors">
-          Cancelar
-        </button>
-        <span class="text-oriens-muted text-xs ml-auto">criado em {{ project.created_at.strftime('%d/%m/%y') }}</span>
-      </div>
-    </form>
-
-    <!-- Objetivo (inline editável, compacto) -->
-    <div x-data="{ editingObj: false }" class="mb-5">
-      <div x-show="!editingObj" class="flex items-start gap-3">
-        {% if project.objective %}
-        <p class="flex-1 text-oriens-secondary text-sm leading-relaxed">{{ project.objective }}</p>
-        <button @click="editingObj=true"
-          class="flex-shrink-0 text-oriens-link text-xs hover:opacity-80 transition-colors cursor-pointer">
-          Editar
-        </button>
-        {% else %}
-        <button @click="editingObj=true"
-          class="text-oriens-accent text-sm hover:opacity-80 transition-opacity cursor-pointer">
-          + definir objetivo claro para esse projeto
-        </button>
-        {% endif %}
-      </div>
-      <form x-show="editingObj" x-cloak
+  <!-- Header -->
+  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:8px;">
+    <h1 style="font-size:20px; font-weight:600; color:#f2f3f4; margin:0; line-height:1.3;
+               {% if project.status.value == 'concluido' %}text-decoration:line-through; opacity:0.5;{% endif %}">
+      {{ project.name }}
+    </h1>
+    <div style="display:flex; gap:8px; flex-shrink:0; align-items:center;">
+      <button
         hx-patch="/api/projects/{{ project.id }}"
+        hx-vals='{"archived": {% if project.archived %}false{% else %}true{% endif %}}'
         hx-swap="none"
-        hx-on::after-request="if(event.detail.successful){ editingObj=false; window.location.reload() }"
-        class="flex items-start gap-2">
-        <textarea name="objective" rows="2"
-          class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm
-                 focus:outline-none focus:border-oriens-accent transition-colors resize-none placeholder-oriens-muted"
-          placeholder="Qual é o resultado esperado?">{{ project.objective or '' }}</textarea>
-        <div class="flex flex-col gap-1 flex-shrink-0">
-          <button type="submit"
-            class="bg-oriens-btn text-white rounded px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-opacity">
-            Salvar
-          </button>
-          <button type="button" @click="editingObj=false"
-            class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors text-center">
-            Cancelar
-          </button>
-        </div>
-      </form>
+        hx-on::after-request="if(event.detail.successful){ window.location.href = '/projects' }"
+        class="pj-btn-sm">
+        {% if project.archived %}Desarquivar{% else %}Arquivar{% endif %}
+      </button>
+      <button @click="editing = !editing"
+              x-text="editing ? 'Cancelar' : 'Editar'"
+              class="pj-btn-sm"></button>
+    </div>
+  </div>
+
+  <!-- Chips: status · prioridade · contexto · prazo · arquivado · responsável -->
+  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:20px;">
+    {% if project.status.value == 'em_andamento' %}
+      <span class="pj-chip" style="background:#1b3a2a; color:#4caf82; border:1px solid #2a5a3a;">Em andamento</span>
+    {% elif project.status.value == 'nao_iniciado' %}
+      <span class="pj-chip" style="background:#2a2d2f; color:#9a9da0; border:1px solid #404244;">Não iniciado</span>
+    {% else %}
+      <span class="pj-chip" style="background:#2a2d2f; color:#6d7073; border:1px solid #404244;">Concluído</span>
+    {% endif %}
+
+    {% if project.priority == 1 %}
+      <span class="pj-chip" style="background:#3a1b1b; color:#e07070;">Alta</span>
+    {% elif project.priority == 2 %}
+      <span class="pj-chip" style="background:#2e2010; color:#d4a040;">Média</span>
+    {% else %}
+      <span class="pj-chip" style="background:#1b3020; color:#50b880;">Baixa</span>
+    {% endif %}
+
+    {% if context_labels is defined and context_labels.get(project.context_id) %}
+      <span class="pj-chip" style="background:#2a2d2f; color:#9a9da0; border:1px solid #404244;">
+        {{ context_labels[project.context_id] }}
+      </span>
+    {% endif %}
+
+    {% if project.deadline %}
+      {% set dias = (project.deadline.date() - now().date()).days %}
+      <span style="font-size:13px; {% if dias < 0 and project.status.value != 'concluido' %}color:#e08050; font-weight:500;{% elif dias == 0 %}color:#EF9F27;{% else %}color:#9a9da0;{% endif %}">
+        📅 {{ project.deadline.strftime('%d/%m/%Y') }}
+      </span>
+    {% endif %}
+
+    {% if project.archived %}
+      <span class="pj-chip" style="background:#2e2010; color:#d4a040; border:1px solid #4a3810;">Arquivado</span>
+    {% endif %}
+
+    {% if project.responsavel_id and responsavel_map.get(project.responsavel_id) %}
+      <span style="color:#9a9da0; font-size:13px;">{{ responsavel_map[project.responsavel_id] }}</span>
+    {% endif %}
+  </div>
+
+  <!-- Formulário de edição -->
+  <form x-show="editing" x-transition x-cloak
+    hx-patch="/api/projects/{{ project.id }}"
+    hx-swap="none"
+    hx-on::after-request="if(event.detail.successful){ editing=false; window.location.reload() }"
+    class="pj-card" style="margin-bottom:20px;">
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+      <div>
+        <label class="pj-form-label">Status</label>
+        <select name="status" class="pj-select">
+          <option value="em_andamento" {% if project.status.value == 'em_andamento' %}selected{% endif %}>Em andamento</option>
+          <option value="nao_iniciado" {% if project.status.value == 'nao_iniciado' %}selected{% endif %}>Não iniciado</option>
+          <option value="concluido" {% if project.status.value == 'concluido' %}selected{% endif %}>Concluído</option>
+        </select>
+      </div>
+      <div>
+        <label class="pj-form-label">Prioridade</label>
+        <select name="priority" class="pj-select">
+          <option value="1" {% if project.priority == 1 %}selected{% endif %}>Alta</option>
+          <option value="2" {% if project.priority == 2 %}selected{% endif %}>Média</option>
+          <option value="3" {% if project.priority == 3 %}selected{% endif %}>Baixa</option>
+        </select>
+      </div>
     </div>
 
-    <!-- Tarefas do projeto -->
-    <div class="mb-4">
-      <div class="flex items-center justify-between mb-2">
-        <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Tarefas</h2>
-        {% if progress.total %}
-        <span class="text-oriens-muted text-xs font-mono">{{ progress.done }}/{{ progress.total }} · {{ progress.pct }}%</span>
-        {% endif %}
-      </div>
-
-      {% if progress.total %}
-      <div class="h-0.5 rounded-full bg-oriens-card-hover overflow-hidden mb-3">
-        <div class="h-full rounded-full {% if progress.pct == 100 %}bg-oriens-success{% else %}bg-oriens-btn{% endif %}"
-             style="width: {{ progress.pct }}%;"></div>
-      </div>
-      {% endif %}
-
-      <!-- Cabeçalho de colunas (desktop) -->
-      <div class="hidden md:flex items-center gap-0 border-b border-oriens-divider pb-1 mb-0.5">
-        <span class="w-5 flex-shrink-0"></span>
-        <span class="w-5 flex-shrink-0"></span>
-        <span class="flex-1 min-w-0 pl-2 text-[10px] text-oriens-muted uppercase tracking-wider">Tarefa</span>
-        <span class="w-20 flex-shrink-0 text-[10px] text-oriens-muted uppercase tracking-wider">Energia</span>
-        <span class="w-24 flex-shrink-0 text-[10px] text-oriens-muted uppercase tracking-wider">Prazo</span>
-        <span class="w-20 flex-shrink-0 text-[10px] text-oriens-muted uppercase tracking-wider">Responsável</span>
-      </div>
-
-      <!-- Seções -->
-      <div id="project-sections">
-        {% for section, section_tasks in section_groups %}
-          {% include "partials/project_section.html" %}
-        {% endfor %}
-      </div>
-
-      <!-- Tarefas sem seção -->
-      <div id="sem-secao-container">
-        {% if section_groups %}
-        <p class="text-oriens-secondary text-[10px] font-bold uppercase tracking-wider mb-1 mt-4 px-1">Sem seção</p>
-        {% endif %}
-
-        <div id="task-list-pending" class="section-task-list">
-          {% for task in sem_secao_tasks %}
-            {% with draggable=true, reload_on_done=true,
-                    is_next=(next_action.task and task.id == next_action.task.id) %}
-              {% include "partials/project_task_row.html" %}
-            {% endwith %}
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+      <div>
+        <label class="pj-form-label">Contexto *</label>
+        <select name="context_id" required class="pj-select">
+          <option value="" disabled {% if not project.context_id %}selected{% endif %}>Selecione...</option>
+          {% for ctx in contexts %}
+          <option value="{{ ctx.id }}" {% if project.context_id == ctx.id %}selected{% endif %}>{{ ctx.name }}</option>
           {% endfor %}
-        </div>
-
-        {% if not sem_secao_tasks and not section_groups %}
-        <p id="no-pending" class="text-oriens-empty text-sm italic py-3">Nenhuma tarefa pendente.</p>
-        {% endif %}
-
-        <div class="mt-3">
-          {% with project_id=project.id %}{% include "partials/task_form.html" %}{% endwith %}
-        </div>
+        </select>
       </div>
+      <div>
+        <label class="pj-form-label">Responsável</label>
+        <select name="responsavel_id" class="pj-select">
+          <option value="">— nenhum —</option>
+          {% for u in users %}
+          <option value="{{ u.id }}" {% if project.responsavel_id == u.id %}selected{% endif %}>{{ u.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
 
-      <!-- + Nova seção -->
-      <div x-data="{ addingSection: false }" class="mt-5">
-        <button x-show="!addingSection" @click="addingSection=true"
-          class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors cursor-pointer">
-          + Nova seção
-        </button>
-        <form x-show="addingSection" x-cloak
-          hx-post="/api/projects/{{ project.id }}/sections"
-          hx-target="#project-sections"
-          hx-swap="beforeend"
-          hx-on::after-request="if(event.detail.successful){ $el.reset(); addingSection=false }"
-          class="flex items-center gap-2">
-          <input type="text" name="name" required placeholder="Nome da seção..."
-            autofocus
-            class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-1.5 text-sm
-                   focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
-          <button type="submit"
-            class="bg-oriens-btn text-white rounded px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-opacity">
-            Criar
+    <div style="display:flex; align-items:center; gap:12px;">
+      <button type="submit" class="pj-btn-primary">Salvar</button>
+      <button type="button" @click="editing = false" class="pj-btn-ghost">Cancelar</button>
+      <span style="color:#6d7073; font-size:12px; margin-left:auto;">criado em {{ project.created_at.strftime('%d/%m/%y') }}</span>
+    </div>
+  </form>
+
+  <!-- Tab switcher -->
+  <div style="display:flex; border-bottom:1px solid #404244; margin-bottom:24px;">
+    <button @click="tab='overview'" :class="tab==='overview' ? 'pj-tab active' : 'pj-tab'">Visão geral</button>
+    <button @click="tab='tasks'"    :class="tab==='tasks'    ? 'pj-tab active' : 'pj-tab'">Tarefas</button>
+  </div>
+
+  <!-- ═══════════ PAINEL: Visão geral ═══════════ -->
+  <div x-show="tab==='overview'" x-cloak>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+
+      <!-- Objetivo (full-width) -->
+      <div class="pj-card" style="grid-column:1/-1;" x-data="{ editingObj: false }">
+        <div class="pj-card-label">Objetivo</div>
+        <div x-show="!editingObj">
+          {% if project.objective %}
+          <p style="color:#9a9da0; font-size:14px; line-height:1.6; margin:0 0 8px;">{{ project.objective }}</p>
+          <button @click="editingObj=true"
+            style="color:#4573d2; font-size:12px; background:none; border:none; cursor:pointer; padding:0;">
+            Editar
           </button>
-          <button type="button" @click="addingSection=false"
-            class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors">
-            Cancelar
+          {% else %}
+          <button @click="editingObj=true"
+            style="color:#4573d2; font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
+            + definir objetivo claro para esse projeto
           </button>
+          {% endif %}
+        </div>
+        <form x-show="editingObj" x-cloak
+          hx-patch="/api/projects/{{ project.id }}"
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful){ editingObj=false; window.location.reload() }"
+          style="display:flex; gap:8px; align-items:flex-start;">
+          <textarea name="objective" rows="2" placeholder="Qual é o resultado esperado?"
+            style="flex:1; background:#1d1f21; border:1px solid #404244; color:#f2f3f4; border-radius:6px; padding:8px 12px; font-size:14px; resize:none; outline:none;">{{ project.objective or '' }}</textarea>
+          <div style="display:flex; flex-direction:column; gap:4px; flex-shrink:0;">
+            <button type="submit" class="pj-btn-primary" style="padding:5px 12px; font-size:12px;">Salvar</button>
+            <button type="button" @click="editingObj=false" class="pj-btn-ghost" style="font-size:12px; text-align:center;">Cancelar</button>
+          </div>
         </form>
       </div>
 
-      <!-- Bloqueadas -->
-      {% if blocked_tasks %}
-      <div class="mt-5 pt-4 border-t border-oriens-divider">
-        <p class="text-oriens-secondary text-[10px] font-bold uppercase tracking-wider mb-2">Bloqueadas</p>
-        {% for task in blocked_tasks %}
-          {% with reload_on_done=true %}{% include "partials/project_task_row.html" %}{% endwith %}
-        {% endfor %}
+      <!-- Prazo (meia largura) -->
+      <div class="pj-card" x-data="{ editingDeadline: false }">
+        <div class="pj-card-label">Prazo</div>
+        <div x-show="!editingDeadline">
+          {% if project.deadline %}
+            {% set dias = (project.deadline.date() - now().date()).days %}
+            {% if project.status.value == 'concluido' %}
+              <p style="font-size:28px; font-weight:700; color:#f2f3f4; line-height:1; margin:0;">—</p>
+              <p style="color:#6d7073; font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+            {% elif dias < 0 %}
+              <p style="font-size:28px; font-weight:700; color:#e08050; line-height:1; margin:0;">
+                {{ -dias }}<span style="font-size:13px; font-weight:500;"> dia{{ 's' if -dias != 1 else '' }} em atraso</span>
+              </p>
+              <p style="color:#6d7073; font-size:13px; margin:4px 0 0;">era {{ project.deadline.strftime('%d/%m/%Y') }}</p>
+            {% elif dias == 0 %}
+              <p style="font-size:28px; font-weight:700; color:#EF9F27; line-height:1; margin:0;">Hoje</p>
+              <p style="color:#6d7073; font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+            {% elif dias <= 3 %}
+              <p style="font-size:28px; font-weight:700; color:#EF9F27; line-height:1; margin:0;">
+                {{ dias }}<span style="font-size:13px; font-weight:500;"> dia{{ 's' if dias != 1 else '' }}</span>
+              </p>
+              <p style="color:#6d7073; font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+            {% else %}
+              <p style="font-size:28px; font-weight:700; color:#f2f3f4; line-height:1; margin:0;">
+                {{ dias }}<span style="color:#9a9da0; font-size:13px; font-weight:500;"> dias</span>
+              </p>
+              <p style="color:#6d7073; font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+            {% endif %}
+            <button type="button" @click="editingDeadline=true"
+              style="color:#4573d2; font-size:12px; background:none; border:none; cursor:pointer; padding:0; margin-top:10px; display:block;">
+              Editar →
+            </button>
+          {% else %}
+          <button type="button" @click="editingDeadline=true"
+            style="color:#4573d2; font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
+            + definir prazo
+          </button>
+          {% endif %}
+        </div>
+        <form x-show="editingDeadline" x-cloak
+          hx-patch="/api/projects/{{ project.id }}"
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful){ editingDeadline=false; window.location.reload() }"
+          style="margin-top:4px;">
+          <input type="date" name="deadline"
+            value="{{ project.deadline.strftime('%Y-%m-%d') if project.deadline else '' }}"
+            class="pj-input" style="width:100%; box-sizing:border-box; margin-bottom:8px;">
+          <div style="display:flex; gap:8px;">
+            <button type="submit" class="pj-btn-primary" style="padding:5px 12px; font-size:12px;">Salvar</button>
+            <button type="button" @click="editingDeadline=false" class="pj-btn-ghost" style="font-size:12px;">Cancelar</button>
+          </div>
+        </form>
       </div>
-      {% endif %}
 
-      <!-- Concluídas -->
-      {% if done_tasks %}
-      <div class="mt-4 pt-3 border-t border-oriens-divider" x-data="{ show: false }">
-        <button @click="show = !show"
-          class="text-oriens-secondary text-[10px] font-bold uppercase tracking-wider flex items-center gap-2
-                 hover:text-oriens-primary transition-colors mb-2">
-          <span x-text="show ? '▾' : '▸'"></span>
-          <span>Concluídas ({{ done_tasks | length }})</span>
-        </button>
-        <div x-show="show" x-transition class="bg-oriens-card rounded-lg px-1 py-1">
-          {% for task in done_tasks %}
-            {% include "partials/task_item.html" %}
+      <!-- Progresso (meia largura) -->
+      <div class="pj-card">
+        <div class="pj-card-label">Progresso</div>
+        {% if progress.total %}
+        <p style="font-size:36px; font-weight:700; color:#f2f3f4; line-height:1; margin:0 0 10px;">
+          {{ progress.pct }}<span style="font-size:20px; color:#9a9da0; font-weight:500;">%</span>
+        </p>
+        <div style="height:6px; border-radius:3px; background:#2e3133; overflow:hidden; margin-bottom:6px;">
+          <div style="height:100%; border-radius:3px; background:{% if progress.pct == 100 %}#5DCAA5{% else %}#4573d2{% endif %}; width:{{ progress.pct }}%;"></div>
+        </div>
+        <p style="color:#9a9da0; font-size:13px; margin:0;">{{ progress.done }} de {{ progress.total }} tarefas concluídas</p>
+        {% else %}
+        <p style="color:#6d7073; font-size:14px; margin:0;">Nenhuma tarefa ainda.</p>
+        {% endif %}
+      </div>
+
+      <!-- Decisões (full-width) -->
+      <div class="pj-card" style="grid-column:1/-1;">
+        <div class="pj-card-label">Decisões</div>
+        <form
+          hx-post="/api/projects/{{ project.id }}/decisions"
+          hx-target="#decisions-list"
+          hx-swap="afterbegin"
+          hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+          style="display:flex; gap:8px; margin-bottom:12px;">
+          <input type="text" id="decision-input" name="content" required placeholder="Nova decisão..."
+            class="pj-input" style="flex:1;">
+          <button type="submit" class="pj-btn-secondary">Adicionar</button>
+        </form>
+        <div id="decisions-list">
+          {% for d in decisions %}
+            {% include "partials/project_decision.html" %}
+          {% else %}
+          <button type="button" onclick="document.getElementById('decision-input').focus()"
+            style="color:#4573d2; font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
+            + registrar primeira decisão
+          </button>
           {% endfor %}
         </div>
       </div>
-      {% endif %}
-    </div>
 
-    <!-- Decisões -->
-    <div class="mb-6">
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-3">Decisões</h2>
-
-      <form
-        hx-post="/api/projects/{{ project.id }}/decisions"
-        hx-target="#decisions-list"
-        hx-swap="afterbegin"
-        hx-on::after-request="if(event.detail.successful){ $el.reset() }"
-        class="mb-3 flex items-center gap-2">
-        <input type="text" id="decision-input" name="content" required placeholder="Nova decisão..."
-          class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm
-                 focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
-        <button type="submit"
-          class="flex-shrink-0 bg-oriens-surface border border-oriens-border text-oriens-primary rounded-lg px-4 py-2
-                 text-xs hover:bg-oriens-card transition-colors">
-          Adicionar
-        </button>
-      </form>
-
-      <div id="decisions-list">
-        {% for d in decisions %}
-          {% include "partials/project_decision.html" %}
-        {% else %}
-        <button type="button" onclick="document.getElementById('decision-input').focus()"
-          class="text-oriens-accent text-sm hover:opacity-80 transition-opacity cursor-pointer">
-          + registrar primeira decisão
-        </button>
-        {% endfor %}
+      <!-- Comentários (full-width) -->
+      <div class="pj-card" style="grid-column:1/-1;">
+        <div class="pj-card-label">Comentários</div>
+        <div id="comments-list" style="margin-bottom:12px;">
+          {% for comment in comments %}
+            {% include "partials/project_comment.html" %}
+          {% else %}
+          <p style="color:#6d7073; font-size:13px; font-style:italic; margin:0 0 4px;">Nenhum ainda.</p>
+          {% endfor %}
+        </div>
+        <form
+          hx-post="/api/projects/{{ project.id }}/comments"
+          hx-target="#comments-list"
+          hx-swap="beforeend"
+          hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+          style="display:flex; flex-direction:column; gap:8px;">
+          <textarea name="content" rows="2" required placeholder="Escrever comentário..."
+            style="width:100%; background:#1d1f21; border:1px solid #404244; color:#f2f3f4; border-radius:6px; padding:8px 12px; font-size:14px; resize:none; outline:none; box-sizing:border-box;"></textarea>
+          <button type="submit" class="pj-btn-primary" style="align-self:flex-end; font-size:12px; padding:6px 14px;">Comentar</button>
+        </form>
       </div>
-    </div>
 
-    <!-- IA -->
+      <!-- Anexos (full-width) -->
+      <div class="pj-card" style="grid-column:1/-1;">
+        <div class="pj-card-label">Anexos</div>
+        <div id="attachments-list" style="margin-bottom:12px;">
+          {% for att in attachments %}
+            {% include "partials/project_attachment.html" %}
+          {% else %}
+          <p style="color:#6d7073; font-size:13px; font-style:italic; margin:0 0 4px;">Nenhum anexo.</p>
+          {% endfor %}
+        </div>
+        <form
+          hx-post="/api/projects/{{ project.id }}/attachments"
+          hx-target="#attachments-list"
+          hx-swap="afterbegin"
+          hx-encoding="multipart/form-data"
+          hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+          style="display:flex; flex-direction:column; gap:8px;">
+          <input type="file" name="file" required
+            class="text-oriens-tertiary text-xs file:mr-2 file:py-1 file:px-2
+                   file:rounded file:border-0 file:text-xs file:font-medium
+                   file:bg-oriens-surface file:text-oriens-primary hover:file:bg-oriens-card
+                   file:cursor-pointer cursor-pointer">
+          <button type="submit" class="pj-btn-secondary" style="align-self:flex-start; font-size:12px; padding:5px 12px;">Enviar</button>
+        </form>
+      </div>
+
+    </div><!-- end overview grid -->
+
     {% if ai_enabled %}
-    <div class="mb-6">
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-3">IA</h2>
+    <div class="pj-card" style="margin-top:12px;">
+      <div class="pj-card-label">IA</div>
       <button
         hx-post="/api/ai/suggest-actions/{{ project.id }}"
         hx-target="#ai-project-suggestions"
         hx-swap="innerHTML"
         hx-indicator="#ai-project-spinner"
-        class="text-oriens-link text-sm hover:opacity-80 transition-colors cursor-pointer">
+        style="color:#4573d2; font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
         Sugerir próximas ações →
       </button>
-      <span id="ai-project-spinner" class="htmx-indicator text-oriens-tertiary text-xs ml-2">...</span>
-      <div id="ai-project-suggestions" class="mt-2"></div>
+      <span id="ai-project-spinner" class="htmx-indicator" style="color:#6d7073; font-size:12px; margin-left:8px;">...</span>
+      <div id="ai-project-suggestions" style="margin-top:8px;"></div>
     </div>
     {% endif %}
 
-    <!-- Riscos — oculto da UI (backend intacto) -->
     {% if false %}
     <div x-data="{ adding: false }">
       {% for r in risks %}{% include "partials/project_risk.html" %}{% endfor %}
@@ -359,131 +369,131 @@
     {% endif %}
 
   </div>
+  <!-- END: Visão geral -->
 
-  <!-- ─────────── COLUNA DIREITA ─────────── -->
-  <aside class="w-full lg:w-52 flex-shrink-0 space-y-4">
+  <!-- ═══════════ PAINEL: Tarefas ═══════════ -->
+  <div x-show="tab==='tasks'" x-cloak>
 
-    <!-- Prazo -->
-    <div x-data="{ editingDeadline: false }" class="bg-oriens-surface border border-oriens-border rounded-xl p-4">
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-2">Prazo</h2>
-      <div x-show="!editingDeadline">
-        {% if project.deadline %}
-          {% set dias = (project.deadline.date() - now().date()).days %}
-          {% if project.status.value == 'concluido' %}
-          <p class="text-oriens-primary text-sm">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
-          <p class="text-oriens-muted text-xs mt-0.5">concluído</p>
-          {% elif dias < 0 %}
-          <p class="text-oriens-urgent text-xl font-bold leading-none">{{ -dias }}<span class="text-xs font-medium"> dia{{ 's' if -dias != 1 else '' }} em atraso</span></p>
-          <p class="text-oriens-muted text-xs mt-1">era {{ project.deadline.strftime('%d/%m/%Y') }}</p>
-          {% elif dias == 0 %}
-          <p class="text-oriens-today text-xl font-bold leading-none">Hoje</p>
-          <p class="text-oriens-muted text-xs mt-1">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
-          {% elif dias <= 3 %}
-          <p class="text-oriens-today text-xl font-bold leading-none">{{ dias }}<span class="text-xs font-medium"> dia{{ 's' if dias != 1 else '' }}</span></p>
-          <p class="text-oriens-muted text-xs mt-1">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
-          {% else %}
-          <p class="text-oriens-primary text-xl font-bold leading-none">{{ dias }}<span class="text-oriens-secondary text-xs font-medium"> dias</span></p>
-          <p class="text-oriens-muted text-xs mt-1">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
-          {% endif %}
-          <button type="button" @click="editingDeadline=true"
-            class="text-oriens-link text-xs hover:opacity-80 transition-colors cursor-pointer mt-2 block">
-            Editar →
-          </button>
-        {% else %}
-        <button type="button" @click="editingDeadline=true"
-          class="text-oriens-accent text-sm text-left hover:opacity-80 transition-opacity cursor-pointer block">
-          + definir prazo
-        </button>
-        {% endif %}
-      </div>
-      <form x-show="editingDeadline" x-cloak
-        hx-patch="/api/projects/{{ project.id }}"
-        hx-swap="none"
-        hx-on::after-request="if(event.detail.successful){ editingDeadline=false; window.location.reload() }"
-        class="space-y-2 mt-2">
-        <input type="date" name="deadline"
-          value="{{ project.deadline.strftime('%Y-%m-%d') if project.deadline else '' }}"
-          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded px-3 py-2 text-sm
-                 focus:outline-none focus:border-oriens-accent transition-colors">
-        <div class="flex gap-2">
-          <button type="submit"
-            class="bg-oriens-btn text-white rounded px-3 py-1.5 text-xs font-medium hover:opacity-90 transition-opacity">
-            Salvar
-          </button>
-          <button type="button" @click="editingDeadline=false"
-            class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors">
-            Cancelar
-          </button>
-        </div>
-      </form>
+    <!-- Barra de progresso 3px -->
+    {% if progress.total %}
+    <div style="height:3px; border-radius:2px; background:#2e3133; overflow:hidden; margin-bottom:8px;">
+      <div style="height:100%; background:#4573d2; width:{{ progress.pct }}%;"></div>
+    </div>
+    {% endif %}
+
+    <!-- Contador -->
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <span style="color:#9a9da0; font-size:13px;">
+        {% if progress.total %}{{ progress.done }} / {{ progress.total }} · {{ progress.pct }}%{% endif %}
+      </span>
     </div>
 
-    <!-- Comentários -->
-    <div class="bg-oriens-surface border border-oriens-border rounded-xl p-4">
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-3">Comentários</h2>
+    <!-- Cabeçalho de colunas com resizable-th -->
+    <table style="width:100%; table-layout:fixed; border-collapse:collapse; margin-bottom:2px;">
+      <colgroup>
+        <col style="width:24px">
+        <col style="width:40px">
+        <col>
+        <col style="width:90px">
+        <col style="width:100px">
+        <col style="width:110px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th class="resizable-th tasks-th"></th>
+          <th class="resizable-th tasks-th"></th>
+          <th class="resizable-th tasks-th">Tarefa</th>
+          <th class="resizable-th tasks-th">Energia</th>
+          <th class="resizable-th tasks-th">Prazo</th>
+          <th class="resizable-th tasks-th">Responsável</th>
+        </tr>
+      </thead>
+    </table>
 
-      <div id="comments-list" class="mb-3">
-        {% for comment in comments %}
-          {% include "partials/project_comment.html" %}
-        {% else %}
-        <p class="text-oriens-empty text-xs italic mb-3">Nenhum ainda.</p>
+    <!-- Seções -->
+    <div id="project-sections">
+      {% for section, section_tasks in section_groups %}
+        {% include "partials/project_section.html" %}
+      {% endfor %}
+    </div>
+
+    <!-- Tarefas sem seção -->
+    <div id="sem-secao-container">
+      {% if section_groups %}
+      <p style="color:#6d7073; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin:16px 0 4px 4px;">Sem seção</p>
+      {% endif %}
+
+      <div id="task-list-pending" class="section-task-list">
+        {% for task in sem_secao_tasks %}
+          {% with draggable=true, reload_on_done=true,
+                  is_next=(next_action.task and task.id == next_action.task.id) %}
+            {% include "partials/project_task_row.html" %}
+          {% endwith %}
         {% endfor %}
       </div>
 
-      <form
-        hx-post="/api/projects/{{ project.id }}/comments"
-        hx-target="#comments-list"
+      {% if not sem_secao_tasks and not section_groups %}
+      <p id="no-pending" style="color:#6d7073; font-size:14px; font-style:italic; padding:12px 4px;">Nenhuma tarefa pendente.</p>
+      {% endif %}
+
+      <div style="margin-top:12px;">
+        {% with project_id=project.id %}{% include "partials/task_form.html" %}{% endwith %}
+      </div>
+    </div>
+
+    <!-- + Nova seção -->
+    <div x-data="{ addingSection: false }" style="margin-top:20px;">
+      <button x-show="!addingSection" @click="addingSection=true"
+        style="color:#9a9da0; font-size:13px; background:none; border:none; cursor:pointer; padding:0; transition:color .12s;"
+        onmouseover="this.style.color='#f2f3f4'" onmouseout="this.style.color='#9a9da0'">
+        + Nova seção
+      </button>
+      <form x-show="addingSection" x-cloak
+        hx-post="/api/projects/{{ project.id }}/sections"
+        hx-target="#project-sections"
         hx-swap="beforeend"
-        hx-on::after-request="if(event.detail.successful){ $el.reset() }"
-        class="flex flex-col gap-2">
-        <textarea name="content" rows="2" required
-          placeholder="Escrever comentário..."
-          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-3 py-2 text-sm
-                 focus:outline-none focus:border-oriens-accent transition-colors resize-none placeholder-oriens-muted"></textarea>
-        <button type="submit"
-          class="self-end bg-oriens-btn text-white rounded-lg px-4 py-1.5 text-xs hover:opacity-90 transition-opacity">
-          Comentar
-        </button>
+        hx-on::after-request="if(event.detail.successful){ $el.reset(); addingSection=false }"
+        style="display:flex; align-items:center; gap:8px;">
+        <input type="text" name="name" required placeholder="Nome da seção..." autofocus
+          class="pj-input" style="flex:1;">
+        <button type="submit" class="pj-btn-primary" style="padding:6px 12px; font-size:12px;">Criar</button>
+        <button type="button" @click="addingSection=false" class="pj-btn-ghost" style="font-size:12px;">Cancelar</button>
       </form>
     </div>
 
-    <!-- Anexos -->
-    <div class="bg-oriens-surface border border-oriens-border rounded-xl p-4">
-      <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-3">Anexos</h2>
+    <!-- Bloqueadas -->
+    {% if blocked_tasks %}
+    <div style="margin-top:20px; padding-top:16px; border-top:1px solid #2e3133;">
+      <p style="color:#6d7073; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">Bloqueadas</p>
+      {% for task in blocked_tasks %}
+        {% with reload_on_done=true %}{% include "partials/project_task_row.html" %}{% endwith %}
+      {% endfor %}
+    </div>
+    {% endif %}
 
-      <div id="attachments-list">
-        {% for att in attachments %}
-          {% include "partials/project_attachment.html" %}
-        {% else %}
-        <p class="text-oriens-empty text-xs italic mb-3">Nenhum anexo.</p>
+    <!-- Concluídas -->
+    {% if done_tasks %}
+    <div style="margin-top:16px; padding-top:12px; border-top:1px solid #2e3133;" x-data="{ show: false }">
+      <button @click="show = !show"
+        style="display:flex; align-items:center; gap:8px; color:#6d7073; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; background:none; border:none; cursor:pointer; padding:0; margin-bottom:8px; transition:color .12s;"
+        onmouseover="this.style.color='#9a9da0'" onmouseout="this.style.color='#6d7073'">
+        <span x-text="show ? '▾' : '▸'">▸</span>
+        <span>Concluídas ({{ done_tasks | length }})</span>
+      </button>
+      <div x-show="show" x-transition style="background:#25282a; border-radius:6px; padding:4px;">
+        {% for task in done_tasks %}
+          {% include "partials/task_item.html" %}
         {% endfor %}
       </div>
-
-      <form
-        hx-post="/api/projects/{{ project.id }}/attachments"
-        hx-target="#attachments-list"
-        hx-swap="afterbegin"
-        hx-encoding="multipart/form-data"
-        hx-on::after-request="if(event.detail.successful){ $el.reset() }"
-        class="mt-3 flex flex-col gap-2">
-        <input type="file" name="file" required
-          class="text-oriens-tertiary text-xs file:mr-2 file:py-1 file:px-2
-                 file:rounded file:border-0 file:text-xs file:font-medium
-                 file:bg-oriens-surface file:text-oriens-primary hover:file:bg-oriens-card
-                 file:cursor-pointer cursor-pointer">
-        <button type="submit"
-          class="self-start bg-oriens-surface border border-oriens-border text-oriens-primary rounded px-3 py-1
-                 text-xs hover:bg-oriens-card transition-colors">
-          Enviar
-        </button>
-      </form>
     </div>
+    {% endif %}
 
-  </aside>
+  </div>
+  <!-- END: Tarefas -->
 
-</div>
+</div><!-- end max-width wrapper -->
 
-<!-- SortableJS: inicializa em todos os .section-task-list (inclui #task-list-pending) -->
+<!-- SortableJS -->
 <script>
 (function(){
   function initSortables(){
@@ -514,6 +524,25 @@
   }
   document.addEventListener('htmx:afterSettle', initSortables);
 })();
+</script>
+
+<!-- Resize de colunas -->
+<script>
+document.querySelectorAll('.resizable-th').forEach(th => {
+  const resizer = document.createElement('div');
+  resizer.style.cssText = 'position:absolute;right:0;top:0;height:100%;width:6px;cursor:col-resize;user-select:none;z-index:1';
+  th.style.position = 'relative';
+  th.appendChild(resizer);
+  let startX, startW;
+  resizer.addEventListener('mousedown', e => {
+    startX = e.pageX; startW = th.offsetWidth;
+    const onMove = ev => { th.style.width = Math.max(80, startW + ev.pageX - startX) + 'px'; };
+    const onUp   = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    e.preventDefault();
+  });
+});
 </script>
 
 {% endblock %}
