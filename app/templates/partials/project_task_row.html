@@ -8,8 +8,8 @@
 {% set cb_border = 'border-oriens-urgent' if ds == 'overdue' else ('border-oriens-today' if ds == 'today' else 'border-oriens-border') %}
 
 <div id="task-{{ task.id }}"
-     class="project-task-row group flex items-center gap-0 border-b border-oriens-divider last:border-b-0
-            hover:bg-oriens-card-hover transition-colors
+     class="project-task-row relative group flex items-center gap-0 border-b border-oriens-divider last:border-b-0
+            hover:bg-oriens-card-hover transition-colors overflow-hidden
             {% if is_next is defined and is_next %}border-l-2 border-l-oriens-accent{% endif %}
             {% if task.status.value == 'done' %}opacity-40{% endif %}"
      data-task-id="{{ task.id }}">
@@ -23,32 +23,35 @@
   <span class="w-5 flex-shrink-0"></span>
   {% endif %}
 
-  <!-- Checkbox -->
-  <div class="flex-shrink-0 w-5 flex items-center justify-center self-stretch py-2.5">
-    {% if task.status.value == 'pending' %}
-    <button
-      hx-patch="/api/tasks/{{ task.id }}/done"
-      hx-swap="none"
-      hx-on::after-request="if(event.detail.successful){ {% if reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}document.getElementById('task-{{ task.id }}').remove(){% endif %} }"
-      title="Concluir"
-      class="w-4 h-4 border {{ cb_border }} rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors flex-shrink-0">
-    </button>
-    {% elif task.status.value == 'done' %}
-    <button
-      hx-patch="/api/tasks/{{ task.id }}/pending"
-      hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
-      title="Desfazer"
-      class="w-4 h-4 border border-oriens-success bg-oriens-success/20 rounded flex items-center justify-center flex-shrink-0">
+  <!-- Checkbox (área clicável = célula inteira, não só o ícone 16x16) -->
+  {% if task.status.value == 'pending' %}
+  <button
+    hx-patch="/api/tasks/{{ task.id }}/done"
+    hx-swap="none"
+    hx-on::after-request="if(event.detail.successful) {% if reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}document.getElementById('task-{{ task.id }}').remove(){% endif %}"
+    title="Concluir"
+    class="flex-shrink-0 w-5 self-stretch flex items-center justify-center">
+    <span class="w-4 h-4 border {{ cb_border }} rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors pointer-events-none"></span>
+  </button>
+  {% elif task.status.value == 'done' %}
+  <button
+    hx-patch="/api/tasks/{{ task.id }}/pending"
+    hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+    title="Desfazer"
+    class="flex-shrink-0 w-5 self-stretch flex items-center justify-center">
+    <span class="w-4 h-4 border border-oriens-success bg-oriens-success/20 rounded flex items-center justify-center pointer-events-none">
       <svg class="w-2.5 h-2.5 text-oriens-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
       </svg>
-    </button>
-    {% else %}
-    <span class="w-4 h-4 border border-oriens-alert rounded flex items-center justify-center flex-shrink-0">
+    </span>
+  </button>
+  {% else %}
+  <div class="flex-shrink-0 w-5 self-stretch flex items-center justify-center">
+    <span class="w-4 h-4 border border-oriens-alert rounded flex items-center justify-center">
       <span class="w-2 h-0.5 bg-oriens-alert rounded-full"></span>
     </span>
-    {% endif %}
   </div>
+  {% endif %}
 
   <!-- Título (flex-1) -->
   <div class="flex-1 min-w-0 py-2.5 pl-2 pr-2">
@@ -91,8 +94,8 @@
     {% endif %}
   </div>
 
-  <!-- Ações hover -->
-  <div class="flex items-center gap-1.5 flex-shrink-0 pr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+  <!-- Ações hover (absoluto para não afetar o layout das colunas) -->
+  <div class="absolute right-0 inset-y-0 flex items-center gap-1.5 pr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-oriens-card-hover">
     {% if task.status.value == 'pending' %}
     <button hx-patch="/api/tasks/{{ task.id }}/blocked"
       hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
@@ -130,25 +133,29 @@
                 hover:bg-oriens-card-hover transition-colors
                 {% if sub.status.value == 'done' %}opacity-40{% endif %}">
       <!-- Checkbox sub -->
-      <div class="flex-shrink-0 w-4 flex items-center justify-center">
-        {% if sub.status.value == 'pending' %}
-        <button hx-patch="/api/tasks/{{ sub.id }}/done" hx-swap="none"
-          hx-on::after-request="if(event.detail.successful){ {% if reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}document.getElementById('task-{{ sub.id }}').remove(){% endif %} }"
-          class="w-3.5 h-3.5 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors flex-shrink-0"></button>
-        {% elif sub.status.value == 'done' %}
-        <button hx-patch="/api/tasks/{{ sub.id }}/pending"
-          hx-target="#task-{{ sub.id }}" hx-swap="outerHTML"
-          class="w-3.5 h-3.5 border border-oriens-success bg-oriens-success/20 rounded flex items-center justify-center flex-shrink-0">
+      {% if sub.status.value == 'pending' %}
+      <button hx-patch="/api/tasks/{{ sub.id }}/done" hx-swap="none"
+        hx-on::after-request="if(event.detail.successful){ {% if reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}document.getElementById('task-{{ sub.id }}').remove(){% endif %} }"
+        class="flex-shrink-0 w-4 self-stretch flex items-center justify-center">
+        <span class="w-3.5 h-3.5 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors pointer-events-none"></span>
+      </button>
+      {% elif sub.status.value == 'done' %}
+      <button hx-patch="/api/tasks/{{ sub.id }}/pending"
+        hx-target="#task-{{ sub.id }}" hx-swap="outerHTML"
+        class="flex-shrink-0 w-4 self-stretch flex items-center justify-center">
+        <span class="w-3.5 h-3.5 border border-oriens-success bg-oriens-success/20 rounded flex items-center justify-center pointer-events-none">
           <svg class="w-2 h-2 text-oriens-success" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
           </svg>
-        </button>
-        {% else %}
-        <span class="w-3.5 h-3.5 border border-oriens-alert rounded flex items-center justify-center flex-shrink-0">
+        </span>
+      </button>
+      {% else %}
+      <div class="flex-shrink-0 w-4 self-stretch flex items-center justify-center">
+        <span class="w-3.5 h-3.5 border border-oriens-alert rounded flex items-center justify-center">
           <span class="w-1.5 h-0.5 bg-oriens-alert rounded-full"></span>
         </span>
-        {% endif %}
       </div>
+      {% endif %}
       <!-- Título sub -->
       <p class="flex-1 min-w-0 text-xs leading-snug truncate
         {% if sub.status.value == 'done' %}line-through text-oriens-empty
