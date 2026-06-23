@@ -159,9 +159,9 @@ async def create_task(
     if is_project_task and not is_subtask:
         return templates.TemplateResponse(
             request,
-            "partials/task_with_subtasks.html",
+            "partials/project_task_row.html",
             {"task": task, "project": project, "subtasks": {},
-             "draggable": True, "reload_on_done": True},
+             "draggable": True, "reload_on_done": True, "is_next": False},
         )
 
     return templates.TemplateResponse(

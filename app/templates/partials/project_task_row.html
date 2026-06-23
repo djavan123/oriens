@@ -28,7 +28,8 @@
   <button
     hx-patch="/api/tasks/{{ task.id }}/done"
     hx-swap="none"
-    hx-on::after-request="if(event.detail.successful) {% if reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}document.getElementById('task-{{ task.id }}').remove(){% endif %}"
+    hx-on:click="document.getElementById('task-{{ task.id }}').classList.add('task-completing')"
+    hx-on::after-request="if(event.detail.successful){ {% if reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}setTimeout(()=>{var e=document.getElementById('task-{{ task.id }}');if(e)e.remove();},450){% endif %} }"
     title="Concluir"
     class="flex-shrink-0 w-5 self-stretch flex items-center justify-center">
     <span class="w-4 h-4 border {{ cb_border }} rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors pointer-events-none"></span>
@@ -36,7 +37,8 @@
   {% elif task.status.value == 'done' %}
   <button
     hx-patch="/api/tasks/{{ task.id }}/pending"
-    hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
+    hx-swap="none"
+    hx-on::after-request="if(event.detail.successful){ window.location.reload() }"
     title="Desfazer"
     class="flex-shrink-0 w-5 self-stretch flex items-center justify-center">
     <span class="w-4 h-4 border border-oriens-success bg-oriens-success/20 rounded flex items-center justify-center pointer-events-none">
@@ -135,7 +137,8 @@
       <!-- Checkbox sub -->
       {% if sub.status.value == 'pending' %}
       <button hx-patch="/api/tasks/{{ sub.id }}/done" hx-swap="none"
-        hx-on::after-request="if(event.detail.successful){ {% if reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}document.getElementById('task-{{ sub.id }}').remove(){% endif %} }"
+        hx-on:click="document.getElementById('task-{{ sub.id }}').classList.add('task-completing')"
+        hx-on::after-request="if(event.detail.successful){ {% if reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}setTimeout(()=>{var e=document.getElementById('task-{{ sub.id }}');if(e)e.remove();},450){% endif %} }"
         class="flex-shrink-0 w-4 self-stretch flex items-center justify-center">
         <span class="w-3.5 h-3.5 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors pointer-events-none"></span>
       </button>
