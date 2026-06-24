@@ -43,8 +43,10 @@
   color: var(--oriens-primary) !important;
   letter-spacing: 0 !important;
 }
-/* Espaço entre seções */
-#project-sections > .mb-5 + .mb-5 { padding-top: 28px; }
+/* Espaçamento e borda: padding no cabeçalho de cada seção */
+#project-sections .section-row > .group { padding: 28px 0 8px 0; margin-bottom: 0; border-bottom: none !important; }
+#project-sections .section-row:first-child > .group { padding-top: 4px; }
+#project-sections .section-row { margin-bottom: 0; }
 /* Remove borda esquerda colorida da próxima ação */
 .project-task-row.border-l-2 { border-left: none !important; }
 /* Badge "Próxima ação" → texto discreto */
@@ -63,6 +65,9 @@
 /* Painel de ações: bg transparente para combinar com hover sutil */
 .project-task-row .absolute.right-0 { background: transparent !important; }
 .project-task-row:hover .absolute.right-0 { background: rgba(255,255,255,0.03) !important; }
+/* Hover light theme */
+[data-theme="light"] .project-task-row:hover { background: rgba(0,0,0,0.03) !important; }
+[data-theme="light"] .project-task-row:hover .absolute.right-0 { background: rgba(0,0,0,0.03) !important; }
 /* Botão ··· injetado via JS */
 .pj-ellipsis-btn {
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
@@ -438,7 +443,7 @@
         <div x-show="!showTaskForm"
           @click="showTaskForm=true; $nextTick(()=>{ var i=document.querySelector('#new-task-form input[name=title]'); if(i) i.focus(); })"
           style="font-size:13px; color:var(--oriens-secondary); opacity:0.5; cursor:pointer; padding:6px 0 6px 44px; user-select:none;">
-          + Adicionar tarefa
+          Adicionar tarefa...
         </div>
         <div x-show="showTaskForm" x-cloak>
           {% with project_id=project.id %}{% include "partials/task_form.html" %}{% endwith %}
@@ -448,11 +453,10 @@
 
     <!-- + Nova seção -->
     <div x-data="{ addingSection: false }" style="margin-top:20px;">
-      <button x-show="!addingSection" @click="addingSection=true"
-        style="color:var(--oriens-secondary); font-size:13px; background:none; border:none; cursor:pointer; padding:0; transition:color .12s;"
-        onmouseover="this.style.color='var(--oriens-primary)'" onmouseout="this.style.color='var(--oriens-secondary)'">
+      <span x-show="!addingSection" @click="addingSection=true"
+        style="font-size:13px; color:var(--oriens-secondary); opacity:0.5; cursor:pointer; user-select:none;">
         + Nova seção
-      </button>
+      </span>
       <form x-show="addingSection" x-cloak
         hx-post="/api/projects/{{ project.id }}/sections"
         hx-target="#project-sections"
@@ -608,7 +612,7 @@ document.querySelectorAll('.resizable-th').forEach(th => {
       form.style.display = 'none';
       var trigger = document.createElement('div');
       trigger.style.cssText = 'padding:6px 0 6px 44px; cursor:pointer; user-select:none;';
-      trigger.innerHTML = '<span style="font-size:13px;color:var(--oriens-secondary);opacity:0.5;">+ Adicionar tarefa</span>';
+      trigger.innerHTML = '<span style="font-size:13px;color:var(--oriens-secondary);opacity:0.5;">Adicionar tarefa...</span>';
       form.parentNode.insertBefore(trigger, form);
       trigger.addEventListener('click', function(){
         trigger.style.display = 'none';
@@ -621,6 +625,38 @@ document.querySelectorAll('.resizable-th').forEach(th => {
           trigger.style.removeProperty('display');
           form.style.display = 'none';
         }
+      });
+    });
+  }
+
+  // Chevron colapsável nas seções
+  function setupSectionCollapse(){
+    document.querySelectorAll('.section-row:not([data-collapse-init])').forEach(function(sectionEl){
+      sectionEl.dataset.collapseInit = '1';
+      var header    = sectionEl.querySelector(':scope > .group');
+      var dragHandle = header && header.querySelector('.section-drag-handle');
+      var taskList  = sectionEl.querySelector(':scope > .section-task-list');
+      if(!header || !taskList) return;
+
+      var open = true;
+      var chevron = document.createElement('span');
+      chevron.style.cssText = 'flex-shrink:0;font-size:11px;color:var(--oriens-secondary);cursor:pointer;user-select:none;margin-right:2px;';
+      chevron.textContent = '▾';
+
+      if(dragHandle && dragHandle.nextSibling){
+        header.insertBefore(chevron, dragHandle.nextSibling);
+      } else {
+        header.insertBefore(chevron, header.firstChild);
+      }
+
+      chevron.addEventListener('click', function(){
+        open = !open;
+        chevron.textContent = open ? '▾' : '▸';
+        taskList.style.display = open ? '' : 'none';
+        var trigger = sectionEl.querySelector(':scope > [data-trigger]');
+        if(trigger) trigger.style.display = open ? '' : 'none';
+        var form = sectionEl.querySelector(':scope > form[id^="task-form-section-"]');
+        if(form) form.style.display = 'none';
       });
     });
   }
@@ -662,6 +698,7 @@ document.querySelectorAll('.resizable-th').forEach(th => {
 
   function init(){
     setupSectionForms();
+    setupSectionCollapse();
     setupEllipsis();
   }
 

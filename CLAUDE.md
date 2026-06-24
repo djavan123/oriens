@@ -427,7 +427,9 @@ TELEGRAM_CHAT_ID=               # opcional
 | POST | `/api/ai/overload-context` | IA: análise de overload |
 | POST | `/api/context/switch` | Trocar contexto ativo (campo `context_id` inteiro) |
 | POST | `/api/context/transition` | Transição + captura pendências (campo `context_id`) |
-| PATCH | `/api/projects/{id}/task-order` | Reordena tarefas de topo do projeto (JSON `{task_ids:[...]}`) — SCRIPT 10A |
+| PATCH | `/api/projects/{id}/task-order` | Reordena tarefas de topo do projeto (JSON `{task_ids:[...]}`) — SCRIPT 10A (legado, sem seção) |
+| PATCH | `/api/projects/{id}/section-tasks` | Move e reordena tarefas dentro de ou entre seções (JSON `{section_id: null\|int, task_ids:[...]}`) |
+| PATCH | `/api/projects/{id}/section-order` | Reordena seções de um projeto (JSON `{section_ids:[...]}`) |
 | GET | `/dashboard/now` | Fragmento bloco "Agora" (uma ação dominante) — SCRIPT 12 |
 | GET | `/dashboard/projects-focus` | Fragmento "Projetos em foco" — SCRIPT 11 |
 | GET | `/dashboard/standalone` | Fragmento "Tarefas avulsas" (`?energy=`) — SCRIPT 11 |
@@ -654,6 +656,13 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **Checkbox `project_task_row.html`:** alinhado com o padrão comprovado de `task_item.html` — `hx-on:click` adiciona `task-completing` imediatamente; `hx-on::after-request` usa chaves `{ }` (exigido pelo HTMX 1.9.12) + `window.location.reload()` quando `reload_on_done`. Botão "desfazer" (done→pending) trocado de `hx-swap="outerHTML"` para `hx-swap="none"` + reload (evitava substituir a row por `task_item.html` incorretamente). Mesmo padrão aplicado nos checkboxes de subtarefa.
 - **`api/tasks.create_task`:** para tarefas de projeto, retorna `project_task_row.html` (era `task_with_subtasks.html`) — evita inconsistência visual entre tarefas existentes e recém-criadas no detalhe.
 - **`done_at` timezone (PostgreSQL):** `datetime.now(timezone.utc)` (timezone-aware) causava `asyncpg.DataError` ao gravar em `TIMESTAMP WITHOUT TIME ZONE`. Corrigido para `datetime.utcnow()` (naive UTC) nos três locais: `task_service.mark_done`, `project_service.update` (conclusão de projeto), `task_repo.update`. Padrão agora consistente com o restante da codebase.
+
+### ✅ DRAG & DROP — Mover tarefas entre seções + reordenar seções
+- **Backend (repositórios):** `task_repo.reorder_section_tasks(project_id, user_id, section_id, task_ids)` — atribui `section_id` **e** `order_index` em uma operação (cobre reordenação interna e mover entre seções); `project_section_repo.reorder_sections(project_id, section_ids)` — reordena seções por `order_index`. Ambos validam ownership/pertencimento e retornam `bool`.
+- **Backend (endpoints):** `PATCH /api/projects/{id}/section-tasks` (JSON `{section_id: null|int, task_ids: [...]}`) e `PATCH /api/projects/{id}/section-order` (JSON `{section_ids: [...]}`) em `routes/api/projects.py`. O endpoint antigo `PATCH /api/projects/{id}/task-order` é preservado (compatibilidade).
+- **Frontend `partials/project_section.html`:** outer div ganhou `class="section-row"` e `data-section-id`; cabeçalho ganhou `.section-drag-handle` (⠿, visível no hover do grupo); task list ganhou `data-section-id`.
+- **Frontend `projects/detail.html`:** `#task-list-pending` ganhou `data-section-id="null"`; script SortableJS reescrito — tarefas usam `group: {name:'project-tasks'}` para cross-section, `onEnd` chama `/section-tasks` (origem e destino quando há troca de seção); nova função `initSectionSortable` cria Sortable sobre `#project-sections` com handle `.section-drag-handle` e draggable `.section-row`, chama `/section-order`.
+- **Sem migração de schema** — todos os campos (`order_index`, `section_id`) já existiam.
 
 ---
 
