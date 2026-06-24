@@ -16,38 +16,38 @@
 {% block content %}
 
 <style>
-.pj-card { background:#25282a; border:1px solid #404244; border-radius:8px; padding:18px 22px; }
-.pj-card-label { font-size:11px; font-weight:600; letter-spacing:0.08em; color:#6d7073; text-transform:uppercase; margin-bottom:10px; }
+.pj-card { background:var(--oriens-surface); border:1px solid var(--oriens-border); border-radius:8px; padding:18px 22px; }
+.pj-card-label { font-size:11px; font-weight:600; letter-spacing:0.08em; color:var(--oriens-secondary); text-transform:uppercase; margin-bottom:10px; }
 .pj-chip { display:inline-flex; align-items:center; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:500; white-space:nowrap; }
-.pj-tab { padding:10px 16px; background:none; border:none; border-bottom:2px solid transparent; font-size:14px; cursor:pointer; color:#9a9da0; margin-bottom:-1px; transition:color .12s; }
-.pj-tab.active { color:#f2f3f4; border-bottom-color:#4573d2; }
+.pj-tab { padding:10px 16px; background:none; border:none; border-bottom:2px solid transparent; font-size:14px; cursor:pointer; color:var(--oriens-secondary); margin-bottom:-1px; transition:color .12s; }
+.pj-tab.active { color:var(--oriens-primary); border-bottom-color:#4573d2; }
 .pj-btn-primary { background:#4573d2; color:#fff; border:none; border-radius:6px; padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; transition:opacity .12s; }
 .pj-btn-primary:hover { opacity:0.85; }
-.pj-btn-secondary { background:#25282a; border:1px solid #404244; color:#f2f3f4; border-radius:6px; padding:7px 14px; font-size:13px; cursor:pointer; transition:background .12s; }
-.pj-btn-secondary:hover { background:#353839; }
-.pj-btn-ghost { background:none; border:none; color:#9a9da0; font-size:13px; cursor:pointer; padding:0; transition:color .12s; }
-.pj-btn-ghost:hover { color:#f2f3f4; }
-.pj-btn-sm { background:#25282a; border:1px solid #404244; color:#9a9da0; border-radius:4px; padding:4px 10px; font-size:12px; font-weight:500; cursor:pointer; transition:background .12s, color .12s; }
-.pj-btn-sm:hover { background:#353839; color:#f2f3f4; }
-.pj-form-label { display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:#9a9da0; margin-bottom:6px; }
-.pj-select { width:100%; background:#1d1f21; border:1px solid #404244; color:#f2f3f4; border-radius:6px; padding:8px 12px; font-size:14px; outline:none; }
-.pj-input { background:#1d1f21; border:1px solid #404244; color:#f2f3f4; border-radius:6px; padding:8px 12px; font-size:14px; outline:none; }
-.tasks-th { padding:6px 12px; text-align:left; font-size:11px; font-weight:600; letter-spacing:0.06em; color:#6d7073; text-transform:uppercase; border-bottom:1px solid #404244; white-space:nowrap; background:transparent; }
+.pj-btn-secondary { background:var(--oriens-surface); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:7px 14px; font-size:13px; cursor:pointer; transition:background .12s; }
+.pj-btn-secondary:hover { background:var(--oriens-card-hover); }
+.pj-btn-ghost { background:none; border:none; color:var(--oriens-secondary); font-size:13px; cursor:pointer; padding:0; transition:color .12s; }
+.pj-btn-ghost:hover { color:var(--oriens-primary); }
+.pj-btn-sm { background:var(--oriens-surface); border:1px solid var(--oriens-border); color:var(--oriens-secondary); border-radius:4px; padding:4px 10px; font-size:12px; font-weight:500; cursor:pointer; transition:background .12s, color .12s; }
+.pj-btn-sm:hover { background:var(--oriens-card-hover); color:var(--oriens-primary); }
+.pj-form-label { display:block; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--oriens-secondary); margin-bottom:6px; }
+.pj-select { width:100%; background:var(--oriens-bg); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:8px 12px; font-size:14px; outline:none; }
+.pj-input { background:var(--oriens-bg); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:8px 12px; font-size:14px; outline:none; }
+.tasks-th { padding:6px 12px; text-align:left; font-size:11px; font-weight:600; letter-spacing:0.06em; color:var(--oriens-secondary); text-transform:uppercase; border-bottom:1px solid var(--oriens-border); white-space:nowrap; background:transparent; }
 </style>
 
 <div style="max-width:960px; padding:32px 40px; margin:0;" x-data="{ editing: false, tab: 'overview' }">
 
   <!-- Breadcrumb -->
-  <div style="font-size:13px; color:#6d7073; margin-bottom:12px;">
-    <a href="/projects" style="color:#6d7073; text-decoration:none;"
-       onmouseover="this.style.color='#9a9da0'" onmouseout="this.style.color='#6d7073'">Projetos</a>
+  <div style="font-size:12px; color:var(--oriens-secondary); margin-bottom:12px;">
+    <a href="/projects" style="color:var(--oriens-secondary); text-decoration:none;"
+       onmouseover="this.style.color='var(--oriens-primary)'" onmouseout="this.style.color='var(--oriens-secondary)'">Projetos</a>
     <span style="margin:0 6px;">/</span>
-    <span style="color:#9a9da0;">{{ project.name }}</span>
+    <span style="color:var(--oriens-secondary);">{{ project.name }}</span>
   </div>
 
   <!-- Header -->
   <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:8px;">
-    <h1 style="font-size:20px; font-weight:600; color:#f2f3f4; margin:0; line-height:1.3;
+    <h1 style="font-size:18px; font-weight:600; color:var(--oriens-primary); margin:0; line-height:1.3;
                {% if project.status.value == 'concluido' %}text-decoration:line-through; opacity:0.5;{% endif %}">
       {{ project.name }}
     </h1>
@@ -64,46 +64,6 @@
               x-text="editing ? 'Cancelar' : 'Editar'"
               class="pj-btn-sm"></button>
     </div>
-  </div>
-
-  <!-- Chips: status · prioridade · contexto · prazo · arquivado · responsável -->
-  <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:20px;">
-    {% if project.status.value == 'em_andamento' %}
-      <span class="pj-chip" style="background:#1b3a2a; color:#4caf82; border:1px solid #2a5a3a;">Em andamento</span>
-    {% elif project.status.value == 'nao_iniciado' %}
-      <span class="pj-chip" style="background:#2a2d2f; color:#9a9da0; border:1px solid #404244;">Não iniciado</span>
-    {% else %}
-      <span class="pj-chip" style="background:#2a2d2f; color:#6d7073; border:1px solid #404244;">Concluído</span>
-    {% endif %}
-
-    {% if project.priority == 1 %}
-      <span class="pj-chip" style="background:#3a1b1b; color:#e07070;">Alta</span>
-    {% elif project.priority == 2 %}
-      <span class="pj-chip" style="background:#2e2010; color:#d4a040;">Média</span>
-    {% else %}
-      <span class="pj-chip" style="background:#1b3020; color:#50b880;">Baixa</span>
-    {% endif %}
-
-    {% if context_labels is defined and context_labels.get(project.context_id) %}
-      <span class="pj-chip" style="background:#2a2d2f; color:#9a9da0; border:1px solid #404244;">
-        {{ context_labels[project.context_id] }}
-      </span>
-    {% endif %}
-
-    {% if project.deadline %}
-      {% set dias = (project.deadline.date() - now().date()).days %}
-      <span style="font-size:13px; {% if dias < 0 and project.status.value != 'concluido' %}color:#e08050; font-weight:500;{% elif dias == 0 %}color:#EF9F27;{% else %}color:#9a9da0;{% endif %}">
-        📅 {{ project.deadline.strftime('%d/%m/%Y') }}
-      </span>
-    {% endif %}
-
-    {% if project.archived %}
-      <span class="pj-chip" style="background:#2e2010; color:#d4a040; border:1px solid #4a3810;">Arquivado</span>
-    {% endif %}
-
-    {% if project.responsavel_id and responsavel_map.get(project.responsavel_id) %}
-      <span style="color:#9a9da0; font-size:13px;">{{ responsavel_map[project.responsavel_id] }}</span>
-    {% endif %}
   </div>
 
   <!-- Formulário de edição -->
@@ -156,12 +116,12 @@
     <div style="display:flex; align-items:center; gap:12px;">
       <button type="submit" class="pj-btn-primary">Salvar</button>
       <button type="button" @click="editing = false" class="pj-btn-ghost">Cancelar</button>
-      <span style="color:#6d7073; font-size:12px; margin-left:auto;">criado em {{ project.created_at.strftime('%d/%m/%y') }}</span>
+      <span style="color:var(--oriens-muted); font-size:12px; margin-left:auto;">criado em {{ project.created_at.strftime('%d/%m/%y') }}</span>
     </div>
   </form>
 
   <!-- Tab switcher -->
-  <div style="display:flex; border-bottom:1px solid #404244; margin-bottom:24px;">
+  <div style="display:flex; border-bottom:1px solid var(--oriens-border); margin-bottom:24px;">
     <button @click="tab='overview'" :class="tab==='overview' ? 'pj-tab active' : 'pj-tab'">Visão geral</button>
     <button @click="tab='tasks'"    :class="tab==='tasks'    ? 'pj-tab active' : 'pj-tab'">Tarefas</button>
   </div>
@@ -175,7 +135,7 @@
         <div class="pj-card-label">Objetivo</div>
         <div x-show="!editingObj">
           {% if project.objective %}
-          <p style="color:#9a9da0; font-size:14px; line-height:1.6; margin:0 0 8px;">{{ project.objective }}</p>
+          <p style="color:var(--oriens-primary); font-size:14px; line-height:1.6; margin:0 0 8px;">{{ project.objective }}</p>
           <button @click="editingObj=true"
             style="color:#4573d2; font-size:12px; background:none; border:none; cursor:pointer; padding:0;">
             Editar
@@ -193,7 +153,7 @@
           hx-on::after-request="if(event.detail.successful){ editingObj=false; window.location.reload() }"
           style="display:flex; gap:8px; align-items:flex-start;">
           <textarea name="objective" rows="2" placeholder="Qual é o resultado esperado?"
-            style="flex:1; background:#1d1f21; border:1px solid #404244; color:#f2f3f4; border-radius:6px; padding:8px 12px; font-size:14px; resize:none; outline:none;">{{ project.objective or '' }}</textarea>
+            style="flex:1; background:var(--oriens-bg); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:8px 12px; font-size:14px; resize:none; outline:none;">{{ project.objective or '' }}</textarea>
           <div style="display:flex; flex-direction:column; gap:4px; flex-shrink:0;">
             <button type="submit" class="pj-btn-primary" style="padding:5px 12px; font-size:12px;">Salvar</button>
             <button type="button" @click="editingObj=false" class="pj-btn-ghost" style="font-size:12px; text-align:center;">Cancelar</button>
@@ -208,26 +168,26 @@
           {% if project.deadline %}
             {% set dias = (project.deadline.date() - now().date()).days %}
             {% if project.status.value == 'concluido' %}
-              <p style="font-size:28px; font-weight:700; color:#f2f3f4; line-height:1; margin:0;">—</p>
-              <p style="color:#6d7073; font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+              <p style="font-size:24px; font-weight:600; color:var(--oriens-primary); line-height:1; margin:0;">—</p>
+              <p style="color:var(--oriens-secondary); font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
             {% elif dias < 0 %}
-              <p style="font-size:28px; font-weight:700; color:#e08050; line-height:1; margin:0;">
-                {{ -dias }}<span style="font-size:13px; font-weight:500;"> dia{{ 's' if -dias != 1 else '' }} em atraso</span>
+              <p style="font-size:24px; font-weight:600; color:#e08050; line-height:1; margin:0;">
+                {{ -dias }}<span style="font-size:13px; font-weight:400;"> dia{{ 's' if -dias != 1 else '' }} em atraso</span>
               </p>
-              <p style="color:#6d7073; font-size:13px; margin:4px 0 0;">era {{ project.deadline.strftime('%d/%m/%Y') }}</p>
+              <p style="color:var(--oriens-secondary); font-size:13px; margin:4px 0 0;">era {{ project.deadline.strftime('%d/%m/%Y') }}</p>
             {% elif dias == 0 %}
-              <p style="font-size:28px; font-weight:700; color:#EF9F27; line-height:1; margin:0;">Hoje</p>
-              <p style="color:#6d7073; font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+              <p style="font-size:24px; font-weight:600; color:#EF9F27; line-height:1; margin:0;">Hoje</p>
+              <p style="color:var(--oriens-secondary); font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
             {% elif dias <= 3 %}
-              <p style="font-size:28px; font-weight:700; color:#EF9F27; line-height:1; margin:0;">
-                {{ dias }}<span style="font-size:13px; font-weight:500;"> dia{{ 's' if dias != 1 else '' }}</span>
+              <p style="font-size:24px; font-weight:600; color:#EF9F27; line-height:1; margin:0;">
+                {{ dias }}<span style="font-size:13px; font-weight:400;"> dia{{ 's' if dias != 1 else '' }}</span>
               </p>
-              <p style="color:#6d7073; font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+              <p style="color:var(--oriens-secondary); font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
             {% else %}
-              <p style="font-size:28px; font-weight:700; color:#f2f3f4; line-height:1; margin:0;">
-                {{ dias }}<span style="color:#9a9da0; font-size:13px; font-weight:500;"> dias</span>
+              <p style="font-size:24px; font-weight:600; color:var(--oriens-primary); line-height:1; margin:0;">
+                {{ dias }}<span style="color:var(--oriens-secondary); font-size:13px; font-weight:400;"> dias</span>
               </p>
-              <p style="color:#6d7073; font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
+              <p style="color:var(--oriens-secondary); font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
             {% endif %}
             <button type="button" @click="editingDeadline=true"
               style="color:#4573d2; font-size:12px; background:none; border:none; cursor:pointer; padding:0; margin-top:10px; display:block;">
@@ -259,15 +219,15 @@
       <div class="pj-card">
         <div class="pj-card-label">Progresso</div>
         {% if progress.total %}
-        <p style="font-size:36px; font-weight:700; color:#f2f3f4; line-height:1; margin:0 0 10px;">
-          {{ progress.pct }}<span style="font-size:20px; color:#9a9da0; font-weight:500;">%</span>
+        <p style="font-size:24px; font-weight:600; color:var(--oriens-primary); line-height:1; margin:0 0 10px;">
+          {{ progress.pct }}<span style="font-size:14px; color:var(--oriens-secondary); font-weight:400;">%</span>
         </p>
-        <div style="height:6px; border-radius:3px; background:#2e3133; overflow:hidden; margin-bottom:6px;">
+        <div style="height:6px; border-radius:3px; background:var(--oriens-divider); overflow:hidden; margin-bottom:6px;">
           <div style="height:100%; border-radius:3px; background:{% if progress.pct == 100 %}#5DCAA5{% else %}#4573d2{% endif %}; width:{{ progress.pct }}%;"></div>
         </div>
-        <p style="color:#9a9da0; font-size:13px; margin:0;">{{ progress.done }} de {{ progress.total }} tarefas concluídas</p>
+        <p style="color:var(--oriens-secondary); font-size:13px; margin:0;">{{ progress.done }} de {{ progress.total }} tarefas concluídas</p>
         {% else %}
-        <p style="color:#6d7073; font-size:14px; margin:0;">Nenhuma tarefa ainda.</p>
+        <p style="color:var(--oriens-empty); font-size:14px; margin:0;">Nenhuma tarefa ainda.</p>
         {% endif %}
       </div>
 
@@ -303,7 +263,7 @@
           {% for comment in comments %}
             {% include "partials/project_comment.html" %}
           {% else %}
-          <p style="color:#6d7073; font-size:13px; font-style:italic; margin:0 0 4px;">Nenhum ainda.</p>
+          <p style="color:var(--oriens-secondary); font-size:13px; font-style:italic; margin:0 0 4px;">Nenhum ainda.</p>
           {% endfor %}
         </div>
         <form
@@ -313,7 +273,7 @@
           hx-on::after-request="if(event.detail.successful){ $el.reset() }"
           style="display:flex; flex-direction:column; gap:8px;">
           <textarea name="content" rows="2" required placeholder="Escrever comentário..."
-            style="width:100%; background:#1d1f21; border:1px solid #404244; color:#f2f3f4; border-radius:6px; padding:8px 12px; font-size:14px; resize:none; outline:none; box-sizing:border-box;"></textarea>
+            style="width:100%; background:var(--oriens-bg); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:8px 12px; font-size:14px; resize:none; outline:none; box-sizing:border-box;"></textarea>
           <button type="submit" class="pj-btn-primary" style="align-self:flex-end; font-size:12px; padding:6px 14px;">Comentar</button>
         </form>
       </div>
@@ -325,7 +285,7 @@
           {% for att in attachments %}
             {% include "partials/project_attachment.html" %}
           {% else %}
-          <p style="color:#6d7073; font-size:13px; font-style:italic; margin:0 0 4px;">Nenhum anexo.</p>
+          <p style="color:var(--oriens-secondary); font-size:13px; font-style:italic; margin:0 0 4px;">Nenhum anexo.</p>
           {% endfor %}
         </div>
         <form
@@ -357,7 +317,7 @@
         style="color:#4573d2; font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
         Sugerir próximas ações →
       </button>
-      <span id="ai-project-spinner" class="htmx-indicator" style="color:#6d7073; font-size:12px; margin-left:8px;">...</span>
+      <span id="ai-project-spinner" class="htmx-indicator" style="color:var(--oriens-muted); font-size:12px; margin-left:8px;">...</span>
       <div id="ai-project-suggestions" style="margin-top:8px;"></div>
     </div>
     {% endif %}
@@ -376,14 +336,14 @@
 
     <!-- Barra de progresso 3px -->
     {% if progress.total %}
-    <div style="height:3px; border-radius:2px; background:#2e3133; overflow:hidden; margin-bottom:8px;">
+    <div style="height:3px; border-radius:2px; background:var(--oriens-divider); overflow:hidden; margin-bottom:8px;">
       <div style="height:100%; background:#4573d2; width:{{ progress.pct }}%;"></div>
     </div>
     {% endif %}
 
     <!-- Contador -->
     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
-      <span style="color:#9a9da0; font-size:13px;">
+      <span style="color:var(--oriens-secondary); font-size:13px;">
         {% if progress.total %}{{ progress.done }} / {{ progress.total }} · {{ progress.pct }}%{% endif %}
       </span>
     </div>
@@ -420,7 +380,7 @@
     <!-- Tarefas sem seção -->
     <div id="sem-secao-container">
       {% if section_groups %}
-      <p style="color:#6d7073; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin:16px 0 4px 4px;">Sem seção</p>
+      <p style="color:var(--oriens-secondary); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin:16px 0 4px 4px;">Sem seção</p>
       {% endif %}
 
       <div id="task-list-pending" class="section-task-list">
@@ -433,7 +393,7 @@
       </div>
 
       {% if not sem_secao_tasks and not section_groups %}
-      <p id="no-pending" style="color:#6d7073; font-size:14px; font-style:italic; padding:12px 4px;">Nenhuma tarefa pendente.</p>
+      <p id="no-pending" style="color:var(--oriens-empty); font-size:14px; font-style:italic; padding:12px 4px;">Nenhuma tarefa pendente.</p>
       {% endif %}
 
       <div style="margin-top:12px;">
@@ -444,8 +404,8 @@
     <!-- + Nova seção -->
     <div x-data="{ addingSection: false }" style="margin-top:20px;">
       <button x-show="!addingSection" @click="addingSection=true"
-        style="color:#9a9da0; font-size:13px; background:none; border:none; cursor:pointer; padding:0; transition:color .12s;"
-        onmouseover="this.style.color='#f2f3f4'" onmouseout="this.style.color='#9a9da0'">
+        style="color:var(--oriens-secondary); font-size:13px; background:none; border:none; cursor:pointer; padding:0; transition:color .12s;"
+        onmouseover="this.style.color='var(--oriens-primary)'" onmouseout="this.style.color='var(--oriens-secondary)'">
         + Nova seção
       </button>
       <form x-show="addingSection" x-cloak
@@ -463,8 +423,8 @@
 
     <!-- Bloqueadas -->
     {% if blocked_tasks %}
-    <div style="margin-top:20px; padding-top:16px; border-top:1px solid #2e3133;">
-      <p style="color:#6d7073; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">Bloqueadas</p>
+    <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--oriens-divider);">
+      <p style="color:var(--oriens-secondary); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">Bloqueadas</p>
       {% for task in blocked_tasks %}
         {% with reload_on_done=true %}{% include "partials/project_task_row.html" %}{% endwith %}
       {% endfor %}
@@ -473,14 +433,14 @@
 
     <!-- Concluídas -->
     {% if done_tasks %}
-    <div style="margin-top:16px; padding-top:12px; border-top:1px solid #2e3133;" x-data="{ show: false }">
+    <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--oriens-divider);" x-data="{ show: false }">
       <button @click="show = !show"
-        style="display:flex; align-items:center; gap:8px; color:#6d7073; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; background:none; border:none; cursor:pointer; padding:0; margin-bottom:8px; transition:color .12s;"
-        onmouseover="this.style.color='#9a9da0'" onmouseout="this.style.color='#6d7073'">
+        style="display:flex; align-items:center; gap:8px; color:var(--oriens-secondary); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; background:none; border:none; cursor:pointer; padding:0; margin-bottom:8px; transition:color .12s;"
+        onmouseover="this.style.color='var(--oriens-primary)'" onmouseout="this.style.color='var(--oriens-secondary)'">
         <span x-text="show ? '▾' : '▸'">▸</span>
         <span>Concluídas ({{ done_tasks | length }})</span>
       </button>
-      <div x-show="show" x-transition style="background:#25282a; border-radius:6px; padding:4px;">
+      <div x-show="show" x-transition style="background:var(--oriens-surface); border-radius:6px; padding:4px;">
         {% for task in done_tasks %}
           {% include "partials/task_item.html" %}
         {% endfor %}

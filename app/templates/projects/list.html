@@ -15,35 +15,35 @@
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.06em;
-  color: #6d7073;
+  color: var(--oriens-secondary);
   text-transform: uppercase;
-  border-bottom: 1px solid #404244;
+  border-bottom: 1px solid var(--oriens-border);
   white-space: nowrap;
-  background: #1d1f21;
+  background: var(--oriens-bg);
 }
 .proj-row td {
   padding: 14px 12px;
-  border-bottom: 1px solid #2e3133;
-  color: #f2f3f4;
+  border-bottom: 1px solid var(--oriens-divider);
+  color: var(--oriens-primary);
   font-size: 14px;
-  background: #1d1f21;
+  background: var(--oriens-bg);
 }
-.proj-row:hover td { background: #25282a; }
-.drag-handle { opacity: 0; transition: opacity .15s; cursor: grab; color: #6d7073; font-size: 16px; }
+.proj-row:hover td { background: var(--oriens-surface); }
+.drag-handle { opacity: 0; transition: opacity .15s; cursor: grab; color: var(--oriens-muted); font-size: 16px; }
 .proj-row:hover .drag-handle { opacity: 1; }
 .row-actions { opacity: 0; transition: opacity .15s; display: flex; gap: 6px; }
 .proj-row:hover .row-actions { opacity: 1; }
 .proj-section-hdr td {
-  padding: 12px 12px 8px;
+  padding: 24px 12px 8px;
   font-size: 15px;
   font-weight: 600;
-  color: #f2f3f4;
-  border-bottom: 1px solid #404244;
+  color: var(--oriens-primary);
+  border-bottom: 1px solid var(--oriens-border);
   cursor: pointer;
   user-select: none;
-  background: #1d1f21;
+  background: var(--oriens-bg);
 }
-.proj-section-hdr:hover td { background: #1d1f21; }
+.proj-section-hdr:hover td { background: var(--oriens-bg); }
 .proj-chip {
   display: inline-flex;
   align-items: center;
@@ -59,12 +59,12 @@
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  border: 1px solid #404244;
-  background: #2a2d2f;
-  color: #9a9da0;
+  border: 1px solid var(--oriens-border);
+  background: var(--oriens-surface);
+  color: var(--oriens-secondary);
   transition: background .12s, color .12s;
 }
-.proj-btn:hover { background: #353839; color: #f2f3f4; }
+.proj-btn:hover { background: var(--oriens-card-hover); color: var(--oriens-primary); }
 .name-cell {
   white-space: nowrap;
   overflow: hidden;
@@ -75,11 +75,11 @@
 
 <!-- Header -->
 <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:20px;">
-  <h1 style="font-size:24px; font-weight:700; color:#f2f3f4; letter-spacing:-0.01em; margin:0;">Projetos</h1>
+  <h1 style="font-size:24px; font-weight:700; color:var(--oriens-primary); letter-spacing:-0.01em; margin:0;">Projetos</h1>
   <div style="display:flex; align-items:center; gap:10px;">
     <a href="/projects/reports"
-       style="color:#6d7073; font-size:13px; text-decoration:none; transition:color .12s;"
-       onmouseover="this.style.color='#9a9da0'" onmouseout="this.style.color='#6d7073'">
+       style="color:var(--oriens-muted); font-size:13px; text-decoration:none; transition:color .12s;"
+       onmouseover="this.style.color='var(--oriens-secondary)'" onmouseout="this.style.color='var(--oriens-muted)'">
       Relatório →
     </a>
     <button
@@ -93,12 +93,12 @@
 
 <!-- Filtro / Tabs -->
 {% set cur = current_filter | default('active') %}
-<div style="display:flex; gap:0; border-bottom:1px solid #404244; margin-bottom:24px;">
+<div style="display:flex; gap:0; border-bottom:1px solid var(--oriens-border); margin-bottom:24px;">
   {% for f, label in [('active', 'Ativos'), ('archived', 'Arquivados'), ('all', 'Todos')] %}
   <a href="/projects?filter={{ f }}"
      style="padding:8px 16px; font-size:14px; text-decoration:none; display:inline-block; margin-bottom:-1px;
             border-bottom:2px solid {% if cur == f %}#4573d2{% else %}transparent{% endif %};
-            color:{% if cur == f %}#f2f3f4{% else %}#9a9da0{% endif %};
+            color:{% if cur == f %}var(--oriens-primary){% else %}var(--oriens-secondary){% endif %};
             transition:color .12s;">
     {{ label }}
   </a>
@@ -111,7 +111,7 @@
 </div>
 
 <!-- Tabela de projetos -->
-<div style="border-radius:8px; overflow:hidden; border:1px solid #2e3133;">
+<div style="border-radius:8px; overflow:hidden; border:1px solid var(--oriens-border);">
   <table class="proj-table">
     <colgroup>
       <col style="width:24px">
@@ -142,7 +142,7 @@
           <span style="font-size:10px; margin-right:6px; display:inline-block; transition:transform .15s;"
                 :style="open ? '' : 'transform:rotate(-90deg)'">▼</span>
           <span class="proj-chip" style="background:#1b3a2a; color:#4caf82; border:1px solid #2a5a3a; margin-right:8px;">Em andamento</span>
-          <span style="color:#6d7073; font-size:13px; font-weight:400;">{{ active_projects | length }}</span>
+          <span style="color:var(--oriens-muted); font-size:13px; font-weight:400;">{{ active_projects | length }}</span>
         </td>
       </tr>
       {% for project in active_projects %}
@@ -150,8 +150,8 @@
         <td style="width:24px; text-align:center;"><span class="drag-handle">⠿</span></td>
         <td>
           <a href="/projects/{{ project.id }}" class="name-cell"
-             style="color:#f2f3f4; text-decoration:none; transition:color .12s;"
-             onmouseover="this.style.color='#4573d2'" onmouseout="this.style.color='#f2f3f4'">
+             style="color:var(--oriens-primary); text-decoration:none; transition:color .12s;"
+             onmouseover="this.style.color='#4573d2'" onmouseout="this.style.color='var(--oriens-primary)'">
             {{ project.name }}
           </a>
         </td>
@@ -164,16 +164,16 @@
             <span class="proj-chip" style="background:#1b3020; color:#50b880;">Baixa</span>
           {% endif %}
         </td>
-        <td style="color:#9a9da0; font-size:13px;">
+        <td style="color:var(--oriens-secondary); font-size:13px;">
           {% if project.context_id and context_labels %}{{ context_labels.get(project.context_id, '—') }}{% else %}—{% endif %}
         </td>
         <td>
           {% if project.deadline %}
             {% set ds = due_status(project.deadline) %}
-            <span style="font-size:13px; {% if ds == 'overdue' %}color:#e08050; font-weight:500;{% elif ds == 'today' %}color:#EF9F27;{% else %}color:#9a9da0;{% endif %}">
+            <span style="font-size:13px; {% if ds == 'overdue' %}color:#e08050; font-weight:500;{% elif ds == 'today' %}color:#EF9F27;{% else %}color:var(--oriens-secondary);{% endif %}">
               {{ project.deadline.strftime('%d/%m/%Y') }}
             </span>
-          {% else %}<span style="color:#6d7073;">—</span>{% endif %}
+          {% else %}<span style="color:var(--oriens-empty);">—</span>{% endif %}
         </td>
         <td>
           <div class="row-actions">
@@ -198,7 +198,7 @@
       </tr>
       {% else %}
       <tr x-show="open" x-cloak>
-        <td colspan="6" style="padding:14px 12px; color:#6d7073; font-size:14px; background:#1d1f21;">Nenhum projeto aqui.</td>
+        <td colspan="6" style="padding:14px 12px; color:var(--oriens-empty); font-size:14px; background:var(--oriens-bg);">Nenhum projeto aqui.</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -210,7 +210,7 @@
           <span style="font-size:10px; margin-right:6px; display:inline-block; transition:transform .15s;"
                 :style="open ? '' : 'transform:rotate(-90deg)'">▼</span>
           <span class="proj-chip" style="background:#2a2d2f; color:#9a9da0; border:1px solid #404244; margin-right:8px;">Não iniciado</span>
-          <span style="color:#6d7073; font-size:13px; font-weight:400;">{{ paused_projects | length }}</span>
+          <span style="color:var(--oriens-muted); font-size:13px; font-weight:400;">{{ paused_projects | length }}</span>
         </td>
       </tr>
       {% for project in paused_projects %}
@@ -218,8 +218,8 @@
         <td style="width:24px; text-align:center;"><span class="drag-handle">⠿</span></td>
         <td>
           <a href="/projects/{{ project.id }}" class="name-cell"
-             style="color:#f2f3f4; text-decoration:none; transition:color .12s;"
-             onmouseover="this.style.color='#4573d2'" onmouseout="this.style.color='#f2f3f4'">
+             style="color:var(--oriens-primary); text-decoration:none; transition:color .12s;"
+             onmouseover="this.style.color='#4573d2'" onmouseout="this.style.color='var(--oriens-primary)'">
             {{ project.name }}
           </a>
         </td>
@@ -232,16 +232,16 @@
             <span class="proj-chip" style="background:#1b3020; color:#50b880;">Baixa</span>
           {% endif %}
         </td>
-        <td style="color:#9a9da0; font-size:13px;">
+        <td style="color:var(--oriens-secondary); font-size:13px;">
           {% if project.context_id and context_labels %}{{ context_labels.get(project.context_id, '—') }}{% else %}—{% endif %}
         </td>
         <td>
           {% if project.deadline %}
             {% set ds = due_status(project.deadline) %}
-            <span style="font-size:13px; {% if ds == 'overdue' %}color:#e08050; font-weight:500;{% elif ds == 'today' %}color:#EF9F27;{% else %}color:#9a9da0;{% endif %}">
+            <span style="font-size:13px; {% if ds == 'overdue' %}color:#e08050; font-weight:500;{% elif ds == 'today' %}color:#EF9F27;{% else %}color:var(--oriens-secondary);{% endif %}">
               {{ project.deadline.strftime('%d/%m/%Y') }}
             </span>
-          {% else %}<span style="color:#6d7073;">—</span>{% endif %}
+          {% else %}<span style="color:var(--oriens-empty);">—</span>{% endif %}
         </td>
         <td>
           <div class="row-actions">
@@ -266,7 +266,7 @@
       </tr>
       {% else %}
       <tr x-show="open" x-cloak>
-        <td colspan="6" style="padding:14px 12px; color:#6d7073; font-size:14px; background:#1d1f21;">Nenhum projeto aqui.</td>
+        <td colspan="6" style="padding:14px 12px; color:var(--oriens-empty); font-size:14px; background:var(--oriens-bg);">Nenhum projeto aqui.</td>
       </tr>
       {% endfor %}
     </tbody>
@@ -278,7 +278,7 @@
           <span style="font-size:10px; margin-right:6px; display:inline-block; transition:transform .15s;"
                 :style="open ? '' : 'transform:rotate(-90deg)'">▼</span>
           <span class="proj-chip" style="background:#2a2d2f; color:#6d7073; border:1px solid #404244; margin-right:8px;">Concluído</span>
-          <span style="color:#6d7073; font-size:13px; font-weight:400;">{{ done_projects | length }}</span>
+          <span style="color:var(--oriens-muted); font-size:13px; font-weight:400;">{{ done_projects | length }}</span>
         </td>
       </tr>
       {% for project in done_projects %}
@@ -286,7 +286,7 @@
         <td style="width:24px; text-align:center;"><span class="drag-handle">⠿</span></td>
         <td>
           <a href="/projects/{{ project.id }}" class="name-cell"
-             style="color:#f2f3f4; text-decoration:line-through; text-decoration-color:#6d7073;">
+             style="color:var(--oriens-primary); text-decoration:line-through; text-decoration-color:var(--oriens-secondary);">
             {{ project.name }}
           </a>
         </td>
@@ -299,13 +299,13 @@
             <span class="proj-chip" style="background:#1b3020; color:#50b880;">Baixa</span>
           {% endif %}
         </td>
-        <td style="color:#9a9da0; font-size:13px;">
+        <td style="color:var(--oriens-secondary); font-size:13px;">
           {% if project.context_id and context_labels %}{{ context_labels.get(project.context_id, '—') }}{% else %}—{% endif %}
         </td>
         <td>
           {% if project.deadline %}
-            <span style="font-size:13px; color:#9a9da0;">{{ project.deadline.strftime('%d/%m/%Y') }}</span>
-          {% else %}<span style="color:#6d7073;">—</span>{% endif %}
+            <span style="font-size:13px; color:var(--oriens-secondary);">{{ project.deadline.strftime('%d/%m/%Y') }}</span>
+          {% else %}<span style="color:var(--oriens-empty);">—</span>{% endif %}
         </td>
         <td>
           <div class="row-actions">
@@ -322,7 +322,7 @@
       </tr>
       {% else %}
       <tr x-show="open" x-cloak>
-        <td colspan="6" style="padding:14px 12px; color:#6d7073; font-size:14px; background:#1d1f21;">Nenhum projeto concluído.</td>
+        <td colspan="6" style="padding:14px 12px; color:var(--oriens-empty); font-size:14px; background:var(--oriens-bg);">Nenhum projeto concluído.</td>
       </tr>
       {% endfor %}
     </tbody>

@@ -54,7 +54,7 @@ Se a resposta for "mais difícil", a escolha está errada.
 
 ---
 
-## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS SCRIPT 16B)
+## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS SCRIPT 17)
 
 ```
 C:\Projetos\Sistema tarefas\
@@ -128,8 +128,8 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── settings.html              # etiquetas + contextos + "Critérios de importância" (SCRIPT 3/8)
 │   │   ├── auth/ (login.html, setup.html)
 │   │   ├── projects/
-│   │   │   ├── list.html              # kanban; cards minimalistas (só nome/prioridade/contexto/prazo, sem objetivo nem progresso — SCRIPT 16B)
-│   │   │   ├── detail.html            # orientado a execução: objetivo inline, tabela Asana (Tarefa/Energia/Prazo/Responsável), seções, SortableJS (SCRIPT 16A/16B)
+│   │   │   ├── list.html              # tabela com seções colapsáveis Alpine (Em andamento→Não iniciado→Concluído); chips status/prioridade; HTMX hover actions; resize de colunas (SCRIPT 17)
+│   │   │   ├── detail.html            # full-width max-960px; abas Alpine (Visão geral / Tarefas); overview = grid cards (Objetivo/Prazo/Progresso/Decisões/Comentários/Anexos); tasks = tabela Asana + SortableJS; sidebar removida (SCRIPT 17)
 │   │   │   └── reports.html           # coluna "Decisões" (era "Marcos") — SCRIPT 5
 │   │   └── partials/
 │   │       ├── task_item.html         # PARTIAL UNIFICADO de tarefa — usado por Dashboard, concluídas, overload; flags: reload_on_done, hide_actions
@@ -383,7 +383,7 @@ TELEGRAM_CHAT_ID=               # opcional
 | GET | `/auth/setup` | Criar primeiro usuário |
 | POST | `/auth/setup` | Salvar primeiro usuário |
 | GET | `/dashboard` | Dashboard (`?energy=high\|medium\|low`) |
-| GET | `/projects` | Lista de projetos (kanban); `?filter=active\|archived\|all` (SCRIPT 5) |
+| GET | `/projects` | Lista de projetos (tabela + seções colapsáveis); `?filter=active\|archived\|all` (SCRIPT 5/17) |
 | GET | `/projects/reports` | Relatórios |
 | GET | `/projects/{id}` | Detalhe do projeto |
 | GET | `/capture` | Inbox de captura |
@@ -622,6 +622,12 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **`partials/project_section.html`:** atualizado para usar `project_task_row.html`; `is_next` calculado por `task.id == next_action.task.id`.
 - **`projects/detail.html`:** bloco "Próxima ação operacional" removido do topo; objetivo movido do sidebar para coluna principal (texto compacto + "Editar" inline ou "+ definir objetivo" como convite accent); cabeçalho de colunas discreto (Tarefa · Energia · Prazo · Responsável, `hidden md:flex`); `sem_secao_tasks` renderiza com `project_task_row.html`; objetivo removido do sidebar (mantidos: prazo, comentários, auditoria).
 - **Sem alteração de banco, backend, rotas, serviços, Dashboard, Captura ou Listas.**
+
+### ✅ SCRIPT 17 — Redesign: lista e detalhe de projetos (somente templates)
+- **`projects/list.html`:** kanban de 3 colunas substituído por tabela `table-layout:fixed` com seções colapsáveis via Alpine.js (`x-data="{open:true}"` por `<tbody>`). Ordem de seções: Em andamento → Não iniciado → Concluído. Colunas: drag(24px) · Nome(auto) · Prioridade(90px) · Contexto(100px) · Prazo(110px) · Ações(80px). Chips de status (fundo colorido semântico) e prioridade (Alta/Média/Baixa com paleta própria). Prazo urgente em `#e08050`. Drag handle e botões de ação (`opacity:0→1`) visíveis apenas no hover. Projetos concluídos: `opacity:0.45` + nome riscado. Filtros (Ativos/Arquivados/Todos) viram tabs com sublinhado `#4573d2` na ativa. Botões HTMX Pausar/Iniciar/Concluir/Reabrir idênticos ao `project_card.html`. JS de resize de colunas via `.resizable-th`. Cores hardcoded em `<style>` local (paleta: `#1d1f21` fundo · `#25282a` card · `#404244` borda · `#4573d2` accent).
+- **`projects/detail.html`:** layout de 2 colunas (main + aside) substituído por full-width `max-width:960px; padding:32px 40px; margin:0`. Sidebar (prazo/comentários/anexos) **removida**. Header: breadcrumb + h1 + chips (status/prioridade/contexto/prazo/arquivado/responsável) + botões Arquivar/Editar. Formulário de edição (Alpine `x-show="editing"`, HTMX) preservado. Duas abas Alpine (`x-data="{editing:false, tab:'overview'}"`, sublinhado `#4573d2` na ativa): **Visão geral** — grid 2 colunas com cards `pj-card` (fundo `#25282a`, borda `#404244`); Objetivo (full-width, editável inline), Prazo (número grande + dias + Editar HTMX), Progresso (% grande + barra 6px), Decisões (full-width, input + lista HTMX), Comentários (full-width, textarea + lista HTMX), Anexos (full-width, upload HTMX). **Tarefas** — barra 3px de progresso + contador `X/Y·%` + cabeçalho de tabela com `.resizable-th` + estrutura existente de seções/`sem_secao_tasks`/bloqueadas/concluídas preservada; SortableJS idêntico. IA e riscos (`{% if false %}`) preservados.
+- **Paleta local (ambos os templates):** fundo `#1d1f21` · card `#25282a` · borda `#404244` · borda sutil `#2e3133` · texto primário `#f2f3f4` · texto secundário `#9a9da0` · texto apagado `#6d7073` · accent `#4573d2` · prazo urgente `#e08050`. Chips: Alta `bg:#3a1b1b text:#e07070` · Média `bg:#2e2010 text:#d4a040` · Baixa `bg:#1b3020 text:#50b880` · Em andamento `bg:#1b3a2a text:#4caf82 border:#2a5a3a` · Neutro `bg:#2a2d2f text:#9a9da0 border:#404244`.
+- **Sem migração de schema. Sem alteração de backend, rotas, serviços ou outros templates.**
 
 ### ✅ BUGFIX 16B — Correções pós-SCRIPT 16B (checkbox + done_at)
 - **Checkbox `project_task_row.html`:** alinhado com o padrão comprovado de `task_item.html` — `hx-on:click` adiciona `task-completing` imediatamente; `hx-on::after-request` usa chaves `{ }` (exigido pelo HTMX 1.9.12) + `window.location.reload()` quando `reload_on_done`. Botão "desfazer" (done→pending) trocado de `hx-swap="outerHTML"` para `hx-swap="none"` + reload (evitava substituir a row por `task_item.html` incorretamente). Mesmo padrão aplicado nos checkboxes de subtarefa.

@@ -74,7 +74,7 @@
     <div x-data="{ open: false }" style="border-top: 1px solid var(--oriens-border);">
       <button @click="open = true"
         class="w-full text-left px-5 py-3 text-xs hover:opacity-70 transition-opacity"
-        style="color: var(--accent);">
+        style="color: var(--text-secondary);">
         Sair do trabalho →
       </button>
 
@@ -140,7 +140,7 @@
         <button type="submit"
           class="w-full text-left px-3 py-1.5 rounded-lg text-xs transition-colors mb-0.5
           {% if active_context_obj and ctx.id == active_context_obj.id %}font-medium{% endif %}"
-          style="color: {% if active_context_obj and ctx.id == active_context_obj.id %}var(--accent){% else %}var(--text-secondary){% endif %}; background: {% if active_context_obj and ctx.id == active_context_obj.id %}var(--bg-surface){% else %}transparent{% endif %};">
+          style="color: {% if active_context_obj and ctx.id == active_context_obj.id %}var(--text-primary){% else %}var(--text-secondary){% endif %}; background: {% if active_context_obj and ctx.id == active_context_obj.id %}var(--bg-surface){% else %}transparent{% endif %};">
           {{ ctx.name }}
         </button>
       </form>
