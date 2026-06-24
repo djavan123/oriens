@@ -1,6 +1,30 @@
 {% extends "base.html" %}
 
 {% block body %}
+<style>
+.capture-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--oriens-btn);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.capture-btn:hover { opacity: 0.85; }
+.capture-btn kbd {
+  font-size: 11px;
+  font-family: inherit;
+  opacity: 0.7;
+  font-weight: 400;
+}
+</style>
 <div class="flex min-h-screen" x-data="{ sidebarOpen: false, quickCapture: false }"
      @keydown.window="if($event.key==='c' && !$event.metaKey && !$event.ctrlKey && !$event.altKey && !/^(input|textarea|select)$/i.test(($event.target.tagName||'')) && !$event.target.isContentEditable){ quickCapture=true; $event.preventDefault(); $nextTick(()=>{ var i=document.getElementById('quick-capture-input'); if(i) i.focus(); }); }">
 
@@ -38,10 +62,10 @@
 
     <!-- Captura rápida (global): botão + atalho "c" -->
     <div class="px-2 pt-4">
-      <button type="button" @click="quickCapture = true; sidebarOpen = false; $nextTick(()=>{ var i=document.getElementById('quick-capture-input'); if(i) i.focus(); })"
-        class="w-full btn-primary py-2 text-xs rounded-lg flex items-center justify-center gap-2">
-        <span class="text-base leading-none">+</span> Capturar
-        <span class="text-[10px] opacity-70 hidden md:inline">c</span>
+      <button type="button" class="capture-btn"
+        @click="quickCapture = true; sidebarOpen = false; $nextTick(()=>{ var i=document.getElementById('quick-capture-input'); if(i) i.focus(); })">
+        <span>+ Capturar</span>
+        <kbd>c</kbd>
       </button>
     </div>
 

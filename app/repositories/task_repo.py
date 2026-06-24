@@ -354,3 +354,31 @@ class TaskRepository:
             .group_by(Task.project_id)
         )
         return {row[0]: int(row[1]) for row in result.all()}
+
+    async def reorder_section_tasks(
+        self,
+        project_id: int,
+        user_id: int,
+        section_id: Optional[int],
+        task_ids: list[int],
+    ) -> bool:
+        """Atribui section_id e order_index (0, 1, 2…) às tarefas na sequência dada.
+
+        Valida: ownership, pertencimento ao projeto, sem subtarefas.
+        Retorna False se qualquer validação falhar.
+        """
+        if not task_ids:
+            return True
+        result = await self.db.execute(
+            select(Task).where(Task.id.in_(task_ids), Task.user_id == user_id)
+        )
+        tasks = {t.id: t for t in result.scalars().all()}
+        if len(tasks) != len(task_ids):
+            return False
+        if any(t.project_id != project_id or t.parent_id is not None for t in tasks.values()):
+            return False
+        for idx, task_id in enumerate(task_ids):
+            tasks[task_id].section_id = section_id
+            tasks[task_id].order_index = idx
+        await self.db.commit()
+        return True

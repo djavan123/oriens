@@ -33,6 +33,44 @@
 .pj-select { width:100%; background:var(--oriens-bg); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:8px 12px; font-size:14px; outline:none; }
 .pj-input { background:var(--oriens-bg); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:8px 12px; font-size:14px; outline:none; }
 .tasks-th { padding:6px 12px; text-align:left; font-size:11px; font-weight:600; letter-spacing:0.06em; color:var(--oriens-secondary); text-transform:uppercase; border-bottom:1px solid var(--oriens-border); white-space:nowrap; background:transparent; }
+
+/* ── Aba Tarefas ── */
+/* Nomes de seção: capitalização normal, tamanho/cor de cabeçalho */
+#project-sections [id^="section-name-"] {
+  text-transform: none !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: var(--oriens-primary) !important;
+  letter-spacing: 0 !important;
+}
+/* Espaço entre seções */
+#project-sections > .mb-5 + .mb-5 { padding-top: 28px; }
+/* Remove borda esquerda colorida da próxima ação */
+.project-task-row.border-l-2 { border-left: none !important; }
+/* Badge "Próxima ação" → texto discreto */
+.project-task-row .font-bold.uppercase {
+  color: var(--oriens-secondary) !important;
+  font-weight: 400 !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+  font-size: 11px !important;
+}
+/* Checkbox circular */
+.project-task-row .w-4.h-4,
+.project-task-row button .w-4.h-4 { border-radius: 50% !important; }
+/* Hover da linha — mais sutil */
+.project-task-row:hover { background: rgba(255,255,255,0.03) !important; }
+/* Painel de ações: bg transparente para combinar com hover sutil */
+.project-task-row .absolute.right-0 { background: transparent !important; }
+.project-task-row:hover .absolute.right-0 { background: rgba(255,255,255,0.03) !important; }
+/* Botão ··· injetado via JS */
+.pj-ellipsis-btn {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  opacity: 0; transition: opacity .1s;
+  background: none; border: none; color: var(--oriens-secondary);
+  cursor: pointer; font-size: 18px; padding: 0 4px; line-height: 1;
+}
+.project-task-row:hover .pj-ellipsis-btn { opacity: 1; }
 </style>
 
 <div style="max-width:960px; padding:32px 40px; margin:0;" x-data="{ editing: false, tab: 'overview' }">
@@ -362,7 +400,7 @@
         <tr>
           <th class="resizable-th tasks-th"></th>
           <th class="resizable-th tasks-th"></th>
-          <th class="resizable-th tasks-th">Tarefa</th>
+          <th class="resizable-th tasks-th">Nome</th>
           <th class="resizable-th tasks-th">Energia</th>
           <th class="resizable-th tasks-th">Prazo</th>
           <th class="resizable-th tasks-th">Responsável</th>
@@ -380,7 +418,7 @@
     <!-- Tarefas sem seção -->
     <div id="sem-secao-container">
       {% if section_groups %}
-      <p style="color:var(--oriens-secondary); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin:16px 0 4px 4px;">Sem seção</p>
+      <p style="color:var(--oriens-primary); font-size:14px; font-weight:600; margin:28px 0 4px 4px;">Sem seção</p>
       {% endif %}
 
       <div id="task-list-pending" class="section-task-list">
@@ -396,8 +434,15 @@
       <p id="no-pending" style="color:var(--oriens-empty); font-size:14px; font-style:italic; padding:12px 4px;">Nenhuma tarefa pendente.</p>
       {% endif %}
 
-      <div style="margin-top:12px;">
-        {% with project_id=project.id %}{% include "partials/task_form.html" %}{% endwith %}
+      <div style="margin-top:8px;" x-data="{ showTaskForm: false }">
+        <div x-show="!showTaskForm"
+          @click="showTaskForm=true; $nextTick(()=>{ var i=document.querySelector('#new-task-form input[name=title]'); if(i) i.focus(); })"
+          style="font-size:13px; color:var(--oriens-secondary); opacity:0.5; cursor:pointer; padding:6px 0 6px 44px; user-select:none;">
+          + Adicionar tarefa
+        </div>
+        <div x-show="showTaskForm" x-cloak>
+          {% with project_id=project.id %}{% include "partials/task_form.html" %}{% endwith %}
+        </div>
       </div>
     </div>
 
@@ -424,7 +469,7 @@
     <!-- Bloqueadas -->
     {% if blocked_tasks %}
     <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--oriens-divider);">
-      <p style="color:var(--oriens-secondary); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; margin-bottom:8px;">Bloqueadas</p>
+      <p style="color:var(--oriens-secondary); font-size:14px; font-weight:600; margin-bottom:8px;">Bloqueadas</p>
       {% for task in blocked_tasks %}
         {% with reload_on_done=true %}{% include "partials/project_task_row.html" %}{% endwith %}
       {% endfor %}
@@ -435,7 +480,7 @@
     {% if done_tasks %}
     <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--oriens-divider);" x-data="{ show: false }">
       <button @click="show = !show"
-        style="display:flex; align-items:center; gap:8px; color:var(--oriens-secondary); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; background:none; border:none; cursor:pointer; padding:0; margin-bottom:8px; transition:color .12s;"
+        style="display:flex; align-items:center; gap:8px; color:var(--oriens-secondary); font-size:14px; font-weight:600; background:none; border:none; cursor:pointer; padding:0; margin-bottom:8px; transition:color .12s;"
         onmouseover="this.style.color='var(--oriens-primary)'" onmouseout="this.style.color='var(--oriens-secondary)'">
         <span x-text="show ? '▾' : '▸'">▸</span>
         <span>Concluídas ({{ done_tasks | length }})</span>
@@ -503,6 +548,82 @@ document.querySelectorAll('.resizable-th').forEach(th => {
     e.preventDefault();
   });
 });
+</script>
+
+<!-- Aba Tarefas: formulários de seção + botão ··· -->
+<script>
+(function(){
+  // Formulários de seção → "+" trigger
+  function setupSectionForms(){
+    document.querySelectorAll('form[id^="task-form-section-"]:not([data-trigger])').forEach(function(form){
+      form.dataset.trigger = '1';
+      form.style.display = 'none';
+      var trigger = document.createElement('div');
+      trigger.style.cssText = 'padding:6px 0 6px 44px; cursor:pointer; user-select:none;';
+      trigger.innerHTML = '<span style="font-size:13px;color:var(--oriens-secondary);opacity:0.5;">+ Adicionar tarefa</span>';
+      form.parentNode.insertBefore(trigger, form);
+      trigger.addEventListener('click', function(){
+        trigger.style.display = 'none';
+        form.style.removeProperty('display');
+        var inp = form.querySelector('input[name="title"]');
+        if(inp) inp.focus();
+      });
+      form.addEventListener('htmx:afterRequest', function(e){
+        if(e.detail.successful){
+          trigger.style.removeProperty('display');
+          form.style.display = 'none';
+        }
+      });
+    });
+  }
+
+  // Botão ··· em linhas de tarefa
+  function setupEllipsis(){
+    document.querySelectorAll('.project-task-row:not([data-ell])').forEach(function(row){
+      row.dataset.ell = '1';
+      var panel = row.querySelector('.absolute.right-0');
+      if(!panel) return;
+      panel.style.opacity = '0';
+      panel.style.pointerEvents = 'none';
+      panel.style.transition = 'none';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'pj-ellipsis-btn';
+      btn.textContent = '···';
+      row.appendChild(btn);
+      var open = false;
+      row.addEventListener('mouseleave', function(){
+        if(!open) btn.style.opacity = '0';
+      });
+      btn.addEventListener('click', function(e){
+        e.stopPropagation();
+        open = !open;
+        panel.style.opacity = open ? '1' : '0';
+        panel.style.pointerEvents = open ? 'auto' : 'none';
+        btn.style.opacity = open ? '1' : '0';
+      });
+      document.addEventListener('click', function(){
+        if(open){
+          open = false;
+          panel.style.opacity = '0';
+          panel.style.pointerEvents = 'none';
+        }
+      });
+    });
+  }
+
+  function init(){
+    setupSectionForms();
+    setupEllipsis();
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  document.addEventListener('htmx:afterSettle', init);
+})();
 </script>
 
 {% endblock %}

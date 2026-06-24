@@ -60,3 +60,25 @@ class ProjectSectionRepository:
         await self.db.delete(section)
         await self.db.commit()
         return True
+
+    async def reorder_sections(self, project_id: int, section_ids: list[int]) -> bool:
+        """Atribui order_index (0, 1, 2…) às seções na sequência dada.
+
+        Valida: todas as seções pertencem ao projeto.
+        Retorna False se qualquer validação falhar.
+        """
+        if not section_ids:
+            return True
+        result = await self.db.execute(
+            select(ProjectSection).where(
+                ProjectSection.id.in_(section_ids),
+                ProjectSection.project_id == project_id,
+            )
+        )
+        sections = {s.id: s for s in result.scalars().all()}
+        if len(sections) != len(section_ids):
+            return False
+        for idx, section_id in enumerate(section_ids):
+            sections[section_id].order_index = idx
+        await self.db.commit()
+        return True

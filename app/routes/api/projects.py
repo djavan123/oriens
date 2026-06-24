@@ -28,6 +28,15 @@ from app.utils.auth import get_current_user
 class _TaskOrderPayload(BaseModel):
     task_ids: list[int]
 
+
+class _SectionTasksPayload(BaseModel):
+    section_id: Optional[int]
+    task_ids: list[int]
+
+
+class _SectionOrderPayload(BaseModel):
+    section_ids: list[int]
+
 router = APIRouter(prefix="/api/projects", tags=["api:projects"])
 
 ATTACHMENTS_DIR = "/app/data/attachments"
@@ -196,6 +205,55 @@ async def reorder_tasks(
         raise HTTPException(
             status_code=422,
             detail="IDs inválidos: verifique ownership e pertencimento ao projeto",
+        )
+    return {"ok": True}
+
+
+# ── Section tasks / section order ────────────────────────────────────────────
+
+@router.patch("/{project_id}/section-tasks")
+async def reorder_section_tasks(
+    project_id: int,
+    payload: _SectionTasksPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Move e reordena tarefas dentro de (ou entre) seções.
+
+    Recebe JSON {"section_id": null | int, "task_ids": [1, 2, 3]}.
+    Atribui section_id e order_index (0, 1, 2…) a cada tarefa da lista.
+    Valida: ownership do projeto, ownership de cada tarefa, sem subtarefas.
+    """
+    await _assert_owns_project(db, project_id, current_user.id)
+    ok = await TaskRepository(db).reorder_section_tasks(
+        project_id, current_user.id, payload.section_id, payload.task_ids
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=422,
+            detail="IDs inválidos: verifique ownership e pertencimento ao projeto",
+        )
+    return {"ok": True}
+
+
+@router.patch("/{project_id}/section-order")
+async def reorder_sections(
+    project_id: int,
+    payload: _SectionOrderPayload,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Reordena as seções de um projeto.
+
+    Recebe JSON {"section_ids": [3, 1, 2]} com os IDs na nova sequência.
+    Atribui order_index (0, 1, 2…) a cada seção. Valida pertencimento ao projeto.
+    """
+    await _assert_owns_project(db, project_id, current_user.id)
+    ok = await ProjectSectionRepository(db).reorder_sections(project_id, payload.section_ids)
+    if not ok:
+        raise HTTPException(
+            status_code=422,
+            detail="IDs inválidos: verifique pertencimento ao projeto",
         )
     return {"ok": True}
 
