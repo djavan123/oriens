@@ -421,7 +421,7 @@
       <p style="color:var(--oriens-primary); font-size:14px; font-weight:600; margin:28px 0 4px 4px;">Sem seção</p>
       {% endif %}
 
-      <div id="task-list-pending" class="section-task-list">
+      <div id="task-list-pending" class="section-task-list" data-section-id="null">
         {% for task in sem_secao_tasks %}
           {% with draggable=true, reload_on_done=true,
                   is_next=(next_action.task and task.id == next_action.task.id) %}
@@ -501,33 +501,81 @@
 <!-- SortableJS -->
 <script>
 (function(){
-  function initSortables(){
+  function getSectionId(container){
+    var raw = container.getAttribute('data-section-id');
+    if(!raw || raw === 'null') return null;
+    var n = parseInt(raw, 10);
+    return isNaN(n) ? null : n;
+  }
+  function getTaskIds(container){
+    return Array.prototype.slice.call(container.querySelectorAll(':scope > .project-task-row'))
+      .map(function(r){ return parseInt(r.getAttribute('data-task-id'), 10); })
+      .filter(function(n){ return !isNaN(n); });
+  }
+
+  function initTaskSortables(){
     document.querySelectorAll('.section-task-list:not([data-si])').forEach(function(el){
       el.setAttribute('data-si', '1');
       Sortable.create(el, {
         handle: '.drag-handle',
         draggable: '.project-task-row',
+        group: { name: 'project-tasks', pull: true, put: true },
         animation: 150,
-        onEnd: function(){
-          var ids = Array.prototype.slice.call(el.querySelectorAll(':scope > .project-task-row'))
-            .map(function(r){ return parseInt(r.getAttribute('data-task-id'), 10); })
-            .filter(function(n){ return !isNaN(n); });
-          if(!ids.length) return;
-          fetch('/api/projects/{{ project.id }}/task-order', {
+        onEnd: function(evt){
+          var destEl = evt.to;
+          var srcEl  = evt.from;
+          var destIds = getTaskIds(destEl);
+          fetch('/api/projects/{{ project.id }}/section-tasks', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ task_ids: ids })
+            body: JSON.stringify({ section_id: getSectionId(destEl), task_ids: destIds })
           });
+          if(srcEl !== destEl){
+            var srcIds = getTaskIds(srcEl);
+            fetch('/api/projects/{{ project.id }}/section-tasks', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ section_id: getSectionId(srcEl), task_ids: srcIds })
+            });
+          }
         }
       });
     });
   }
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', initSortables);
-  } else {
-    initSortables();
+
+  function initSectionSortable(){
+    var sectionsEl = document.getElementById('project-sections');
+    if(!sectionsEl || sectionsEl.getAttribute('data-sections-si')) return;
+    sectionsEl.setAttribute('data-sections-si', '1');
+    Sortable.create(sectionsEl, {
+      handle: '.section-drag-handle',
+      draggable: '.section-row',
+      animation: 150,
+      onEnd: function(){
+        var ids = Array.prototype.slice.call(sectionsEl.querySelectorAll(':scope > .section-row'))
+          .map(function(r){ return parseInt(r.getAttribute('data-section-id'), 10); })
+          .filter(function(n){ return !isNaN(n); });
+        if(!ids.length) return;
+        fetch('/api/projects/{{ project.id }}/section-order', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ section_ids: ids })
+        });
+      }
+    });
   }
-  document.addEventListener('htmx:afterSettle', initSortables);
+
+  function init(){
+    initTaskSortables();
+    initSectionSortable();
+  }
+
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+  document.addEventListener('htmx:afterSettle', initTaskSortables);
 })();
 </script>
 
