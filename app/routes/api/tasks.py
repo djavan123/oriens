@@ -358,3 +358,63 @@ async def update_task(
     return templates.TemplateResponse(
         request, "partials/task_item.html", {"task": task}
     )
+
+
+@router.get("/{task_id}/detail", response_class=HTMLResponse)
+async def task_detail(
+    task_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    from app.repositories.context_repo import ContextRepository
+    from app.repositories.label_repo import LabelRepository
+    from app.repositories.task_repo import TaskRepository
+    from app.repositories.project_section_repo import ProjectSectionRepository
+    from app.services.importancia_service import faixa_importancia
+    from sqlalchemy import select as sa_select
+    from app.models.user import User as UserModel
+
+    task = await TaskService(db).get_by_id(task_id, current_user.id)
+    if not task:
+        raise HTTPException(status_code=404)
+
+    contexts    = await ContextRepository(db).get_all_by_user(current_user.id)
+    user_labels = await LabelRepository(db).get_all_by_user(current_user.id)
+    users_res   = await db.execute(sa_select(UserModel).order_by(UserModel.name))
+    users       = list(users_res.scalars().all())
+    responsavel_map = {u.id: u.name for u in users}
+
+    children = await TaskRepository(db).get_children_map(current_user.id, [task_id])
+    subtasks = children.get(task_id, [])
+
+    section = None
+    if task.section_id:
+        section = await ProjectSectionRepository(db).get_by_id(task.section_id, task.project_id or 0)
+
+    project = None
+    if task.project_id:
+        from app.services.project_service import ProjectService
+        project = await ProjectService(db).get_by_id(task.project_id, current_user.id)
+
+    is_standalone_top = task.parent_id is None and task.project_id is None
+    prioridade = faixa_importancia(task.importancia, task.sem_nota) or "media"
+
+    return templates.TemplateResponse(
+        request,
+        "partials/task_detail_drawer.html",
+        {
+            "task": task,
+            "contexts": contexts,
+            "context_labels": {c.id: c.name for c in contexts},
+            "user_labels": user_labels,
+            "users": users,
+            "responsavel_map": responsavel_map,
+            "subtasks": subtasks,
+            "section": section,
+            "project": project,
+            "show_prioridade": is_standalone_top,
+            "is_project_task": task.project_id is not None,
+            "prioridade": prioridade,
+        },
+    )
