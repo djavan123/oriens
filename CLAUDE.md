@@ -106,7 +106,7 @@ C:\Projetos\Sistema tarefas\
 │   ├── routes/
 │   │   ├── auth.py                    # cookies com secure=COOKIE_SECURE
 │   │   ├── dashboard.py               # GET /dashboard/now + /projects-focus + /standalone (11/12); PATCH /dashboard/foco; /priorities legado
-│   │   ├── projects.py                # usa resolve_active_context(); list aceita ?filter=active|archived|all (SCRIPT 5); section_groups/sem_secao_tasks/responsavel_map (SCRIPT 16A)
+│   │   ├── projects.py                # usa resolve_active_context(); list aceita ?filter=active|archived|all (SCRIPT 5); section_groups/done_by_section/blocked_by_section/responsavel_map (SCRIPT 16A/18)
 │   │   ├── capture.py                 # resolve_active_context(); process passa criterios_by_context + contexto ativo (SCRIPT 8)
 │   │   ├── weekly.py                  # usa resolve_active_context()
 │   │   ├── settings.py               # GET /settings (etiquetas + contextos + critérios) — SCRIPT 3/8
@@ -663,6 +663,13 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **Frontend `partials/project_section.html`:** outer div ganhou `class="section-row"` e `data-section-id`; cabeçalho ganhou `.section-drag-handle` (⠿, visível no hover do grupo); task list ganhou `data-section-id`.
 - **Frontend `projects/detail.html`:** `#task-list-pending` ganhou `data-section-id="null"`; script SortableJS reescrito — tarefas usam `group: {name:'project-tasks'}` para cross-section, `onEnd` chama `/section-tasks` (origem e destino quando há troca de seção); nova função `initSectionSortable` cria Sortable sobre `#project-sections` com handle `.section-drag-handle` e draggable `.section-row`, chama `/section-order`.
 - **Sem migração de schema** — todos os campos (`order_index`, `section_id`) já existiam.
+
+### ✅ SCRIPT 18 — Tarefas por seção + tab persistente no detalhe de projeto
+- **Regra "toda tarefa pertence a uma seção":** removidos `#sem-secao-container` (bloco "Sem seção" + task_form avulso), bloco global "Bloqueadas" e bloco global "Concluídas" da aba Tarefas de `projects/detail.html`.
+- **Bloqueadas e concluídas inline na seção:** `routes/projects.py` (`project_detail`) agora constrói `done_by_section` e `blocked_by_section` (dicts `{section_id: [tasks]}`) além do `tasks_by_section` já existente (pending). Ambos passados ao template. `project_section.html` renderiza, após as pendentes: bloqueadas da seção (sem drag) e concluídas da seção (inline, sem drag, `opacity-40`/riscado) — sem sub-grupo separado.
+- **Sem reload ao concluir tarefa:** `reload_on_done` removido das chamadas de `project_task_row.html` em `project_section.html`; conclusão de tarefa usa o comportamento padrão (`setTimeout remove após 450ms`), sem `window.location.reload()`.
+- **Tab ativo persistente:** `projects/detail.html` — `x-data` lê `localStorage.getItem('oriens-pj-tab') || 'overview'`; `x-init` com `$watch('tab', ...)` persiste no `localStorage`. Ao navegar entre Visão geral e Tarefas, a aba é lembrada.
+- **Sem migração de schema. Sem novo endpoint.**
 
 ---
 
