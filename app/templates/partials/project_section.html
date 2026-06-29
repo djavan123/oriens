@@ -61,24 +61,13 @@
     {% endwith %}
   {% endfor %}
 
-  <!-- Concluídas da seção (colapsível) -->
+  <!-- Concluídas da seção (inline, sem drag) -->
   {% set section_done = done_by_section.get(section.id, []) if done_by_section is defined else [] %}
-  {% if section_done %}
-  <div x-data="{ showDone: false }" style="margin-top:4px;">
-    <button @click="showDone = !showDone"
-      style="font-size:12px; color:var(--oriens-secondary); background:none; border:none; cursor:pointer; padding:4px 0 4px 44px; opacity:0.6; display:flex; align-items:center; gap:4px;">
-      <span x-text="showDone ? '▾' : '▸'">▸</span>
-      Concluídas ({{ section_done | length }})
-    </button>
-    <div x-show="showDone" x-transition>
-      {% for task in section_done %}
-        {% with draggable=false, reload_on_done=true %}
-          {% include "partials/project_task_row.html" %}
-        {% endwith %}
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
+  {% for task in section_done %}
+    {% with draggable=false, reload_on_done=true %}
+      {% include "partials/project_task_row.html" %}
+    {% endwith %}
+  {% endfor %}
 
   <!-- Form de adição rápida dentro da seção -->
   {% with project_id=project.id, section_id=section.id, task_list_target="#task-list-section-" ~ section.id, form_id="task-form-section-" ~ section.id %}
