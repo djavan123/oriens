@@ -45,7 +45,7 @@
   <div id="task-list-section-{{ section.id }}" class="section-task-list pl-2" data-section-id="{{ section.id }}">
     {% if section_tasks is defined %}
     {% for task in section_tasks %}
-      {% with draggable=true, reload_on_done=true,
+      {% with draggable=true,
               is_next=(next_action is defined and next_action.task and task.id == next_action.task.id) %}
         {% include "partials/project_task_row.html" %}
       {% endwith %}
@@ -56,7 +56,7 @@
   <!-- Bloqueadas da seção -->
   {% set section_blocked = blocked_by_section.get(section.id, []) if blocked_by_section is defined else [] %}
   {% for task in section_blocked %}
-    {% with draggable=false, reload_on_done=true %}
+    {% with draggable=false %}
       {% include "partials/project_task_row.html" %}
     {% endwith %}
   {% endfor %}
@@ -64,7 +64,7 @@
   <!-- Concluídas da seção (inline, sem drag) -->
   {% set section_done = done_by_section.get(section.id, []) if done_by_section is defined else [] %}
   {% for task in section_done %}
-    {% with draggable=false, reload_on_done=true %}
+    {% with draggable=false %}
       {% include "partials/project_task_row.html" %}
     {% endwith %}
   {% endfor %}

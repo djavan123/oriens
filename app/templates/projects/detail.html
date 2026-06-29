@@ -78,7 +78,9 @@
 .project-task-row:hover .pj-ellipsis-btn { opacity: 1; }
 </style>
 
-<div style="max-width:960px; padding:32px 40px; margin:0;" x-data="{ editing: false, tab: 'overview' }">
+<div style="max-width:960px; padding:32px 40px; margin:0;"
+     x-data="{ editing: false, tab: localStorage.getItem('oriens-pj-tab') || 'overview' }"
+     x-init="$watch('tab', v => localStorage.setItem('oriens-pj-tab', v))">
 
   <!-- Breadcrumb -->
   <div style="font-size:12px; color:var(--oriens-secondary); margin-bottom:12px;">
