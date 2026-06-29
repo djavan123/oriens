@@ -21,6 +21,7 @@ from app.repositories.task_repo import TaskRepository
 from app.repositories.project_section_repo import ProjectSectionRepository
 from app.models.project_risk import RiskLevel, RiskStatus
 from app.models.project_timeline import TimelineEventType
+from app.repositories.context_repo import ContextRepository
 from app.services.project_service import ProjectService
 from app.utils.auth import get_current_user
 
@@ -115,8 +116,10 @@ async def create_project(
         responsavel_id=_parse_int(responsavel_id),
         proxima_acao=proxima_acao.strip() if proxima_acao else None,
     )
+    ctx = await ContextRepository(db).get_by_id(_parse_int(context_id))
+    context_name = ctx.name if ctx else None
     return templates.TemplateResponse(
-        request, "partials/project_card.html", {"project": project}
+        request, "partials/project_row.html", {"project": project, "context_name": context_name}
     )
 
 
