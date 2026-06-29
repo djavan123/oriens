@@ -420,37 +420,6 @@
       {% endfor %}
     </div>
 
-    <!-- Tarefas sem seção -->
-    <div id="sem-secao-container">
-      {% if section_groups %}
-      <p style="color:var(--oriens-primary); font-size:14px; font-weight:600; margin:28px 0 4px 4px;">Sem seção</p>
-      {% endif %}
-
-      <div id="task-list-pending" class="section-task-list" data-section-id="null">
-        {% for task in sem_secao_tasks %}
-          {% with draggable=true, reload_on_done=true,
-                  is_next=(next_action.task and task.id == next_action.task.id) %}
-            {% include "partials/project_task_row.html" %}
-          {% endwith %}
-        {% endfor %}
-      </div>
-
-      {% if not sem_secao_tasks and not section_groups %}
-      <p id="no-pending" style="color:var(--oriens-empty); font-size:14px; font-style:italic; padding:12px 4px;">Nenhuma tarefa pendente.</p>
-      {% endif %}
-
-      <div style="margin-top:8px;" x-data="{ showTaskForm: false }">
-        <div x-show="!showTaskForm"
-          @click="showTaskForm=true; $nextTick(()=>{ var i=document.querySelector('#new-task-form input[name=title]'); if(i) i.focus(); })"
-          style="font-size:13px; color:var(--oriens-secondary); opacity:0.5; cursor:pointer; padding:6px 0 6px 44px; user-select:none;">
-          Adicionar tarefa...
-        </div>
-        <div x-show="showTaskForm" x-cloak>
-          {% with project_id=project.id %}{% include "partials/task_form.html" %}{% endwith %}
-        </div>
-      </div>
-    </div>
-
     <!-- + Nova seção -->
     <div x-data="{ addingSection: false }" style="margin-top:20px;">
       <span x-show="!addingSection" @click="addingSection=true"
@@ -469,33 +438,6 @@
         <button type="button" @click="addingSection=false" class="pj-btn-ghost" style="font-size:12px;">Cancelar</button>
       </form>
     </div>
-
-    <!-- Bloqueadas -->
-    {% if blocked_tasks %}
-    <div style="margin-top:20px; padding-top:16px; border-top:1px solid var(--oriens-divider);">
-      <p style="color:var(--oriens-secondary); font-size:14px; font-weight:600; margin-bottom:8px;">Bloqueadas</p>
-      {% for task in blocked_tasks %}
-        {% with reload_on_done=true %}{% include "partials/project_task_row.html" %}{% endwith %}
-      {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Concluídas -->
-    {% if done_tasks %}
-    <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--oriens-divider);" x-data="{ show: false }">
-      <button @click="show = !show"
-        style="display:flex; align-items:center; gap:8px; color:var(--oriens-secondary); font-size:14px; font-weight:600; background:none; border:none; cursor:pointer; padding:0; margin-bottom:8px; transition:color .12s;"
-        onmouseover="this.style.color='var(--oriens-primary)'" onmouseout="this.style.color='var(--oriens-secondary)'">
-        <span x-text="show ? '▾' : '▸'">▸</span>
-        <span>Concluídas ({{ done_tasks | length }})</span>
-      </button>
-      <div x-show="show" x-transition style="background:var(--oriens-surface); border-radius:6px; padding:4px;">
-        {% for task in done_tasks %}
-          {% include "partials/task_item.html" %}
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
 
   </div>
   <!-- END: Tarefas -->

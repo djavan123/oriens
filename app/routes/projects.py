@@ -191,6 +191,16 @@ async def project_detail(
     section_groups = [(s, tasks_by_section.get(s.id, [])) for s in sections]
     sem_secao_tasks = tasks_by_section.get(None, [])
 
+    done_by_section: dict = {}
+    for task in done_tasks:
+        key = task.section_id if (task.section_id in section_ids) else None
+        done_by_section.setdefault(key, []).append(task)
+
+    blocked_by_section: dict = {}
+    for task in blocked_tasks:
+        key = task.section_id if (task.section_id in section_ids) else None
+        blocked_by_section.setdefault(key, []).append(task)
+
     raw = await task_repo.progress_by_project(current_user.id, [project_id])
     done, total = raw.get(project_id, (0, 0))
     progress = {
@@ -234,5 +244,7 @@ async def project_detail(
             "timeline": timeline,
             "users": users,
             "responsavel_map": responsavel_map,
+            "done_by_section": done_by_section,
+            "blocked_by_section": blocked_by_section,
         },
     )
