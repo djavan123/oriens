@@ -118,6 +118,12 @@
     hx-on::after-request="if(event.detail.successful){ editing=false; window.location.reload() }"
     class="pj-card" style="margin-bottom:20px;">
 
+    <div style="margin-bottom:14px;">
+      <label class="pj-form-label">Nome</label>
+      <input type="text" name="name" required value="{{ project.name }}"
+        style="width:100%; background:var(--oriens-card); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:7px 10px; font-size:14px; outline:none; box-sizing:border-box;">
+    </div>
+
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
       <div>
         <label class="pj-form-label">Status</label>

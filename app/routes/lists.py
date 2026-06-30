@@ -21,13 +21,13 @@ async def lists_page(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tasks = await TaskRepository(db).get_standalone_tasks(current_user.id)
-    notes = await NoteRepository(db).get_standalone(current_user.id)
-    repo_items = await RepositoryRepository(db).get_all_by_user(current_user.id)
-
-    _, active_context_obj, all_contexts = await resolve_active_context(
+    context_id, active_context_obj, all_contexts = await resolve_active_context(
         request, db, current_user.id
     )
+
+    tasks = await TaskRepository(db).get_standalone_tasks(current_user.id, context_id=context_id)
+    notes = await NoteRepository(db).get_standalone(current_user.id)
+    repo_items = await RepositoryRepository(db).get_all_by_user(current_user.id)
 
     return templates.TemplateResponse(
         request,

@@ -232,6 +232,25 @@ async def process_capture(
     return _removed_html()
 
 
+@router.patch("/capture/{capture_id}", response_class=HTMLResponse)
+async def update_capture_content(
+    capture_id: int,
+    request: Request,
+    content: str = Form(...),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    content = content.strip()
+    if not content:
+        return HTMLResponse("", status_code=422)
+    updated = await CaptureRepository(db).update_content(capture_id, current_user.id, content)
+    if not updated:
+        raise HTTPException(status_code=404)
+    return templates.TemplateResponse(
+        request, "partials/capture_content_span.html", {"capture": updated}
+    )
+
+
 @router.patch("/capture/{capture_id}/resolve", response_class=HTMLResponse)
 async def resolve_capture(
     capture_id: int,

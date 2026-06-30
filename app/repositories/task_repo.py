@@ -154,17 +154,17 @@ class TaskRepository:
         result = await self.db.execute(q.order_by(*order))
         return list(result.scalars().all())
 
-    async def get_standalone_tasks(self, user_id: int) -> list[Task]:
+    async def get_standalone_tasks(self, user_id: int, context_id: Optional[int] = None) -> list[Task]:
         """Tarefas avulsas pendentes (project_id IS NULL) para a página Listas."""
-        result = await self.db.execute(
-            select(Task).where(
-                Task.user_id == user_id,
-                Task.project_id.is_(None),
-                Task.parent_id.is_(None),
-                Task.archived.is_(False),
-                Task.status == TaskStatus.pending,
-            ).order_by(Task.importancia.desc(), Task.created_at.desc())
-        )
+        q = select(Task).where(
+            Task.user_id == user_id,
+            Task.project_id.is_(None),
+            Task.parent_id.is_(None),
+            Task.archived.is_(False),
+            Task.status == TaskStatus.pending,
+        ).order_by(Task.importancia.desc(), Task.created_at.desc())
+        q = self._apply_context(q, context_id)
+        result = await self.db.execute(q)
         return list(result.scalars().all())
 
     async def get_children_map(self, user_id: int, parent_ids: list[int]) -> dict[int, list[Task]]:

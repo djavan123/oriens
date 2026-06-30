@@ -67,11 +67,12 @@
         </select>
       </div>
       <div>
-        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Energia</label>
-        <select name="task_energy"
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Energia *</label>
+        <select name="task_energy" required
           class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="" disabled selected>Selecionar…</option>
           <option value="high">Alta</option>
-          <option value="medium" selected>Média</option>
+          <option value="medium">Média</option>
           <option value="low">Baixa</option>
         </select>
       </div>
@@ -79,11 +80,12 @@
 
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Importância</label>
-        <select name="prioridade"
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Importância *</label>
+        <select name="prioridade" required
           class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="" disabled selected>Selecionar…</option>
           <option value="alta">Alta</option>
-          <option value="media" selected>Média</option>
+          <option value="media">Média</option>
           <option value="baixa">Baixa</option>
         </select>
       </div>

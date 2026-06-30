@@ -119,6 +119,15 @@ class CaptureRepository:
         )
         await self.db.commit()
 
+    async def update_content(self, capture_id: int, user_id: int, content: str) -> Optional[CaptureInbox]:
+        item = await self.get_by_id(capture_id, user_id)
+        if not item:
+            return None
+        item.content = content.strip()
+        await self.db.commit()
+        await self.db.refresh(item)
+        return item
+
     async def hard_delete(self, capture_id: int, user_id: int) -> None:
         await self.db.execute(
             delete(CaptureInbox).where(

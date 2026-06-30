@@ -152,6 +152,8 @@ C:\Projetos\Sistema tarefas\
 │   │       ├── dashboard_priorities.html # LEGADO (SCRIPT 8) — não usado no dashboard atual, mantido
 │   │       ├── project_card.html        # card minimalista: nome + prioridade/contexto/prazo + ações hover (SCRIPT 16B — sem objetivo/próxima-ação/progresso)
 │   │       ├── project_section.html     # bloco de seção: rename Alpine, delete HTMX, task-list + task_form inline (SCRIPT 16A)
+│   │       ├── project_row.html         # linha <tr> de projeto para list.html (retorno do POST /api/projects)
+│   │       ├── capture_content_span.html # span editável de captura (retorno do PATCH /api/capture/{id})
 │   │       └── ... (comment/attachment/risk, process, ai_result)
 │   ├── static/                        # PWA: manifest.webmanifest, sw.js, icon.svg + css/theme.css (3 temas — SCRIPT 6)
 │   └── utils/
@@ -421,6 +423,7 @@ TELEGRAM_CHAT_ID=               # opcional
 | PATCH | `/api/projects/{id}/risks/{rid}` | Atualizar risco |
 | DELETE | `/api/projects/{id}/risks/{rid}` | Remover risco |
 | POST | `/api/capture` | Adicionar captura |
+| PATCH | `/api/capture/{id}` | Atualizar conteúdo de captura (edição inline) |
 | POST | `/api/process/{id}` | Processar captura |
 | POST | `/api/ai/break-task/{id}` | IA: quebrar tarefa |
 | POST | `/api/ai/suggest-actions/{id}` | IA: sugerir ações |
@@ -670,6 +673,25 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **Sem reload ao concluir tarefa:** `reload_on_done` removido das chamadas de `project_task_row.html` em `project_section.html`; conclusão de tarefa usa o comportamento padrão (`setTimeout remove após 450ms`), sem `window.location.reload()`.
 - **Tab ativo persistente:** `projects/detail.html` — `x-data` lê `localStorage.getItem('oriens-pj-tab') || 'overview'`; `x-init` com `$watch('tab', ...)` persiste no `localStorage`. Ao navegar entre Visão geral e Tarefas, a aba é lembrada.
 - **Sem migração de schema. Sem novo endpoint.**
+
+### ✅ CORREÇÕES PÓS-SCRIPT 18 — Bugfixes e melhorias de UX
+
+#### Criação de projeto na lista (`/projects`)
+- **Bug:** formulário "Novo projeto" travava — `hx-target="#projects-active"` não existia na `list.html` e o backend retornava `project_card.html` (div card) em vez de uma `<tr>`.
+- **Correção:** adicionado `id="projects-active"` na `<tbody>` de "Em andamento" em `list.html`; `hx-swap` corrigido para `beforeend`; criado `partials/project_row.html` (nova `<tr>` no estilo da tabela); `POST /api/projects` agora retorna `project_row.html` com o nome do contexto (`ContextRepository.get_by_id`).
+
+#### Edição do nome do projeto no detalhe (`/projects/{id}`)
+- **Melhoria:** campo `name` adicionado no topo do formulário de edição Alpine (`x-show="editing"`) em `projects/detail.html`. O endpoint `PATCH /api/projects/{id}` já aceitava `name` — só faltava expor o campo.
+
+#### Aba Listas — filtro de contexto (`/lists`)
+- **Bug:** `get_standalone_tasks()` não filtrava por contexto — todas as tarefas avulsas apareciam independentemente do contexto ativo.
+- **Correção:** `task_repo.get_standalone_tasks(user_id, context_id=None)` agora aceita `context_id` e aplica `_apply_context()` (mesmo padrão dos outros métodos do repo); `routes/lists.py` captura o `context_id` de `resolve_active_context()` e o passa ao método.
+
+#### Caixa de Entrada — edição inline do título (`/capture`)
+- **Melhoria:** conteúdo de cada captura agora é editável inline com clique direto no texto (Alpine `editing` state + form HTMX oculto). Enter salva via `PATCH /api/capture/{id}` (novo endpoint); Esc cancela. Novo método `CaptureRepository.update_content()` e novo partial `partials/capture_content_span.html` (retorno do PATCH com o span atualizado).
+
+#### Caixa de Entrada — campos obrigatórios ao processar (`/capture` → "Decidir" → Tarefa)
+- **Melhoria:** `Energia` e `Importância` no formulário de processamento de tarefa agora têm `required` e placeholder "Selecionar…" sem valor pré-selecionado — o browser bloqueia o submit se não forem preenchidos. `Contexto` já era `required`. Sem alteração de backend.
 
 ---
 

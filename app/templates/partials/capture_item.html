@@ -9,8 +9,26 @@
     title="Marcar como resolvido"
     class="flex-shrink-0 w-4 h-4 rounded-full border border-oriens-border hover:border-oriens-accent transition-colors bg-transparent cursor-pointer"></button>
 
-  <!-- Texto -->
-  <span class="flex-1 text-sm text-oriens-primary leading-snug min-w-0">{{ capture.content }}</span>
+  <!-- Texto (editável inline) -->
+  <span id="capture-content-{{ capture.id }}"
+        x-data="{ editing: false }"
+        class="flex-1 min-w-0">
+    <span x-show="!editing"
+          @click="editing = true; $nextTick(() => $refs.inp{{ capture.id }}.select())"
+          class="text-sm text-oriens-primary leading-snug cursor-text">{{ capture.content }}</span>
+    <form x-show="editing"
+          hx-patch="/api/capture/{{ capture.id }}"
+          hx-target="#capture-content-{{ capture.id }}"
+          hx-swap="outerHTML"
+          hx-on::after-request="editing = false"
+          class="flex-1">
+      <input x-ref="inp{{ capture.id }}"
+             type="text" name="content"
+             value="{{ capture.content }}"
+             @keydown.escape="editing = false"
+             class="text-sm text-oriens-primary bg-transparent border-b border-oriens-accent outline-none w-full">
+    </form>
+  </span>
 
   <!-- Data -->
   <span class="flex-shrink-0 text-[11px] text-oriens-muted">{{ capture.created_at.strftime('%d/%m %H:%M') }}</span>
