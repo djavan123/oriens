@@ -12,7 +12,7 @@ class CaptureInbox(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    processed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    processed: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     discarded_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

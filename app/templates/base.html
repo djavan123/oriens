@@ -20,7 +20,7 @@
   <meta name="apple-mobile-web-app-title" content="Oriens">
   <meta name="mobile-web-app-capable" content="yes">
 
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/static/vendor/tailwind.js"></script>
   <script>
     tailwind.config = {
       theme: {
@@ -66,11 +66,11 @@
       }
     }
   </script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Fonte Inter auto-hospedada (sem CDN — PWA funciona offline) -->
+  <link href="/static/vendor/fonts/inter.css" rel="stylesheet">
 
-  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
-  <script src="https://unpkg.com/alpinejs@3.14.1/dist/cdn.min.js" defer></script>
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  <script src="/static/vendor/alpine.min.js" defer></script>
 
   <style>
     :root {

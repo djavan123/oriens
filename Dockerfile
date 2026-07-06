@@ -18,5 +18,12 @@ COPY . .
 
 EXPOSE 8000
 
-# Produção: sem --reload. 1 worker já atende um app pessoal com folga.
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Produção: gunicorn com workers Uvicorn (multi-worker). Os loops de fundo NÃO
+# rodam aqui — ficam no serviço `worker` (python -m app.worker). Ajuste -w conforme
+# CPU da VPS (regra prática: 2×núcleos+1). Timeout maior tolera requisições lentas.
+CMD ["gunicorn", "app.main:app", \
+     "-k", "uvicorn.workers.UvicornWorker", \
+     "-w", "3", \
+     "-b", "0.0.0.0:8000", \
+     "--timeout", "60", \
+     "--access-logfile", "-"]

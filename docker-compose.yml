@@ -13,5 +13,19 @@ services:
       TZ: America/Sao_Paulo
     env_file: .env
 
+  # Processo de fundo (lembretes + captura Telegram). Separado do web para que o
+  # web possa rodar com múltiplos workers sem duplicar envios.
+  worker:
+    build: .
+    command: python -m app.worker
+    volumes:
+      - .:/app
+      - sqlite_data:/app/data
+    environment:
+      TZ: America/Sao_Paulo
+    env_file: .env
+    depends_on:
+      - app
+
 volumes:
   sqlite_data:
