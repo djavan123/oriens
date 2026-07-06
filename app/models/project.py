@@ -22,7 +22,7 @@ class Project(Base):
     context_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contexts.id", ondelete="SET NULL"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     objective: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    status: Mapped[ProjectStatus] = mapped_column(Enum(ProjectStatus), default=ProjectStatus.nao_iniciado, nullable=False)
+    status: Mapped[ProjectStatus] = mapped_column(Enum(ProjectStatus, native_enum=False, length=50), default=ProjectStatus.nao_iniciado, nullable=False)
     priority: Mapped[int] = mapped_column(Integer, default=2, nullable=False)
     deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

@@ -42,6 +42,15 @@ router = APIRouter(prefix="/api/projects", tags=["api:projects"])
 
 ATTACHMENTS_DIR = "/app/data/attachments"
 
+# Limite de upload e allowlist de extensões (defesa em profundidade além do nginx).
+MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024  # 20 MB
+ALLOWED_ATTACHMENT_EXTS = {
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+    ".txt", ".csv", ".md", ".rtf", ".odt", ".ods",
+    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".heic",
+    ".zip", ".rar", ".7z", ".json", ".xml",
+}
+
 
 def _parse_int(v: Optional[str]) -> Optional[int]:
     if not v or not v.strip():
@@ -365,13 +374,31 @@ async def upload_attachment(
     if not file.filename:
         return HTMLResponse("")
 
-    ext = os.path.splitext(file.filename)[1]
+    # Ownership: só quem é dono do projeto pode anexar arquivos nele.
+    from app.repositories.project_repo import ProjectRepository
+    project = await ProjectRepository(db).get_by_id(project_id, current_user.id)
+    if project is None:
+        raise HTTPException(status_code=404)
+
+    ext = os.path.splitext(file.filename)[1].lower()
+    if ext not in ALLOWED_ATTACHMENT_EXTS:
+        raise HTTPException(status_code=415, detail="Tipo de arquivo não permitido")
+
+    # Leitura em blocos com teto de tamanho (não carrega arquivos gigantes na memória).
+    contents = bytearray()
+    while True:
+        chunk = await file.read(1024 * 1024)
+        if not chunk:
+            break
+        contents.extend(chunk)
+        if len(contents) > MAX_ATTACHMENT_BYTES:
+            raise HTTPException(status_code=413, detail="Arquivo excede o limite de 20 MB")
+
     stored_name = f"{uuid.uuid4().hex}{ext}"
     dest_dir = os.path.join(ATTACHMENTS_DIR, str(project_id))
     os.makedirs(dest_dir, exist_ok=True)
     dest_path = os.path.join(dest_dir, stored_name)
 
-    contents = await file.read()
     with open(dest_path, "wb") as f:
         f.write(contents)
 
