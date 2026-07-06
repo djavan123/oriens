@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Optional
 from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.capture import CaptureInbox
+from app.utils.time import utcnow
 
 
 class CaptureRepository:
@@ -40,18 +41,8 @@ class CaptureRepository:
         return list(result.scalars().all())
 
     async def get_unprocessed(self, user_id: int) -> list[CaptureInbox]:
-        """Itens para o fluxo de Processar: exclui resolvidos e descartados."""
-        result = await self.db.execute(
-            select(CaptureInbox)
-            .where(
-                CaptureInbox.user_id == user_id,
-                CaptureInbox.processed.is_(False),
-                CaptureInbox.resolved_at.is_(None),
-                CaptureInbox.discarded_at.is_(None),
-            )
-            .order_by(CaptureInbox.created_at.desc())
-        )
-        return list(result.scalars().all())
+        """Itens para o fluxo de Processar: mesma regra da caixa de entrada."""
+        return await self.get_inbox(user_id)
 
     async def get_all(self, user_id: int) -> list[CaptureInbox]:
         result = await self.db.execute(
@@ -74,7 +65,7 @@ class CaptureRepository:
         item = await self.get_by_id(capture_id, user_id)
         if not item:
             return None
-        item.resolved_at = datetime.utcnow()
+        item.resolved_at = utcnow()
         await self.db.commit()
         await self.db.refresh(item)
         return item
@@ -83,7 +74,7 @@ class CaptureRepository:
         item = await self.get_by_id(capture_id, user_id)
         if not item:
             return None
-        item.discarded_at = datetime.utcnow()
+        item.discarded_at = utcnow()
         await self.db.commit()
         await self.db.refresh(item)
         return item
@@ -109,7 +100,7 @@ class CaptureRepository:
         return item
 
     async def cleanup_old_discarded(self, user_id: int) -> None:
-        cutoff = datetime.utcnow() - timedelta(days=15)
+        cutoff = utcnow() - timedelta(days=15)
         await self.db.execute(
             delete(CaptureInbox).where(
                 CaptureInbox.user_id == user_id,
