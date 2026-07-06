@@ -7,7 +7,6 @@ from app.models.task import Task, TaskStatus, EnergyLevel
 from app.models.project_timeline import TimelineEventType
 from app.repositories.task_repo import TaskRepository
 from app.repositories.project_timeline_repo import ProjectTimelineRepository
-from app.utils.verb_validator import validate_starts_with_verb
 
 _SCORE_FIELDS = ("financial_impact", "operational_risk", "strategic_impact", "task_urgency", "effort")
 
@@ -56,7 +55,6 @@ class TaskService:
         **extra,
     ) -> Task:
         # Validação de verbo desativada (SCRIPT 12): qualquer título não vazio é aceito.
-        # O helper validate_starts_with_verb continua disponível, apenas não é chamado.
         extra["priority_score"] = _calc_score(**extra)
         # Tarefas de topo num projeto recebem order_index = max+1 (append ao final).
         is_subtask = extra.get("parent_id") is not None
