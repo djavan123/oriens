@@ -1,5 +1,6 @@
-{# Bloco "Agora" — UMA única ação dominante. Auto-recarrega ao concluir.
-   Var: now_action (dict | None), context_labels, energy_filter. #}
+{# Bloco "Agora" — UMA única ação dominante + Foco do dia embutido.
+   Auto-recarrega ao concluir. Var: now_action (dict | None), context_labels,
+   energy_filter, user. #}
 {% set energy_dot = {'high': 'bg-oriens-alert', 'medium': 'bg-oriens-btn', 'low': 'bg-oriens-secondary'} %}
 {% set energy_label = {'high': 'alta', 'medium': 'média', 'low': 'baixa'} %}
 
@@ -11,6 +12,26 @@
      style="border: 1px solid var(--oriens-accent);">
 
   <p class="text-oriens-accent text-[11px] font-bold uppercase tracking-[0.15em] mb-3">Agora</p>
+
+  {# Foco do dia (absorvido de foco_do_dia.html) #}
+  <div id="foco-block" x-data="{ editing: false }" class="mb-4 pb-4 border-b border-oriens-divider">
+    {% if user.foco_do_dia %}
+    <p class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">Foco do dia</p>
+    <div x-show="!editing" class="flex items-start gap-2">
+      <p class="text-oriens-primary text-sm flex-1 whitespace-pre-wrap leading-relaxed">{{ user.foco_do_dia }}</p>
+      <button @click="editing = true; $nextTick(() => $refs.inp.focus())"
+        title="Editar foco" class="text-oriens-secondary hover:text-oriens-accent text-xs flex-shrink-0 transition-colors">editar</button>
+    </div>
+    {% else %}
+    <div x-show="!editing">
+      <button @click="editing = true; $nextTick(() => $refs.inp.focus())"
+        class="text-oriens-secondary text-sm hover:text-oriens-primary transition-colors">
+        Definir foco do dia
+      </button>
+    </div>
+    {% endif %}
+    {% include "partials/_foco_form.html" %}
+  </div>
 
   {% if not now_action %}
   <p class="text-oriens-secondary text-sm">Sem ação executável agora.</p>

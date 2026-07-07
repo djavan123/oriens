@@ -1,11 +1,16 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 from sqlalchemy import case, func, nullslast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import Task, TaskStatus, CognitiveLoad, EnergyLevel
 from app.models.project_section import ProjectSection
 from app.utils.time import utcnow
+
+# Fuso local da aplicação (mesmo TZ fixado no container) — usado só para converter
+# done_at (naive UTC) em "dia local" no painel de evolução do Dashboard.
+_LOCAL_TZ = ZoneInfo("America/Sao_Paulo")
 
 
 def _urgency_rank(task: Task) -> int:
@@ -227,6 +232,50 @@ class TaskRepository:
             .where(Task.user_id == user_id, Task.status == TaskStatus.pending, Task.archived.is_(False), Task.parent_id.is_(None))
         )
         return result.scalar_one()
+
+    async def count_done_today(self, user_id: int) -> int:
+        """Tarefas concluídas hoje (dia local), globais — inclui subtarefas.
+
+        `done_at` é armazenado em UTC naive (utcnow()); converte a fronteira de
+        meia-noite LOCAL para um range UTC naive e filtra em SQL.
+        """
+        today_local = datetime.now(_LOCAL_TZ).date()
+        start_local = datetime.combine(today_local, datetime.min.time(), tzinfo=_LOCAL_TZ)
+        end_local = start_local + timedelta(days=1)
+        start_utc = start_local.astimezone(timezone.utc).replace(tzinfo=None)
+        end_utc = end_local.astimezone(timezone.utc).replace(tzinfo=None)
+        result = await self.db.execute(
+            select(func.count())
+            .select_from(Task)
+            .where(
+                Task.user_id == user_id,
+                Task.status == TaskStatus.done,
+                Task.archived.is_(False),
+                Task.done_at.is_not(None),
+                Task.done_at >= start_utc,
+                Task.done_at < end_utc,
+            )
+        )
+        return result.scalar_one()
+
+    async def get_recent_completion_dates(self, user_id: int, days_back: int = 90) -> set[date]:
+        """Datas locais distintas com >=1 tarefa concluída nos últimos `days_back`
+        dias (globais — inclui subtarefas). Usado para calcular o streak."""
+        cutoff_utc = utcnow() - timedelta(days=days_back)
+        result = await self.db.execute(
+            select(Task.done_at).where(
+                Task.user_id == user_id,
+                Task.status == TaskStatus.done,
+                Task.archived.is_(False),
+                Task.done_at.is_not(None),
+                Task.done_at >= cutoff_utc,
+            )
+        )
+        dates: set[date] = set()
+        for (done_at,) in result.all():
+            local_dt = done_at.replace(tzinfo=timezone.utc).astimezone(_LOCAL_TZ)
+            dates.add(local_dt.date())
+        return dates
 
     async def create(self, user_id: int, **kwargs) -> Task:
         task = Task(user_id=user_id, **kwargs)
