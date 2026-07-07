@@ -115,7 +115,7 @@
   <form x-show="editing" x-transition x-cloak
     hx-patch="/api/projects/{{ project.id }}"
     hx-swap="none"
-    hx-on::after-request="if(event.detail.successful){ editing=false; window.location.reload() }"
+    @htmx:after-request="if($event.detail.successful){ editing=false; window.location.reload() }"
     class="pj-card" style="margin-bottom:20px;">
 
     <div style="margin-bottom:14px;">
@@ -201,7 +201,7 @@
         <form x-show="editingObj" x-cloak
           hx-patch="/api/projects/{{ project.id }}"
           hx-swap="none"
-          hx-on::after-request="if(event.detail.successful){ editingObj=false; window.location.reload() }"
+          @htmx:after-request="if($event.detail.successful){ editingObj=false; window.location.reload() }"
           style="display:flex; gap:8px; align-items:flex-start;">
           <textarea name="objective" rows="2" placeholder="Qual é o resultado esperado?"
             style="flex:1; background:var(--oriens-bg); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:8px 12px; font-size:14px; resize:none; outline:none;">{{ project.objective or '' }}</textarea>
@@ -254,7 +254,7 @@
         <form x-show="editingDeadline" x-cloak
           hx-patch="/api/projects/{{ project.id }}"
           hx-swap="none"
-          hx-on::after-request="if(event.detail.successful){ editingDeadline=false; window.location.reload() }"
+          @htmx:after-request="if($event.detail.successful){ editingDeadline=false; window.location.reload() }"
           style="margin-top:4px;">
           <input type="date" name="deadline"
             value="{{ project.deadline.strftime('%Y-%m-%d') if project.deadline else '' }}"
@@ -438,7 +438,7 @@
         hx-post="/api/projects/{{ project.id }}/sections"
         hx-target="#project-sections"
         hx-swap="beforeend"
-        hx-on::after-request="if(event.detail.successful){ $el.reset(); addingSection=false }"
+        @htmx:after-request="if($event.detail.successful){ $el.reset(); addingSection=false }"
         style="display:flex; align-items:center; gap:8px;">
         <input type="text" name="name" required placeholder="Nome da seção..." autofocus
           class="pj-input" style="flex:1;">
