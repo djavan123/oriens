@@ -5,7 +5,7 @@
      hx-trigger="refreshProjectsFocus from:body"
      hx-swap="outerHTML">
 
-  <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-oriens-muted mb-5">Projetos em foco</h2>
+  <h2 class="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-oriens-muted">Projetos em foco</h2>
 
   {% if projects_focus.focus %}
   <div class="divide-y divide-oriens-divider">
@@ -18,7 +18,7 @@
   {% endif %}
 
   {% if projects_focus.without_next_count %}
-  <p class="text-oriens-muted text-xs mt-4">
+  <p class="text-oriens-muted text-xs mt-3">
     {{ projects_focus.without_next_count }} projeto{{ 's' if projects_focus.without_next_count != 1 else '' }} sem próxima ação para revisar
   </p>
   {% endif %}

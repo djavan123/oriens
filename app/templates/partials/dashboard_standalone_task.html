@@ -14,7 +14,7 @@
 {% endif %}
 {% if task.is_quick_win %}{% set _ = meta.append(('quick win', 'text-oriens-success')) %}{% endif %}
 
-<div id="task-{{ task.id }}" class="flex gap-3 py-4 first:pt-0 last:pb-0 hover:bg-oriens-card-hover transition-colors">
+<div id="task-{{ task.id }}" class="flex gap-3 py-3 first:pt-0 last:pb-0 hover:bg-oriens-card-hover transition-colors">
 
   <button
     hx-patch="/api/tasks/{{ task.id }}/done"
@@ -22,12 +22,12 @@
     hx-on:click="document.getElementById('task-{{ task.id }}').classList.add('task-completing')"
     hx-on::after-request="if(event.detail.successful){ htmx.trigger(document.body,'refreshPriorities') }"
     title="Concluir"
-    class="flex-shrink-0 mt-1 w-4 h-4 border {{ cb_border }} rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors"></button>
+    class="flex-shrink-0 mt-0.5 w-4 h-4 border {{ cb_border }} rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors"></button>
 
   <div class="min-w-0 flex-1">
-    <p class="text-base font-normal leading-snug text-oriens-primary">{{ task.title }}</p>
+    <p class="text-sm font-normal leading-snug text-oriens-primary">{{ task.title }}</p>
     {% if meta %}
-    <p class="mt-1 text-xs">
+    <p class="mt-1 text-xs text-oriens-muted">
       {% for text, color in meta %}<span class="{{ color }}">{{ text }}</span>{% if not loop.last %}<span class="text-oriens-muted"> · </span>{% endif %}{% endfor %}
     </p>
     {% endif %}
