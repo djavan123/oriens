@@ -4,7 +4,7 @@
      hx-get="/dashboard/evolution"
      hx-trigger="refreshProjectsFocus from:body, refreshPriorities from:body"
      hx-swap="outerHTML"
-     class="mb-6 text-xs text-oriens-muted">
+     class="mt-1 text-xs text-oriens-muted">
   <span class="text-oriens-success">{{ evolution.done_today }} concluída{{ 's' if evolution.done_today != 1 else '' }} hoje</span>
   · sequência de {{ evolution.streak }} dia{{ 's' if evolution.streak != 1 else '' }}
 </div>

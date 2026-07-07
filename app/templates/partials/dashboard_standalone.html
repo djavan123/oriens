@@ -6,15 +6,13 @@
      hx-trigger="refreshPriorities from:body"
      hx-swap="outerHTML">
 
-  <h2 class="text-oriens-muted text-[11px] font-semibold tracking-wide uppercase mb-3">Tarefas avulsas</h2>
+  <h2 class="text-xs font-semibold uppercase tracking-[0.08em] text-oriens-muted mb-5">Tarefas avulsas</h2>
 
   {% if standalone_tasks %}
-  <div>
-    {% with show_importancia = true, refresh_priorities = true, plain_badges = true %}
+  <div class="divide-y divide-oriens-divider">
     {% for task in standalone_tasks %}
-      {% include "partials/task_item.html" %}
+      {% include "partials/dashboard_standalone_task.html" %}
     {% endfor %}
-    {% endwith %}
   </div>
   {% else %}
   <p class="text-oriens-secondary text-sm">Nenhuma tarefa avulsa pendente.</p>

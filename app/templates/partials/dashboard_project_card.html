@@ -2,22 +2,22 @@
 {% set p = item.project %}
 {% set energy_label = {'high': 'alta', 'medium': 'média', 'low': 'baixa'} %}
 
-<div class="py-3 border-b border-oriens-divider last:border-b-0">
+<div class="py-5 first:pt-0 last:pb-0">
 
   <a href="/projects/{{ p.id }}"
-     class="text-oriens-primary text-[15px] font-semibold leading-snug hover:text-oriens-accent transition-colors block">
+     class="text-oriens-primary text-base font-semibold leading-snug hover:text-oriens-accent transition-colors block">
     {{ p.name }}
   </a>
 
   {% if p.deadline %}
   {% set ds = due_status(p.deadline) %}
-  <p class="text-[11px] mt-0.5 {% if ds == 'overdue' %}text-oriens-urgent{% elif ds == 'today' %}text-oriens-today{% else %}text-oriens-muted{% endif %}">
+  <p class="text-xs mt-0.5 {% if ds == 'overdue' %}text-oriens-urgent{% elif ds == 'today' %}text-oriens-today{% else %}text-oriens-muted{% endif %}">
     {% if ds == 'overdue' %}atrasado · {{ p.deadline.strftime('%d/%m') }}
     {% elif ds == 'today' %}vence hoje
     {% else %}{{ p.deadline.strftime('%d/%m/%y') }}{% endif %}
   </p>
   {% else %}
-  <p class="text-[11px] mt-0.5 text-oriens-muted">sem prazo</p>
+  <p class="text-xs mt-0.5 text-oriens-muted">sem prazo</p>
   {% endif %}
 
   <!-- Próxima ação operacional -->
@@ -33,14 +33,14 @@
         class="flex-shrink-0 mt-0.5 w-4 h-4 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors"></button>
       <div class="min-w-0">
         <p class="text-oriens-primary text-sm font-normal leading-snug">{{ nt.title }}</p>
-        <p class="text-[11px] text-oriens-muted mt-0.5">energia {{ energy_label.get(nt.energy.value, nt.energy.value) }}</p>
+        <p class="text-xs text-oriens-muted mt-0.5">energia {{ energy_label.get(nt.energy.value, nt.energy.value) }}</p>
       </div>
     </div>
 
     {% else %}
     <p class="text-oriens-primary text-sm leading-snug">{{ item.next_text }}</p>
     <a href="/projects/{{ p.id }}"
-       class="text-oriens-link text-[11px] hover:opacity-80 transition-opacity mt-1 inline-block">
+       class="text-oriens-link text-xs hover:opacity-80 transition-opacity mt-1 inline-block">
       abrir projeto →
     </a>
     {% endif %}

@@ -5,43 +5,42 @@
 
 {% block content %}
 
-<div class="max-w-5xl mx-auto">
+<div class="w-full max-w-[1120px] mx-auto px-6 lg:px-8 py-10">
 
-  <!-- Cabeçalho: "Hoje" como título, data como metadado + energia secundária -->
-  <div class="flex items-center justify-between gap-4 mb-1 flex-wrap">
+  <!-- Cabeçalho: "Hoje" + data + evolução (título) / energia (secundária) -->
+  <div class="mb-8 flex items-start justify-between gap-6">
     <div>
       <h1 class="text-xl font-bold text-oriens-primary tracking-tight">Hoje</h1>
       <p class="text-xs text-oriens-muted mt-0.5">{{ day_of_week | lower }} · {{ current_date }}</p>
+      {% include "partials/dashboard_evolution.html" %}
     </div>
-    <div class="flex items-center gap-1 flex-wrap">
+
+    <div class="flex items-center gap-3 pt-1">
       {% for level, label in energy_labels.items() %}
       <a href="/dashboard?energy={{ level }}"
-         class="px-2 py-0.5 rounded text-[11px] transition-colors
+         class="px-2 py-1 rounded text-xs transition-colors
          {% if energy_filter == level %}bg-oriens-card-hover text-oriens-primary{% else %}text-oriens-muted hover:text-oriens-secondary{% endif %}">
         {{ label }}
       </a>
       {% endfor %}
       {% if energy_filter %}
-      <a href="/dashboard?energy=" class="text-oriens-muted text-[11px] hover:text-oriens-secondary transition-colors">× limpar</a>
+      <a href="/dashboard?energy=" class="text-oriens-muted text-xs hover:text-oriens-secondary transition-colors">× limpar</a>
       {% endif %}
     </div>
   </div>
 
-  <!-- Painel de evolução: progresso pessoal (global) -->
-  {% include "partials/dashboard_evolution.html" %}
-
   <!-- Projetos em foco + Tarefas avulsas -->
-  <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-6 items-start">
+  <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,520px)_minmax(0,560px)] gap-5 items-start">
 
     <!-- Projetos em foco -->
-    <div class="bg-oriens-surface border border-oriens-divider rounded-lg px-5 py-4">
+    <section class="h-fit rounded-xl border border-oriens-divider bg-oriens-surface px-6 py-6">
       {% include "partials/dashboard_projects_focus.html" %}
-    </div>
+    </section>
 
     <!-- Tarefas avulsas -->
-    <div class="bg-oriens-surface border border-oriens-divider rounded-lg px-5 py-4">
+    <section class="h-fit rounded-xl border border-oriens-divider bg-oriens-surface px-6 py-6">
       {% include "partials/dashboard_standalone.html" %}
-    </div>
+    </section>
 
   </div>
 

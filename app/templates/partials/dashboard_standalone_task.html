@@ -1,0 +1,36 @@
+{# Linha de "Tarefa avulsa" no Dashboard — lista densa, sem aparência de card.
+   Var: task (sempre status=pending, vem de get_priority_pending). Requer
+   context_labels no contexto (já passado por dashboard_standalone.html). #}
+{% set ds = due_status(task.deadline) if task.deadline else None %}
+{% set prioridade = faixa_importancia(task.importancia, task.sem_nota) %}
+{% set cb_border = 'border-oriens-urgent' if ds == 'overdue' else ('border-oriens-today' if ds == 'today' else 'border-oriens-border') %}
+
+{% set meta = [] %}
+{% if prioridade == 'alta' %}{% set _ = meta.append(('Alta', 'text-oriens-accent')) %}{% endif %}
+{% if context_labels is defined and task.context_id and context_labels.get(task.context_id) %}{% set _ = meta.append((context_labels[task.context_id], 'text-oriens-muted')) %}{% endif %}
+{% if ds == 'overdue' %}{% set _ = meta.append(('atrasado · ' ~ (now().date() - task.deadline.date()).days ~ 'd', 'text-oriens-urgent')) %}
+{% elif ds == 'today' %}{% set _ = meta.append(('hoje', 'text-oriens-today')) %}
+{% elif task.deadline %}{% set _ = meta.append((task.deadline.strftime('%d/%m/%y'), 'text-oriens-muted')) %}
+{% endif %}
+{% if task.is_quick_win %}{% set _ = meta.append(('quick win', 'text-oriens-success')) %}{% endif %}
+
+<div id="task-{{ task.id }}" class="flex gap-3 py-4 first:pt-0 last:pb-0 hover:bg-oriens-card-hover transition-colors">
+
+  <button
+    hx-patch="/api/tasks/{{ task.id }}/done"
+    hx-swap="none"
+    hx-on:click="document.getElementById('task-{{ task.id }}').classList.add('task-completing')"
+    hx-on::after-request="if(event.detail.successful){ htmx.trigger(document.body,'refreshPriorities') }"
+    title="Concluir"
+    class="flex-shrink-0 mt-1 w-4 h-4 border {{ cb_border }} rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors"></button>
+
+  <div class="min-w-0 flex-1">
+    <p class="text-base font-normal leading-snug text-oriens-primary">{{ task.title }}</p>
+    {% if meta %}
+    <p class="mt-1 text-xs">
+      {% for text, color in meta %}<span class="{{ color }}">{{ text }}</span>{% if not loop.last %}<span class="text-oriens-muted"> · </span>{% endif %}{% endfor %}
+    </p>
+    {% endif %}
+  </div>
+
+</div>
