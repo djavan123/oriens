@@ -16,7 +16,10 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # extra="ignore": o .env de produção também contém POSTGRES_PASSWORD (consumido
+    # só pelo serviço `db` do docker-compose, não por este app) — sem isso, o Pydantic
+    # aborta o boot com ValidationError sempre que o .env tiver uma chave não declarada aqui.
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
 
 @lru_cache
