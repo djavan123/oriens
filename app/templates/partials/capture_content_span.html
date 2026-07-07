@@ -9,7 +9,7 @@
         hx-patch="/api/capture/{{ capture.id }}"
         hx-target="#capture-content-{{ capture.id }}"
         hx-swap="outerHTML"
-        hx-on::after-request="editing = false"
+        @htmx:after-request="editing = false"
         class="flex-1">
     <input x-ref="inp{{ capture.id }}"
            type="text" name="content"

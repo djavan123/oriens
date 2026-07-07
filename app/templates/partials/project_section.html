@@ -15,7 +15,7 @@
       hx-patch="/api/projects/{{ project.id }}/sections/{{ section.id }}"
       hx-target="#section-name-{{ section.id }}"
       hx-swap="outerHTML"
-      hx-on::after-request="if(event.detail.successful){ renaming=false }"
+      @htmx:after-request="if($event.detail.successful){ renaming=false }"
       class="flex items-center gap-1 flex-1">
       <input type="text" name="name" value="{{ section.name }}" required
         autofocus
