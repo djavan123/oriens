@@ -1,9 +1,11 @@
 {# Card de projeto no kanban de /projects. Var: project, context_labels (dict, opcional). #}
 {% set priority_label = {1: 'Alta', 2: 'Média', 3: 'Baixa'} %}
+{% set status_labels = {'em_andamento': 'Em andamento', 'nao_iniciado': 'Não iniciado', 'concluido': 'Concluído'} %}
 {% set is_done = project.status.value == 'concluido' %}
+{% set other_statuses = ['em_andamento', 'nao_iniciado', 'concluido'] | reject('equalto', project.status.value) | list %}
 
 <article id="project-{{ project.id }}"
-  class="group rounded-lg border border-oriens-divider bg-oriens-bg px-4 py-3 hover:bg-oriens-card-hover transition-colors{% if is_done %} opacity-45{% endif %}">
+  class="group rounded-lg border border-oriens-divider bg-oriens-surface px-5 py-4 min-h-[120px] hover:bg-oriens-card-hover transition-colors{% if is_done %} opacity-45{% endif %}">
 
   <a href="/projects/{{ project.id }}"
      class="block text-oriens-primary text-sm font-medium leading-snug hover:text-oriens-accent transition-colors{% if is_done %} line-through{% endif %}">
@@ -23,41 +25,14 @@
     <p class="text-xs mt-0.5 text-oriens-muted">sem prazo</p>
   {% endif %}
 
-  <div class="flex items-center gap-3 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-    {% if project.status.value == 'em_andamento' %}
-    <button
+  <div class="mt-3 text-xs text-oriens-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+    Mover para:
+    {% for s in other_statuses %}<button
       hx-patch="/api/projects/{{ project.id }}"
-      hx-vals='{"status": "nao_iniciado"}'
+      hx-vals='{"status": "{{ s }}"}'
       hx-target="#project-{{ project.id }}" hx-swap="outerHTML"
       hx-on::after-request="if(event.detail.successful) window.location.reload()"
-      class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">Pausar</button>
-    <button
-      hx-patch="/api/projects/{{ project.id }}"
-      hx-vals='{"status": "concluido"}'
-      hx-target="#project-{{ project.id }}" hx-swap="outerHTML"
-      hx-on::after-request="if(event.detail.successful) window.location.reload()"
-      class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">Concluir</button>
-    {% elif project.status.value == 'nao_iniciado' %}
-    <button
-      hx-patch="/api/projects/{{ project.id }}"
-      hx-vals='{"status": "em_andamento"}'
-      hx-target="#project-{{ project.id }}" hx-swap="outerHTML"
-      hx-on::after-request="if(event.detail.successful) window.location.reload()"
-      class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">Iniciar</button>
-    <button
-      hx-patch="/api/projects/{{ project.id }}"
-      hx-vals='{"status": "concluido"}'
-      hx-target="#project-{{ project.id }}" hx-swap="outerHTML"
-      hx-on::after-request="if(event.detail.successful) window.location.reload()"
-      class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">Concluir</button>
-    {% else %}
-    <button
-      hx-patch="/api/projects/{{ project.id }}"
-      hx-vals='{"status": "em_andamento"}'
-      hx-target="#project-{{ project.id }}" hx-swap="outerHTML"
-      hx-on::after-request="if(event.detail.successful) window.location.reload()"
-      class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">Reabrir</button>
-    {% endif %}
+      class="hover:text-oriens-primary transition-colors">{{ status_labels[s] }}</button>{% if not loop.last %} · {% endif %}{% endfor %}
   </div>
 
 </article>
