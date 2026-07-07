@@ -37,144 +37,151 @@ Se a resposta for "mais difícil", a escolha está errada.
 |---|---|---|
 | Backend | Python | 3.12+ |
 | Framework | FastAPI | 0.115.0 |
-| Servidor | Uvicorn | 0.30.6 |
+| Servidor (web) | Gunicorn + Uvicorn workers | gunicorn 23.0.0 / uvicorn 0.30.6 — AUDITORIA |
+| Worker (fundo) | Processo dedicado `app/worker.py` | lembretes + captura Telegram — AUDITORIA |
 | ORM | SQLAlchemy | 2.0.35 |
-| Frontend JS | HTMX | 1.9.12 (CDN) |
-| Frontend JS | Alpine.js | 3.14.1 (CDN) |
-| CSS | TailwindCSS | CDN |
-| Templates | Jinja2 | 3.1.4 |
-| Auth | PyJWT + bcrypt | 2.9.0 + 4.2.0 |
+| Frontend JS | HTMX | 1.9.12 (auto-hospedado, `static/vendor/` — AUDITORIA, era CDN) |
+| Frontend JS | Alpine.js | 3.14.1 (auto-hospedado — AUDITORIA, era CDN) |
+| Frontend JS | SortableJS | 1.15.2 (auto-hospedado — AUDITORIA, era CDN) |
+| CSS | TailwindCSS | auto-hospedado (`static/vendor/tailwind.js` — AUDITORIA, era CDN) |
+| Fonte | Inter | auto-hospedada (`static/vendor/fonts/` — AUDITORIA, era Google Fonts) |
+| Templates | Jinja2 | 3.1.6 (AUDITORIA — era 3.1.4) |
+| Auth | PyJWT + bcrypt (via passlib) | 2.9.0 + 4.2.0 |
 | Banco | SQLite (dev) / PostgreSQL (prod) | aiosqlite 0.20 / asyncpg 0.29 |
 | Testes | pytest + pytest-asyncio | 8.3.3 + 0.24.0 |
-| IA (opcional) | Anthropic / OpenAI | ≥0.40.0 / ≥1.50.0 |
+| IA (opcional) | Anthropic / OpenAI | 0.40.0 / 1.50.0 (pinados — AUDITORIA, eram `>=`) |
 | Deploy | Docker Compose (prod) | VPS Ubuntu 24.04 |
 
 > **Banco único, dois ambientes:** o mesmo código roda em **SQLite no dev** e **PostgreSQL na produção**, controlado só pela `DATABASE_URL`.
-> **Migrations:** gerenciadas via `database.py` → `init_db()` com `Base.metadata.create_all` + `_ensure_columns()` (ALTER TABLE por coluna) + `_migrate_data()` (seed e migrações de dados). **`_ensure_columns()` e `_migrate_data()` rodam apenas em SQLite** (guard por `conn.dialect.name`). Para **migrações aditivas em PostgreSQL** (prod já no ar), use `_ensure_columns_postgres()` — `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (idempotente) no dict `_ENSURE_COLUMNS_PG`. `init_db()` roda **sempre** no startup (lifespan), inclusive com `DEBUG=false`. **Alembic não está em uso ativo.**
+> **Migrations:** gerenciadas via `database.py` → `init_db()` com `Base.metadata.create_all` + `_ensure_columns()` (ALTER TABLE por coluna) + `_migrate_data()` (seed e migrações de dados). **`_ensure_columns()` e `_migrate_data()` rodam apenas em SQLite** (guard por `conn.dialect.name`). Para **migrações aditivas em PostgreSQL** (prod já no ar), use `_ensure_columns_postgres()` — `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` (idempotente, dict agora **sincronizado 1:1 com `_ENSURE_COLUMNS`** — AUDITORIA), mais `_ensure_indexes()` (índices em colunas quentes) e `_seed_contexts()`. `init_db()` roda **sempre** no startup (lifespan e `app/worker.py`), inclusive com `DEBUG=false`, protegido por **`pg_advisory_xact_lock`** (AUDITORIA) para ser seguro com múltiplos processos/workers rodando `init_db` ao mesmo tempo. **Alembic não está em uso ativo.**
+> **Enums:** `Task.status/energy/cognitive_load`, `Project.status`, `ProjectRisk.impact/probability/status` usam `Enum(..., native_enum=False, length=50)` (AUDITORIA — eram `Enum` nativo do Postgres, que quebrava com `ALTER TYPE` ao adicionar um valor novo). Colunas Postgres pré-existentes são convertidas de `ENUM` nativo para `VARCHAR` automaticamente e uma única vez em `_ensure_columns_postgres` (`_PG_ENUM_TO_VARCHAR`, guardado por `information_schema.columns`).
 
 ---
 
-## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS SCRIPT 17)
+## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS AUDITORIA)
 
 ```
 C:\Projetos\Sistema tarefas\
 ├── app/
 │   ├── __init__.py
-│   ├── main.py                        # FastAPI app, routers, lifespan (init_db; seed contextos + critérios) + loop de lembretes (SCRIPT 4/8)
+│   ├── main.py                        # FastAPI app, routers, lifespan (init_db + seed contextos). SEM loops de fundo (ver worker.py) — AUDITORIA
+│   ├── worker.py                      # NOVO (AUDITORIA): processo único p/ lembretes + captura Telegram, fora do web (permite gunicorn multi-worker)
+│   ├── logging_setup.py               # NOVO (AUDITORIA): dictConfig de logging + check_production_secrets() (aborta boot com SECRET_KEY padrão em prod)
 │   ├── config.py                      # Pydantic Settings (DATABASE_URL, SECRET_KEY, AI_*, COOKIE_SECURE, TELEGRAM_*)
-│   ├── database.py                    # init_db(); _ensure_columns/_migrate_data (SQLite) + _ensure_columns_postgres (PG)
+│   ├── database.py                    # init_db() c/ pg_advisory_xact_lock; _ensure_columns/_migrate_data (SQLite) + _ensure_columns_postgres (PG, sincronizado) + _ensure_indexes + _seed_contexts + conversão enum→varchar — AUDITORIA
 │   ├── templates_env.py               # Jinja2 env global (`now`, `fmt_size`, `due_status` — SCRIPT 6; `faixa_importancia` — SCRIPT 8)
 │   ├── models/
-│   │   ├── __init__.py                # Exporta todos os models (+ Label, CriterioContexto, TarefaCriterioValor)
-│   │   ├── user.py                    # + foco_do_dia (text, singleton) — SCRIPT 8
-│   │   ├── project.py                 # + proxima_acao, premissas, responsavel_id, archived (SCRIPT 5); status: nao_iniciado/em_andamento/concluido
-│   │   ├── task.py                    # EnergyLevel aqui; + responsavel_id; + tags; + importancia/sem_nota (SCRIPT 8)
+│   │   ├── __init__.py                # Exporta todos os models (+ Label; CriterioContexto/TarefaCriterioValor REMOVIDOS — AUDITORIA)
+│   │   ├── user.py                    # + foco_do_dia (SCRIPT 8); + telegram_chat_id (nullable, indexed) — AUDITORIA
+│   │   ├── project.py                 # + proxima_acao, premissas, responsavel_id, archived (SCRIPT 5); status como Enum(native_enum=False) — AUDITORIA
+│   │   ├── task.py                    # EnergyLevel aqui; + responsavel_id/tags/importancia/sem_nota; status/energy/cognitive_load Enum(native_enum=False) + índices em deadline/remind_at/status/archived/section_id — AUDITORIA
 │   │   ├── note.py
-│   │   ├── capture.py
+│   │   ├── capture.py                 # + índice em `processed` — AUDITORIA
 │   │   ├── context.py                 # type → String(50) nullable; + user_id (contextos dinâmicos)
 │   │   ├── weekly_directive.py
 │   │   ├── project_comment.py
 │   │   ├── project_attachment.py      # anexos em DISCO: /app/data/attachments/{project_id}/
 │   │   ├── project_decision.py        # Decisões (data + texto) — SCRIPT 5 (substituiu project_milestone)
 │   │   ├── project_section.py         # Seção de projeto (nome, order_index) — SCRIPT 16A
-│   │   ├── project_risk.py
+│   │   ├── project_risk.py            # impact/probability/status Enum(native_enum=False) — AUDITORIA
 │   │   ├── project_audit.py
 │   │   ├── project_timeline.py        # TimelineEventType enum (+ decision_recorded, SCRIPT 5) + ProjectTimeline model
-│   │   ├── label.py                   # Label (etiquetas por usuário) — SCRIPT 3
-│   │   ├── criterio_contexto.py       # critério de importância por contexto (peso, inverter) — SCRIPT 8
-│   │   └── tarefa_criterio_valor.py   # nota 0-5 da tarefa em cada critério — SCRIPT 8
+│   │   └── label.py                   # Label (etiquetas por usuário) — SCRIPT 3
+│   │   # criterio_contexto.py / tarefa_criterio_valor.py REMOVIDOS na AUDITORIA (código morto do SCRIPT 8, desativado desde o SCRIPT 13). Tabelas legadas não são dropadas no banco.
 │   ├── schemas/
 │   ├── repositories/
 │   │   ├── ... (user, project, task, note, capture, weekly, comment, attachment, decision, risk, audit, timeline)
 │   │   ├── context_repo.py            # + get_all_by_user/get_by_id/create/delete (SCRIPT 3)
-│   │   ├── user_repo.py               # + update_foco (SCRIPT 8)
-│   │   ├── task_repo.py               # +order_index (nullslast); reorder/next/max-order; standalone_only; next/pending_count_by_project (10A/11)
+│   │   ├── user_repo.py               # + update_foco (SCRIPT 8); + get_by_telegram_chat_id/set_telegram_chat_id — AUDITORIA
+│   │   ├── task_repo.py               # +order_index (nullslast); reorder/next/max-order; standalone_only; next/pending_count_by_project (10A/11); ordenação e validação de reorder deduplicadas (`_project_task_order`, `_load_reorderable_tasks`) — AUDITORIA
 │   │   ├── project_repo.py            # get_active_by_user(context_id=...) — contexto antes de prioridade (SCRIPT 11)
 │   │   ├── project_timeline_repo.py   # + last_activity_by_projects (batched) — SCRIPT 10C
-│   │   ├── criterio_repo.py           # CRUD/replace de critérios + seed inicial — SCRIPT 8
 │   │   ├── project_section_repo.py    # CRUD de seções de projeto — SCRIPT 16A
 │   │   └── label_repo.py              # CRUD de etiquetas — SCRIPT 3
+│   │   # criterio_repo.py REMOVIDO na AUDITORIA (junto do subsistema de critérios)
 │   ├── services/
 │   │   ├── project_service.py         # +get_project_next_action (10A) +get_executability (10C); audit/timeline; archived (SCRIPT 5)
-│   │   ├── task_service.py            # priority_score + timeline; order_index no create (10A); SEM validação de verbo (SCRIPT 12)
+│   │   ├── task_service.py            # priority_score + timeline; order_index no create (10A); SEM validação de verbo (import morto removido — AUDITORIA)
 │   │   ├── capture_service.py         # process_as_task (aceita context_id) /project/note/discard
-│   │   ├── dashboard_service.py       # +get_projects_in_focus/get_standalone_tasks/pick_now_action (11/12); get_priorities_grouped legado
-│   │   ├── importancia_service.py     # calcular_importancia, faixa_importancia, parse/apply de valores — SCRIPT 8
+│   │   ├── dashboard_service.py       # get_projects_in_focus/get_standalone_tasks/pick_now_action (11/12); get_priorities_grouped e helpers REMOVIDOS (código morto) — AUDITORIA
+│   │   ├── importancia_service.py     # SÓ `importancia_from_prioridade` + `faixa_importancia` (SCRIPT 13, vivas). `ImportanciaService`/`calcular_importancia` REMOVIDOS (dead code) — AUDITORIA
 │   │   ├── weekly_directive_service.py
 │   │   ├── ai_service.py              # Protocol + ClaudeProvider + OpenAIProvider + NullProvider
-│   │   └── reminder_service.py        # lembretes: send_telegram, process_due_telegram, get_due_popups — SCRIPT 4
+│   │   └── reminder_service.py        # send_telegram(text, chat_id=None); process_due_telegram/process_telegram_updates roteados por users.telegram_chat_id com fallback ao .env — AUDITORIA
 │   ├── routes/
 │   │   ├── auth.py                    # cookies com secure=COOKIE_SECURE
-│   │   ├── dashboard.py               # GET /dashboard/now + /projects-focus + /standalone (11/12); PATCH /dashboard/foco; /priorities legado
-│   │   ├── projects.py                # usa resolve_active_context(); list aceita ?filter=active|archived|all (SCRIPT 5); section_groups/done_by_section/blocked_by_section/responsavel_map (SCRIPT 16A/18)
-│   │   ├── capture.py                 # resolve_active_context(); process passa criterios_by_context + contexto ativo (SCRIPT 8)
-│   │   ├── weekly.py                  # usa resolve_active_context()
-│   │   ├── settings.py               # GET /settings (etiquetas + contextos + critérios) — SCRIPT 3/8
+│   │   ├── dashboard.py               # GET /dashboard/now + /projects-focus + /standalone (11/12); PATCH /dashboard/foco. Rota /priorities legada REMOVIDA — AUDITORIA
+│   │   ├── projects.py                # usa resolve_active_context(); list aceita ?filter=active|archived|all (SCRIPT 5); section_groups/done_by_section/blocked_by_section/responsavel_map (SCRIPT 16A/18); wiring de critérios removido — AUDITORIA
+│   │   ├── capture.py                 # resolve_active_context()
+│   │   ├── weekly.py                  # usa resolve_active_context(); datetime via utils/time.utcnow() — AUDITORIA
+│   │   ├── settings.py               # GET /settings (etiquetas + contextos); wiring de critérios removido — AUDITORIA
 │   │   └── api/
-│   │       ├── tasks.py               # critérios SÓ p/ avulsas de topo (10B); tarefa de projeto devolve wrapper drag; PATCH /{id}/adiar
-│   │       ├── projects.py            # + PATCH /{id}/task-order (reordena, SCRIPT 10A); responsavel/proxima_acao/archived; decisões (SCRIPT 5); seções CRUD (SCRIPT 16A)
-│   │       ├── capture.py             # process: contexto obrigatório + critérios (SCRIPT 8)
+│   │       ├── tasks.py               # PATCH /{id}/adiar; sem validação de verbo
+│   │       ├── projects.py            # + PATCH /{id}/task-order (SCRIPT 10A); responsavel/proxima_acao/archived; decisões (SCRIPT 5); seções CRUD (SCRIPT 16A); upload de anexo com ownership+limite 20MB+allowlist — AUDITORIA
+│   │       ├── capture.py
 │   │       ├── ai.py
 │   │       ├── context.py             # cookie agora guarda context_id (int) — SCRIPT 3
-│   │       ├── settings.py            # CRUD etiquetas + contextos + POST /criterios/{ctx} (replace) — SCRIPT 3/8
+│   │       ├── settings.py            # CRUD etiquetas + contextos + POST /telegram (chat_id do usuário) — AUDITORIA. Rota /criterios REMOVIDA
 │   │       └── reminders.py           # GET /due (popup) + POST /{id}/ack — SCRIPT 4
 │   ├── templates/
-│   │   ├── base.html                  # tokens oriens-*→var(); theme.css; init de tema sem flash; x-data theme no <html> (SCRIPT 6)
+│   │   ├── base.html                  # tokens oriens-*→var(); theme.css; init de tema sem flash; Tailwind/HTMX/Alpine/fonte Inter AUTO-HOSPEDADOS via /static/vendor (AUDITORIA — eram CDN)
 │   │   ├── base_app.html              # sidebar RESPONSIVA + contextos dinâmicos + seletor de tema "Aparência" (SCRIPT 6)
 │   │   ├── dashboard.html             # bloco "Agora" + Projetos em foco × Tarefas avulsas (SCRIPT 11/12)
 │   │   ├── capture.html
-│   │   ├── process.html               # form de tarefa: contexto obrigatório + critérios dinâmicos (SCRIPT 8)
+│   │   ├── process.html
 │   │   ├── weekly.html
-│   │   ├── settings.html              # etiquetas + contextos + "Critérios de importância" (SCRIPT 3/8)
+│   │   ├── settings.html              # etiquetas + contextos + seção "Telegram" (chat_id do usuário) — AUDITORIA. Seção de critérios REMOVIDA
 │   │   ├── auth/ (login.html, setup.html)
 │   │   ├── projects/
-│   │   │   ├── list.html              # tabela com seções colapsáveis Alpine (Em andamento→Não iniciado→Concluído); chips status/prioridade; HTMX hover actions; resize de colunas (SCRIPT 17)
-│   │   │   ├── detail.html            # full-width max-960px; abas Alpine (Visão geral / Tarefas); overview = grid cards (Objetivo/Prazo/Progresso/Decisões/Comentários/Anexos); tasks = tabela Asana + SortableJS; sidebar removida (SCRIPT 17)
+│   │   │   ├── list.html              # tabela com seções colapsáveis Alpine (SCRIPT 17)
+│   │   │   ├── detail.html            # abas Alpine (Visão geral/Tarefas); SortableJS auto-hospedado; handlers `htmx:afterSettle` consolidados em um só — AUDITORIA
 │   │   │   └── reports.html           # coluna "Decisões" (era "Marcos") — SCRIPT 5
 │   │   └── partials/
 │   │       ├── task_item.html         # PARTIAL UNIFICADO de tarefa — usado por Dashboard, concluídas, overload; flags: reload_on_done, hide_actions
-│   │       ├── task_with_subtasks.html # wrapper de tarefa de projeto — LEGADO, usado só pelo bloco "Agora" do Dashboard (SCRIPT 12); NÃO usar em detalhe de projeto
 │   │       ├── project_task_row.html  # linha densa Asana: drag | checkbox | título | energia | prazo | responsável | ações hover; usado em detail + seções (SCRIPT 16B)
-│   │       ├── dashboard_task.html     # thin wrapper → task_item com show_project/show_adiar/refresh_priorities (SCRIPT 9)
 │   │       ├── capture_item.html      # item de captura — mesmo estilo visual denso (SCRIPT 9)
 │   │       ├── theme_switcher.html      # 3 bolinhas dark/light/warm (Alpine `theme`) — SCRIPT 6
 │   │       ├── task_form.html         # CRIAÇÃO só com título (SCRIPT 4)
 │   │       ├── task_edit_form.html    # energia/prazo/resp/etiquetas/quick win/lembrete; contexto travado se for de projeto
 │   │       ├── reminder_popup.html    # toasts de lembrete (SCRIPT 4)
-│   │       ├── project_form.html       # criação: + "Próxima ação" + critérios quando o contexto tem (SCRIPT 5/8)
+│   │       ├── project_form.html       # criação: + "Próxima ação" (SCRIPT 5)
 │   │       ├── project_decision.html   # item de decisão (data + texto + excluir) — SCRIPT 5
-│   │       ├── criterio_selector.html  # botões 0-5 obrigatórios por critério (radios) — SCRIPT 8
 │   │       ├── foco_do_dia.html        # compacto se vazio, accent se preenchido (SCRIPT 12) + _foco_form.html
 │   │       ├── dashboard_now.html       # bloco "Agora": UMA ação dominante (SCRIPT 12)
 │   │       ├── dashboard_projects_focus.html # coluna "Projetos em foco" + contador sem-próxima-ação (SCRIPT 11)
 │   │       ├── dashboard_project_card.html   # card de projeto em foco (próxima ação/energia/prazo) (SCRIPT 11/12)
 │   │       ├── dashboard_standalone.html     # coluna "Tarefas avulsas" (task_item hide_actions) (SCRIPT 11/12)
-│   │       ├── dashboard_priorities.html # LEGADO (SCRIPT 8) — não usado no dashboard atual, mantido
-│   │       ├── project_card.html        # card minimalista: nome + prioridade/contexto/prazo + ações hover (SCRIPT 16B — sem objetivo/próxima-ação/progresso)
+│   │       ├── project_card.html        # card minimalista: nome + prioridade/contexto/prazo + ações hover (SCRIPT 16B)
 │   │       ├── project_section.html     # bloco de seção: rename Alpine, delete HTMX, task-list + task_form inline (SCRIPT 16A)
 │   │       ├── project_row.html         # linha <tr> de projeto para list.html (retorno do POST /api/projects)
 │   │       ├── capture_content_span.html # span editável de captura (retorno do PATCH /api/capture/{id})
 │   │       └── ... (comment/attachment/risk, process, ai_result)
-│   ├── static/                        # PWA: manifest.webmanifest, sw.js, icon.svg + css/theme.css (3 temas — SCRIPT 6)
+│   │   # REMOVIDOS na AUDITORIA (código morto/órfão): task_with_subtasks.html, dashboard_priorities.html,
+│   │   # dashboard_task.html, criterio_selector.html.
+│   ├── static/
+│   │   ├── vendor/                    # NOVO (AUDITORIA): Tailwind, HTMX, Alpine, SortableJS + fonte Inter (woff2) auto-hospedados — sem CDN
+│   │   ├── sw.js                      # v2 (AUDITORIA): pré-cacheia + cacheia-no-fetch os assets de /static (PWA offline de verdade)
+│   │   └── manifest.webmanifest, icon.svg, css/theme.css (3 temas — SCRIPT 6)
 │   └── utils/
-│       ├── auth.py                    # cookie: oriens_token
-│       ├── verb_validator.py
+│       ├── auth.py                    # cookie: oriens_token; datetime via utils/time.utcnow() — AUDITORIA
+│       ├── time.py                    # NOVO (AUDITORIA): utcnow() (naive UTC, convenção única) / now_local() (lembretes)
 │       ├── overload_detector.py       # score = (proj*2) + tasks
 │       └── context_utils.py           # resolve_active_context() — SCRIPT 3
-├── tests/
+│   # verb_validator.py REMOVIDO na AUDITORIA (import morto desde o SCRIPT 12)
+├── tests/                              # SUÍTE REESCRITA na AUDITORIA (legado mission/POS removido) — ver seção TESTES
 ├── data/                              # SQLite (dev) + anexos (/app/data/attachments)
 ├── scripts/
 │   ├── backup.sh                      # pg_dump + anexos (.tar.gz), retenção 7 dias
 │   └── migrate_to_postgres.py         # cópia SQLite → PostgreSQL (opcional) — exige PYTHONPATH=/app
 ├── nginx/
-│   └── oriens.conf                    # proxy reverso (uso futuro com domínio)
-├── docker-compose.yml                 # DEV (SQLite + --reload + TZ)
-├── docker-compose.prod.yml            # PROD (app + PostgreSQL + volumes pgdata/appdata + TZ)
-├── Dockerfile                         # produção (sem --reload; instala tzdata, TZ=America/Sao_Paulo)
+│   └── oriens.conf                    # proxy reverso + `location /static/` direto + `limit_req` no /auth/login — AUDITORIA
+├── docker-compose.yml                 # DEV (SQLite + --reload + TZ) + serviço `worker` — AUDITORIA
+├── docker-compose.prod.yml            # PROD (app + PostgreSQL + worker + volumes pgdata/appdata + TZ + healthcheck do app) — AUDITORIA
+├── Dockerfile                         # produção: gunicorn -k UvicornWorker -w 3 (era uvicorn single-process) — AUDITORIA
 ├── .dockerignore  /  .gitignore
 ├── .env  /  .env.example              # .env.example tem blocos DEV e PROD
-├── DEPLOY.md                          # guia completo (domínio + HTTPS + Nginx + backup)
-├── requirements.txt                   # + asyncpg
+├── DEPLOY.md                          # guia completo (domínio + HTTPS + Nginx + backup + worker + rollback) — AUDITORIA
+├── requirements.txt                   # + gunicorn; python-multipart/jinja2 atualizados (CVE) — AUDITORIA
 └── README.md
 ```
 
@@ -182,7 +189,8 @@ C:\Projetos\Sistema tarefas\
 
 ## BANCO DE DADOS (ESTADO ATUAL — PÓS SCRIPT 5)
 
-**users:** `id, email (unique), password (bcrypt), name, created_at, foco_do_dia (text, nullable — SCRIPT 8)`
+**users:** `id, email (unique), password (bcrypt), name, created_at, foco_do_dia (text, nullable — SCRIPT 8), telegram_chat_id (varchar(64), nullable, indexed — AUDITORIA)`
+- `telegram_chat_id`: chat do Telegram do usuário (lembretes + captura roteados por dono). `NULL` → usa o `TELEGRAM_CHAT_ID` global do `.env` (compatibilidade single-user). Editável em `/settings`.
 
 **projects:** `id, user_id, responsavel_id (nullable, FK users), context_id (nullable), name, objective, status, priority (1-3), deadline, notes, done_at, scope, tags, strategic (bool), quarter, owner, strategic_priority, proxima_acao (text), premissas (text), archived (bool, default false), created_at, updated_at`
 - status: `nao_iniciado | em_andamento | concluido`
@@ -197,11 +205,7 @@ C:\Projetos\Sistema tarefas\
 - `tags`: etiquetas separadas por vírgula (SCRIPT 3)
 - `context_id` NULL = tarefa "Independente (todos os contextos)" — aparece em qualquer contexto
 
-**criterio_contexto:** `id, context_id (FK contexts cascade), nome, peso (int), inverter (bool)`  *(SCRIPT 8)*
-- Máx. 3 por contexto (validado no backend). `inverter`=true → nota alta reduz a importância.
-- Seed inicial no lifespan: Trabalho (Financeiro 4 / Diretor pediu 3 / Facilidade 3 invertido), Casa (Financeiro 1 / Saúde 1 / Bem-estar 1).
-
-**tarefa_criterio_valor:** `id, task_id (FK cascade), criterio_id (FK cascade), valor (0-5)`  *(SCRIPT 8)* — unique (task_id, criterio_id).
+> **`criterio_contexto` / `tarefa_criterio_valor`** (SCRIPT 8, importância ponderada por critérios) foram **removidas do código** na AUDITORIA — desativadas desde o SCRIPT 13 (substituídas por Alta/Média/Baixa) e comprovadamente sem leitor vivo (`ImportanciaService`/`calcular_importancia` nunca eram instanciados). As tabelas legadas podem permanecer órfãs no banco (não são dropadas — operação não-destrutiva); nada mais as lê ou escreve.
 
 **labels:** `id, user_id (FK cascade), name, color (hex, nullable)`  *(SCRIPT 3)*
 - Etiquetas predefinidas pelo usuário, gerenciadas em `/settings`
@@ -235,7 +239,7 @@ C:\Projetos\Sistema tarefas\
 
 ## REGRAS DE NEGÓCIO
 
-1. **Título de tarefa:** deve começar com verbo (PT ou EN). Validar em `task_service.py` → lança `TaskVerbError(title, suggestions)`. Retornar alerta inline via HTMX.
+1. ~~**Título de tarefa:** deve começar com verbo~~ — **REVOGADA pela regra 29** (SCRIPT 12: validação desativada). O helper `verb_validator.py` foi **removido** na AUDITORIA (import morto). Qualquer título não vazio é aceito.
 2. **Anti-overload:** score = `(projetos_em_andamento * 2) + tarefas_pendentes`. Threshold = 15. Se score > 15 → modo overload: 3 tarefas + banner de alerta.
 3. **Captura sem fricção:** `POST /api/capture` exige apenas `content`. Zero outros campos obrigatórios.
 4. **Energia como filtro:** Dashboard adapta visibilidade por energia da sessão:
@@ -258,12 +262,12 @@ C:\Projetos\Sistema tarefas\
 13. **Contextos dinâmicos:** deixaram de ser enum fixo. Cookie `oriens_context` agora guarda o **`context_id` (inteiro)**. `resolve_active_context()` (`app/utils/context_utils.py`) é o helper único usado por todas as rotas HTML; retorna `(context_id, active_context_obj, all_contexts)` e ainda lê cookies legados por `type`. A sidebar lista os contextos dinamicamente; a transição "Sair do trabalho" é decidida por `active_context_obj.type == "work"`.
 14. **Tarefa independente de contexto:** `context_id = NULL` significa "Independente (todos os contextos)" — a tarefa aparece em qualquer contexto ativo (filtro: `context_id IS NULL OR context_id == ativo`).
 15. **Etiquetas (labels):** CRUD em `/settings`. Campo `tasks.tags` (texto, vírgula). No formulário de tarefa, chips das etiquetas do usuário preenchem o campo `tags` (Alpine). Badges de contexto e tags aparecem no `task_item`.
-16. **Lembretes de tarefa:** `remind_at` (data+hora, sem recorrência). Dois canais: (a) **Telegram** — loop de fundo em `main.py` (a cada 60s) chama `reminder_service.process_due_telegram()`; só envia se `TELEGRAM_BOT_TOKEN`+`TELEGRAM_CHAT_ID` estiverem no `.env`; marca `reminder_telegram_sent`. (b) **Popup no app** — `base_app.html` faz polling de `GET /api/reminders/due` (60s); `POST /api/reminders/{id}/ack` seta `reminder_acked`. Ao editar o lembrete, ambos os flags são resetados. Hora local depende de `TZ=America/Sao_Paulo`.
+16. **Lembretes de tarefa:** `remind_at` (data+hora, sem recorrência). Dois canais: (a) **Telegram** — loop de fundo em **`app/worker.py`** (processo separado do web desde a AUDITORIA; era `main.py`) a cada 60s chama `reminder_service.process_due_telegram()`; envia ao `telegram_chat_id` do **dono da tarefa**, com fallback ao `TELEGRAM_BOT_TOKEN`+`TELEGRAM_CHAT_ID` globais do `.env` (AUDITORIA — Telegram por usuário); marca `reminder_telegram_sent`. (b) **Popup no app** — `base_app.html` faz polling de `GET /api/reminders/due` (60s); `POST /api/reminders/{id}/ack` seta `reminder_acked`. Ao editar o lembrete, ambos os flags são resetados. Hora local depende de `TZ=America/Sao_Paulo`.
 17. **Herança de contexto:** toda tarefa criada dentro de um projeto herda `context_id` do projeto (forçado em `api/tasks.create_task`). No `task_edit_form`, o contexto fica **somente leitura** para tarefas de projeto; editável só para tarefas avulsas.
 18. **Contexto obrigatório no projeto:** `create_project` e `update_project` exigem `context_id`; o select é `required` e nunca permite valor vazio. Projetos antigos sem contexto devem recebê-lo ao serem editados.
 19. **Criação de tarefa só com título** (GTD "capturar primeiro, organizar depois"): o `task_form` pede apenas o título; energia, prazo, responsável, etiquetas, quick win e lembrete são ajustados depois via "editar". **Exceção (SCRIPT 8):** se o contexto da tarefa tiver critérios, o form expande com os seletores 0-5 obrigatórios.
-20. **Importância ponderada (SCRIPT 8):** por contexto, até 3 critérios (`criterio_contexto`) com peso e flag `inverter`. `importancia = soma(valor_efetivo × peso) / soma(pesos)`, onde `valor_efetivo = (5 - valor)` se `inverter`. Faixas: 1-2 baixa, 3 média, 4-5 alta. Contexto sem critérios → `importancia=0, sem_nota=true`. Cálculo em `services/importancia_service.py` (`calcular_importancia`, `faixa_importancia` — global Jinja). Subtarefas não pedem critérios (ficam sem nota).
-21. **Obrigatoriedade dos critérios (SCRIPT 8):** ao criar/editar tarefa de topo cujo contexto tem critérios, todos os seletores 0-5 são obrigatórios (radios `required`) — bloqueia salvar. No **Processar**, o **contexto é obrigatório** e os critérios aparecem dinâmicos conforme o contexto escolhido (`process_item.html` + Alpine; campos `crit_<id>`). Persistência e cálculo nas rotas `api/tasks` (create/update) e `api/capture` (process), via `ImportanciaService`.
+20. ~~**Importância ponderada (SCRIPT 8):** critérios por contexto com peso/inverter~~ — **REMOVIDA na AUDITORIA**. Desativada desde o SCRIPT 13 (substituída pela regra 20-bis, Alta/Média/Baixa); código morto (`ImportanciaService`, `calcular_importancia`, model `criterio_contexto`/`tarefa_criterio_valor`, rota de critérios) apagado por não ter nenhum leitor vivo. Só sobrevivem `importancia_from_prioridade` e `faixa_importancia` em `services/importancia_service.py`.
+21. ~~**Obrigatoriedade dos critérios (SCRIPT 8)**~~ — **REMOVIDA na AUDITORIA** junto da regra 20 (mesmo motivo).
 22. **Foco do dia (SCRIPT 8):** `users.foco_do_dia` (singleton, sem histórico). Card no topo do Dashboard (único com borda `--oriens-accent`), edição inline (Alpine) salvando em `PATCH /dashboard/foco`.
 23. **Dashboard de Prioridades (SCRIPT 8, modo normal):** componente `partials/dashboard_priorities.html` com **três grupos** — Atrasadas / Hoje / Alta importância (`importancia >= 4` e não urgente). Máx. 3 cards por grupo (+N ocultas; "+ X outras prioridades" expande via `?expand=1`). Resumo "N atrasadas · N hoje · N alta" (bolinhas). **Pills** Todos/Atrasado/Hoje/Alta (`alta` reúne toda `importancia >= 4`). Ordenação intra-grupo por `importancia` desc. **Polling 30s** (`hx-trigger="every 30s, refreshPriorities from:body"`, swap `outerHTML`) + "atualizado há Xs". Cards (`partials/dashboard_task.html`): projeto (📁), urgência (atrasado·Nd/hoje), `alta · X.X` só na faixa alta, esforço `⏱`, `⚠` se `sem_nota`, **adiar** (escolhe novo prazo, `PATCH /api/tasks/{id}/adiar`, hover). Dados via `DashboardService.get_priorities_grouped` + `task_repo.get_pending_for_dashboard`/`_urgency_rank`. Fragmento: `GET /dashboard/priorities`. Modos overload/minimal inalterados.
 20. **Próxima ação (SCRIPT 5):** todo projeto deve ter uma próxima ação concreta e executável. Campo `proxima_acao` exibido **em destaque no topo** do detalhe, no card da listagem e na revisão semanal. Disponível no formulário de criação (**opcional**) e na edição. Auditado.
@@ -395,7 +399,7 @@ TELEGRAM_CHAT_ID=               # opcional
 | GET | `/settings` | Configurações: etiquetas + contextos (SCRIPT 3) |
 | GET | `/api/reminders/due` | Lembretes vencidos do usuário (popup HTMX, polling 60s) |
 | POST | `/api/reminders/{id}/ack` | Confirmar/dispensar lembrete (popup) |
-| GET | `/health` | Health check JSON |
+| GET | `/health` | Health check JSON — inclui `SELECT 1` no banco; 503 se o DB não responder (AUDITORIA) |
 
 ### API (fragmentos HTMX)
 
@@ -436,13 +440,14 @@ TELEGRAM_CHAT_ID=               # opcional
 | GET | `/dashboard/now` | Fragmento bloco "Agora" (uma ação dominante) — SCRIPT 12 |
 | GET | `/dashboard/projects-focus` | Fragmento "Projetos em foco" — SCRIPT 11 |
 | GET | `/dashboard/standalone` | Fragmento "Tarefas avulsas" (`?energy=`) — SCRIPT 11 |
-| GET | `/dashboard/priorities` | LEGADO (SCRIPT 8) — fragmento de prioridades agrupadas; não usado no dashboard atual |
 | PATCH | `/dashboard/foco` | Salvar foco do dia (SCRIPT 8) |
-| POST | `/api/settings/criterios/{context_id}` | Substituir critérios do contexto — máx. 3 (SCRIPT 8) |
 | POST | `/api/settings/labels` | Criar etiqueta (name, color) |
 | DELETE | `/api/settings/labels/{id}` | Excluir etiqueta |
 | POST | `/api/settings/contexts` | Criar contexto do usuário |
 | DELETE | `/api/settings/contexts/{id}` | Excluir contexto do usuário (não apaga padrões) |
+| POST | `/api/settings/telegram` | Salvar `telegram_chat_id` do usuário (AUDITORIA) |
+
+> **Removidos na AUDITORIA:** `GET /dashboard/priorities` (legado, código morto — dashboard atual usa `/dashboard/now` + `/dashboard/projects-focus` + `/dashboard/standalone`) e `POST /api/settings/criterios/{context_id}` (subsistema de critérios removido).
 
 ---
 
@@ -693,21 +698,65 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 #### Caixa de Entrada — campos obrigatórios ao processar (`/capture` → "Decidir" → Tarefa)
 - **Melhoria:** `Energia` e `Importância` no formulário de processamento de tarefa agora têm `required` e placeholder "Selecionar…" sem valor pré-selecionado — o browser bloqueia o submit se não forem preenchidos. `Contexto` já era `required`. Sem alteração de backend.
 
+### ✅ AUDITORIA — Correção de bugs, limpeza, testes e preparo para produção multi-worker
+
+Revisão completa do projeto em 5 fases (branch `refactor/producao-limpeza-bugs`, mergeada em `main`), cobrindo bugs reais, código morto, complexidade desnecessária, suíte de testes quebrada e lacunas de produção em escala. Cada fase foi um commit isolado; tudo aditivo e não-destrutivo (nenhuma tabela dropada, nenhum dado perdido).
+
+**Fase 1 — Bugs:**
+- **Datetime unificado** (`app/utils/time.py`, novo): `utcnow()` (naive UTC, convenção única) / `now_local()` (só para lembretes). Corrige o bug real em `task_repo.overdue_by_project` — comparava `datetime.now(timezone.utc)` (tz-aware) com `Task.deadline` (coluna naive), quebrando a contagem de "atrasadas" no Postgres.
+- **`Enum` nativo → `Enum(..., native_enum=False, length=50)`** em `Task.status/energy/cognitive_load`, `Project.status`, `ProjectRisk.impact/probability/status`. Elimina o risco de `ALTER TYPE` no Postgres ao introduzir um novo valor (documentado como risco futuro na seção "FUTURO" abaixo — agora mitigado). Colunas Postgres pré-existentes são convertidas de `ENUM` nativo para `VARCHAR` automaticamente (`_PG_ENUM_TO_VARCHAR` em `database.py`).
+- **Upload de anexo seguro** (`api/projects.upload_attachment`): valida ownership do projeto (antes, qualquer usuário autenticado escrevia em `/attachments/{project_id}/` de qualquer projeto), limite de 20MB lido em blocos (antes, `await file.read()` carregava o arquivo inteiro em memória) e allowlist de extensão.
+- **Logging** (`app/logging_setup.py`, novo): `dictConfig` + troca dos `except Exception: pass` (loops de fundo, migrações) por `logger.exception(...)` — falhas deixam de ser invisíveis.
+- **Guard de `SECRET_KEY`:** `check_production_secrets()` aborta o boot se `DEBUG=false` e `SECRET_KEY` ainda for o valor padrão do repo — impede subir em produção com uma chave JWT forjável.
+
+**Fase 2 — Remoção de código morto:** subsistema de importância ponderada (`criterio_contexto`/`tarefa_criterio_valor`/`criterio_repo`/`ImportanciaService`, desativado desde o SCRIPT 13 e sem leitor vivo), `verb_validator.py` (import morto desde o SCRIPT 12), rota `/dashboard/priorities` + `get_priorities_grouped` (dashboard atual não a usa desde o SCRIPT 11), partials órfãos (`task_with_subtasks.html`, `dashboard_priorities.html`, `dashboard_task.html`, `criterio_selector.html`).
+
+**Fase 5 — Testes:** a suíte antiga estava quebrada (importava `app.models.mission`, módulo removido no SCRIPT 1; cookie `pos_token` legado; título "POS"). Reescrita do zero: `tests/conftest.py` corrigido (cookie `oriens_token`, `StaticPool` para SQLite in-memory) + suíte nova focada (auth/http, dashboard, projetos+seções+executabilidade, tarefas, captura, importância, lembretes, telegram) — **39 testes**, todos verdes.
+
+**Fase 3 — Simplificação:** `_ENSURE_COLUMNS_PG` sincronizado 1:1 com `_ENSURE_COLUMNS` (o dict do Postgres omitia várias colunas que o SQLite já adicionava — risco real de schema divergente num Postgres pré-existente); dedupe no `task_repo` (escada de ordenação de tarefas de projeto repetida 3× → `_project_task_order()`; validação de reorder duplicada → `_load_reorderable_tasks()`); `CaptureRepository.get_unprocessed` agora delega a `get_inbox` (eram idênticas); os dois handlers `htmx:afterSettle` de `detail.html` consolidados em um só.
+
+**Fase 4 — Produção multi-worker/multi-usuário:**
+- **`app/worker.py`** (novo): os loops de lembrete/Telegram saíram do `main.py` para um processo dedicado — o web (`gunicorn -k UvicornWorker -w 3`, era `uvicorn` single-process) pode escalar sem duplicar envios/updates.
+- **`init_db` multi-worker-safe:** `pg_advisory_xact_lock` serializa migração/seed entre processos/workers; seed de contextos passou a rodar dentro do `init_db` (`_seed_contexts`).
+- **Índices** em colunas quentes: `tasks.deadline/remind_at/status/archived/section_id`, `capture_inbox.processed`.
+- **Pool de conexões** (Postgres): `pool_size=10`, `max_overflow=20`, `pool_pre_ping=True`, `pool_recycle=1800`.
+- **`/health` com ping real** no banco (503 se cair); `healthcheck` do serviço `app` no `docker-compose.prod.yml`.
+- **Telegram por usuário:** `users.telegram_chat_id` (nullable). Captura e lembretes roteados ao dono do chat; fallback ao `TELEGRAM_CHAT_ID` global do `.env` preserva o comportamento single-user existente sem exigir configuração. UI em `/settings` → seção "Telegram".
+- **Front sem CDN:** Tailwind, HTMX, Alpine.js, SortableJS e a fonte Inter auto-hospedados em `app/static/vendor/` (mesmos bytes das versões usadas — sem mudança visual). `sw.js` (v2) pré-cacheia e cacheia-no-fetch → PWA funciona offline de verdade.
+- **nginx:** `limit_req` no `/auth/login` (5 req/min por IP) + `location /static/` servindo os arquivos direto (tira o Python do caminho dos assets).
+- **Dependências:** `python-multipart` 0.0.12→0.0.18 (corrige CVE-2024-53981), `jinja2` 3.1.4→3.1.6, `anthropic`/`openai` pinados (eram `>=`), `gunicorn` adicionado.
+
+**Deixado de propósito fora do escopo** (risco maior ou exige validação visual/humana): refactor profundo dos controles injetados por JS em `detail.html` (trigger "+ Adicionar tarefa", botão `···`, chevron — hoje via DOM surgery, migrar para markup puro fica para um passo futuro validado em navegador); tokenização das cores hardcoded do SCRIPT 17 (`#4573d2` etc.); troca de `passlib`→`bcrypt` direto (evita só um warning cosmético no boot, mexe no hashing de senha).
+
+**Impacto no deploy:** o próximo `git pull && docker compose -f docker-compose.prod.yml up -d --build` na VPS passa a subir **3 serviços** (`db`, `app` com gunicorn, `worker`) em vez de 2. Ver `DEPLOY.md` para o procedimento e o rollback.
+
 ---
 
 ## PRODUÇÃO E OPERAÇÃO (VPS)
 
 **Local na VPS:** `/opt/oriens` · **Acesso atual:** `http://IP_DA_VPS:8000`
 
+**Serviços (pós-AUDITORIA):** `db` (PostgreSQL) + `app` (web, gunicorn com 3 workers Uvicorn) + `worker` (processo único: lembretes + captura Telegram). Os loops de fundo **não** rodam mais dentro do `app` — se o `worker` não estiver de pé, lembretes/Telegram param mas o resto do app funciona normalmente.
+
 **Comandos do dia a dia** (na VPS, em `/opt/oriens`):
 ```bash
-docker compose -f docker-compose.prod.yml ps               # status
-docker compose -f docker-compose.prod.yml logs -f app      # logs
-docker compose -f docker-compose.prod.yml restart          # reiniciar
+docker compose -f docker-compose.prod.yml ps                    # status (db, app, worker)
+docker compose -f docker-compose.prod.yml logs -f app worker    # logs
+docker compose -f docker-compose.prod.yml restart                # reiniciar
 git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualizar
 ```
 
 **Regra de ouro:** ⚠️ **nunca** use `down -v` — o `-v` apaga o volume `pgdata` (perde conta/projetos/tarefas). Os dados sobrevivem a `restart`, `up -d --build` e reboot da VPS.
+
+**Antes de cada deploy:** confira `.env` → `SECRET_KEY` **não pode** ser o valor padrão do repo com `DEBUG=false` (o app aborta o boot desde a AUDITORIA — guard proposital).
+
+**Rollback rápido** (código é compatível para trás — migração é aditiva):
+```bash
+git rev-parse HEAD | tee .last_good_commit    # ANTES de cada deploy, guarda o estado atual
+# se o novo deploy não subir como esperado:
+git checkout "$(cat .last_good_commit)"
+docker compose -f docker-compose.prod.yml up -d --build --remove-orphans   # remove o `worker` se voltar a código pré-AUDITORIA
+```
 
 **Persistência:** banco em `pgdata`; anexos em `appdata` (`/app/data/attachments`).
 
@@ -716,19 +765,22 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualiza
 
 ---
 
-## ESTATÍSTICAS DO PROJETO (ATUAL)
+## ESTATÍSTICAS DO PROJETO (ATUAL — PÓS AUDITORIA)
 
 | Item | Quantidade |
 |---|---|
-| Tabelas no banco | 17 (+ `project_sections` — SCRIPT 16A) |
-| Models SQLAlchemy | 17 (+ `ProjectSection`) |
-| Repositories | 16 (+ `project_section_repo`) |
+| Tabelas no banco | 17 (+ `project_sections`; `criterio_contexto`/`tarefa_criterio_valor` removidas do código, tabelas legadas não dropadas) |
+| Models SQLAlchemy | 15 (2 a menos que antes — critérios removidos) |
+| Repositories | 15 (`criterio_repo` removido) |
 | Services | 8 |
 | Rotas principais | 6 arquivos |
 | Rotas API | 7 arquivos |
-| Endpoints totais | ~47 |
-| Templates HTML | ~34 (+ `project_task_row.html`, `project_section.html` — SCRIPT 16A/16B) |
+| Endpoints totais | ~46 (`/dashboard/priorities` e `/api/settings/criterios` removidos; `/api/settings/telegram` adicionado) |
+| Templates HTML | ~30 (4 partials órfãos removidos: `task_with_subtasks`, `dashboard_priorities`, `dashboard_task`, `criterio_selector`) |
 | Temas | 3 (`dark`/`light`/`warm`) via `static/css/theme.css` |
+| Testes | 39 (suíte reescrita — era ~90, mas quebrada/legada) |
+| Processos em produção | 2 (`app` multi-worker + `worker` único) — era 1 |
+| Dependências CDN | 0 (Tailwind/HTMX/Alpine/Sortable/Inter auto-hospedados) — era 5 |
 | Ambiente | Dev (SQLite) + Produção (PostgreSQL na VPS) |
 
 ---
@@ -736,11 +788,14 @@ git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualiza
 ## 🔭 FUTURO (PLANEJADO, NÃO IMPLEMENTADO) — Dev em PostgreSQL (paridade com produção)
 
 > **Status:** apenas documentado. Nada abaixo foi executado. O dev continua em SQLite.
-> **Motivo:** acabar com a divergência dev (SQLite) × prod (PostgreSQL) — sobretudo os
-> **`Enum` nativos** do PG (`Project.status`, `Task.status/energy/cognitive_load`,
-> `ProjectRisk.impact/probability/status`), que aceitam qualquer valor no SQLite mas quebram no
-> PG ao adicionar um valor novo; e o **caminho de migração** (`_ensure_columns_postgres`) que hoje
-> nunca é exercitado localmente.
+> **Atualização (AUDITORIA):** o principal motivador original — os **`Enum` nativos** do PG que
+> quebravam com `ALTER TYPE` ao adicionar um valor novo — **já foi mitigado**: todos os enums
+> (`Project.status`, `Task.status/energy/cognitive_load`, `ProjectRisk.impact/probability/status`)
+> agora usam `Enum(..., native_enum=False)` (mapeados como `VARCHAR`), e uma migração converte
+> colunas Postgres pré-existentes automaticamente. O risco residual que sobra deste plano é bem
+> menor: só a divergência de *dialeto* em si (funções SQL específicas, tipos de data) e o fato do
+> caminho `_ensure_columns_postgres`/`_ensure_indexes` ainda não ser exercitado localmente no dia a
+> dia. Este plano continua válido como forma de fechar essa lacuna, mas deixou de ser urgente.
 >
 > **Objetivos inegociáveis deste plano:** VPS intacta · PostgreSQL **só** para dev ·
 > `docker-compose.prod.yml` e deploy **inalterados** · rollback trivial para SQLite.
@@ -826,9 +881,9 @@ AI_PROVIDER=null
 
 ### 6. Impactos em testes e deploy
 - **Deploy: ZERO impacto.** Prod usa `docker-compose.prod.yml` + `.env` da VPS, nenhum dos dois muda. `git pull && docker compose -f docker-compose.prod.yml up -d --build` segue idêntico. O `docker-compose.dev.yml` nunca é referenciado em prod.
-- **Testes:** `tests/conftest.py` usa **SQLite in-memory** (`sqlite+aiosqlite:///:memory:`, só `create_all`).
-  - Curto prazo: manter assim (rápido) — testes continuam passando.
-  - Ganho de paridade só aparece se a suíte (ou ao menos um *smoke test*) rodar contra PG; opção futura: serviço PG efêmero no CI. (Obs.: o `conftest` ainda seta cookie `pos_token` — nome legado; o atual é `oriens_token` — corrigir à parte.)
-- **Risco residual:** evolução de `Enum` nativo continua perigosa em prod mesmo com dev=PG — a diferença é que agora **quebraria no dev primeiro**. Mitigação futura: migrar enums voláteis para `String` + validação na aplicação.
+- **Testes:** `tests/conftest.py` usa **SQLite in-memory** (`sqlite+aiosqlite:///:memory:`, `StaticPool`, cookie `oriens_token` corrigido na AUDITORIA).
+  - Curto prazo: manter assim (rápido) — 39 testes passando.
+  - Ganho de paridade só aparece se a suíte (ou ao menos um *smoke test*) rodar contra PG; opção futura: serviço PG efêmero no CI.
+- **Risco residual:** já reduzido pela AUDITORIA (`native_enum=False` em todos os enums) — deixou de ser o principal motivador deste plano (ver nota no topo desta seção).
 
 ---

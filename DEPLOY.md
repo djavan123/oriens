@@ -3,12 +3,17 @@
 Arquitetura mais simples que funciona:
 
 ```
-Internet ──▶ Nginx (host, :80/:443, TLS) ──▶ App (container, 127.0.0.1:8000) ──▶ PostgreSQL (container)
+Internet ──▶ Nginx (host, :80/:443, TLS) ──▶ App (container, gunicorn multi-worker, 127.0.0.1:8000) ──▶ PostgreSQL (container)
+                                          └─▶ estáticos servidos direto pelo Nginx (/static/)
+                              Worker (container, sem porta) ──▶ PostgreSQL (mesmo banco)
 ```
 
 - **Nginx + Certbot** rodam direto no Ubuntu (apt) — mais fácil de depurar, renovação automática.
-- **App + PostgreSQL** rodam em containers via `docker-compose.prod.yml`.
+- **App + PostgreSQL + Worker** rodam em containers via `docker-compose.prod.yml`.
+- **App (web)** roda com `gunicorn -k uvicorn.workers.UvicornWorker -w 3` (multi-worker desde a auditoria de produção — antes era um único processo `uvicorn`).
+- **Worker** é um processo **único e separado** (`app/worker.py`) que cuida dos lembretes e da captura por Telegram. Não deve ser escalado (>1 réplica duplicaria envios/updates).
 - **Anexos** ficam no volume `appdata` (gravados em `/app/data`).
+- **Front sem CDN:** Tailwind/HTMX/Alpine/SortableJS e a fonte Inter são auto-hospedados em `app/static/vendor/` — nenhuma dependência de rede externa para o app carregar.
 
 ---
 
@@ -82,18 +87,25 @@ AI_ENABLED=false
 AI_PROVIDER=null
 ```
 
+> ⚠️ **Importante:** com `DEBUG=false`, o app **se recusa a subir** se `SECRET_KEY` ainda for o
+> valor padrão do repositório (`troque-isso-em-producao`) — é um guard proposital contra subir em
+> produção com uma chave JWT forjável. Se o container `app` reiniciar em loop logo após o deploy,
+> confira `docker compose -f docker-compose.prod.yml logs app` primeiro por essa causa.
+
 ## 6. Subir os containers
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d --build
-docker compose -f docker-compose.prod.yml ps          # db e app devem estar "Up"
-docker compose -f docker-compose.prod.yml logs -f app  # "Application startup complete." (Ctrl+C p/ sair)
+docker compose -f docker-compose.prod.yml ps               # db, app e worker devem estar "Up" (app "healthy")
+docker compose -f docker-compose.prod.yml logs -f app worker  # "Application startup complete." / "Worker Oriens iniciado" (Ctrl+C p/ sair)
 ```
+
+O serviço `app` roda com **gunicorn + 3 workers Uvicorn** (escala melhor que um único processo). O serviço `worker` é um processo único e separado que cuida dos lembretes e da captura por Telegram — **não escale esse serviço** (mais de 1 réplica duplicaria envios/updates).
 
 Teste local na VPS:
 
 ```bash
-curl http://127.0.0.1:8000/health    # {"status":"ok"}
+curl http://127.0.0.1:8000/health    # {"status":"ok"} — inclui um SELECT 1 no banco
 ```
 
 ## 7. Configurar o Nginx (proxy reverso)
@@ -110,6 +122,12 @@ systemctl reload nginx
 ```
 
 Agora `http://seudominio.com.br` já deve abrir o Oriens.
+
+> **`nginx/oriens.conf` já vem com:**
+> - `location /static/` servindo os arquivos direto do disco (`alias /opt/oriens/app/static/`) —
+>   ajuste o caminho no arquivo se seu repo não estiver em `/opt/oriens`.
+> - `limit_req` no `/auth/login` (5 requisições/min por IP) — proteção básica contra
+>   credential-stuffing, robusta mesmo com o app rodando vários workers gunicorn.
 
 ## 8. Ativar HTTPS (Let's Encrypt)
 
@@ -201,16 +219,51 @@ Se você já tem dados no SQLite local e quer preservá-los, veja
 ```bash
 cd /opt/oriens
 
+# ANTES de atualizar: guarde o commit atual para rollback rápido
+git rev-parse HEAD | tee .last_good_commit
+
 # Atualizar após mudanças no código
 git pull
 docker compose -f docker-compose.prod.yml up -d --build
 
-# Ver logs
-docker compose -f docker-compose.prod.yml logs -f app
+# Ver status e logs (agora com o serviço `worker` além de `db`/`app`)
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f app worker
 
 # Reiniciar / parar
-docker compose -f docker-compose.prod.yml restart app
+docker compose -f docker-compose.prod.yml restart app worker
 docker compose -f docker-compose.prod.yml down
+```
+
+---
+
+## 14. Rollback rápido
+
+A migração de schema é **aditiva e idempotente** (colunas/índices novos via `ADD COLUMN IF NOT
+EXISTS` / `CREATE INDEX IF NOT EXISTS`, protegida por `pg_advisory_xact_lock`), então voltar para
+um commit anterior é seguro — o banco já migrado continua funcionando com o código antigo.
+
+```bash
+cd /opt/oriens
+git checkout "$(cat .last_good_commit)"     # volta ao código anterior (HEAD destacado)
+docker compose -f docker-compose.prod.yml up -d --build --remove-orphans
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs -f app
+```
+
+- `--remove-orphans` remove o container `worker` se você voltar a uma versão do código anterior à
+  auditoria de produção (que não tinha esse serviço) — o web volta a rodar os loops de lembrete
+  internamente, como antes.
+- **Continue sem `down -v`** — os volumes `pgdata`/`appdata` permanecem intactos.
+- Para voltar à versão nova depois: `git checkout main && git pull && docker compose -f docker-compose.prod.yml up -d --build`.
+
+**Causa nº 1 de falha no boot** (não precisa nem de rollback, é mais rápido corrigir o `.env`):
+se `DEBUG=false` e `SECRET_KEY` ainda for o valor padrão do repositório, o app aborta o boot de
+propósito. Sintoma: container `app` reiniciando em loop. Correção:
+```bash
+cd /opt/oriens
+sed -i "s/^SECRET_KEY=.*/SECRET_KEY=$(openssl rand -hex 32)/" .env
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 ---
@@ -222,8 +275,9 @@ docker compose -f docker-compose.prod.yml down
 - [ ] UFW ativo (SSH + Nginx Full); porta 8000 **não** exposta na internet
 - [ ] `.env` criado com `DEBUG=false`, `COOKIE_SECURE=true`, `SECRET_KEY` forte
 - [ ] `POSTGRES_PASSWORD` igual à senha em `DATABASE_URL`
-- [ ] `docker compose -f docker-compose.prod.yml ps` → `db` e `app` "Up"
-- [ ] `curl http://127.0.0.1:8000/health` → `{"status":"ok"}`
+- [ ] `docker compose -f docker-compose.prod.yml ps` → `db`, `app` (healthy) e `worker` "Up"
+- [ ] `curl http://127.0.0.1:8000/health` → `{"status":"ok"}` (agora com ping no banco)
+- [ ] Logs do `worker` mostram "Worker Oriens iniciado" sem erros
 - [ ] Nginx com `server_name` correto, `nginx -t` OK, default removido
 - [ ] HTTPS ativo (`certbot --nginx`) e redirecionando HTTP → HTTPS
 - [ ] `certbot renew --dry-run` sem erros
