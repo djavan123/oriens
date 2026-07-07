@@ -1,7 +1,7 @@
 ﻿<form
   id="new-project-form"
   hx-post="/api/projects"
-  hx-target="#projects-active"
+  hx-target="#kanban-nao_iniciado"
   hx-swap="beforeend"
   hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); document.getElementById('project-form-wrapper').classList.add('hidden'); }"
   class="bg-oriens-surface border border-oriens-border rounded-xl p-5 space-y-4">

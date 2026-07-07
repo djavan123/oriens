@@ -1,0 +1,63 @@
+{# Card de projeto no kanban de /projects. Var: project, context_labels (dict, opcional). #}
+{% set priority_label = {1: 'Alta', 2: 'Média', 3: 'Baixa'} %}
+{% set is_done = project.status.value == 'concluido' %}
+
+<article id="project-{{ project.id }}"
+  class="group rounded-lg border border-oriens-divider bg-oriens-bg px-4 py-3 hover:bg-oriens-card-hover transition-colors{% if is_done %} opacity-45{% endif %}">
+
+  <a href="/projects/{{ project.id }}"
+     class="block text-oriens-primary text-sm font-medium leading-snug hover:text-oriens-accent transition-colors{% if is_done %} line-through{% endif %}">
+    {{ project.name }}
+  </a>
+
+  <p class="text-xs text-oriens-muted mt-1">
+    {{ priority_label.get(project.priority, 'Média') }}{% if project.context_id and context_labels and context_labels.get(project.context_id) %} · {{ context_labels[project.context_id] }}{% endif %}
+  </p>
+
+  {% if project.deadline %}
+    {% set ds = due_status(project.deadline) if not is_done else None %}
+    <p class="text-xs mt-0.5 {% if ds == 'overdue' %}text-oriens-urgent{% elif ds == 'today' %}text-oriens-today{% else %}text-oriens-muted{% endif %}">
+      {{ project.deadline.strftime('%d/%m/%Y') }}
+    </p>
+  {% else %}
+    <p class="text-xs mt-0.5 text-oriens-muted">sem prazo</p>
+  {% endif %}
+
+  <div class="flex items-center gap-3 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+    {% if project.status.value == 'em_andamento' %}
+    <button
+      hx-patch="/api/projects/{{ project.id }}"
+      hx-vals='{"status": "nao_iniciado"}'
+      hx-target="#project-{{ project.id }}" hx-swap="outerHTML"
+      hx-on::after-request="if(event.detail.successful) window.location.reload()"
+      class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">Pausar</button>
+    <button
+      hx-patch="/api/projects/{{ project.id }}"
+      hx-vals='{"status": "concluido"}'
+      hx-target="#project-{{ project.id }}" hx-swap="outerHTML"
+      hx-on::after-request="if(event.detail.successful) window.location.reload()"
+      class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">Concluir</button>
+    {% elif project.status.value == 'nao_iniciado' %}
+    <button
+      hx-patch="/api/projects/{{ project.id }}"
+      hx-vals='{"status": "em_andamento"}'
+      hx-target="#project-{{ project.id }}" hx-swap="outerHTML"
+      hx-on::after-request="if(event.detail.successful) window.location.reload()"
+      class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">Iniciar</button>
+    <button
+      hx-patch="/api/projects/{{ project.id }}"
+      hx-vals='{"status": "concluido"}'
+      hx-target="#project-{{ project.id }}" hx-swap="outerHTML"
+      hx-on::after-request="if(event.detail.successful) window.location.reload()"
+      class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">Concluir</button>
+    {% else %}
+    <button
+      hx-patch="/api/projects/{{ project.id }}"
+      hx-vals='{"status": "em_andamento"}'
+      hx-target="#project-{{ project.id }}" hx-swap="outerHTML"
+      hx-on::after-request="if(event.detail.successful) window.location.reload()"
+      class="text-oriens-muted text-xs hover:text-oriens-primary transition-colors">Reabrir</button>
+    {% endif %}
+  </div>
+
+</article>
