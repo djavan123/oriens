@@ -78,7 +78,6 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── note.py
 │   │   ├── capture.py                 # + índice em `processed` — AUDITORIA
 │   │   ├── context.py                 # type → String(50) nullable; + user_id (contextos dinâmicos)
-│   │   ├── weekly_directive.py
 │   │   ├── project_comment.py
 │   │   ├── project_attachment.py      # anexos em DISCO: /app/data/attachments/{project_id}/
 │   │   ├── project_decision.py        # Decisões (data + texto) — SCRIPT 5 (substituiu project_milestone)
@@ -88,9 +87,10 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── project_timeline.py        # TimelineEventType enum (+ decision_recorded, SCRIPT 5) + ProjectTimeline model
 │   │   └── label.py                   # Label (etiquetas por usuário) — SCRIPT 3
 │   │   # criterio_contexto.py / tarefa_criterio_valor.py REMOVIDOS na AUDITORIA (código morto do SCRIPT 8, desativado desde o SCRIPT 13). Tabelas legadas não são dropadas no banco.
+│   │   # weekly_directive.py REMOVIDO (aba Semana excluída do projeto). Tabela weekly_directives legada não é dropada no banco.
 │   ├── schemas/
 │   ├── repositories/
-│   │   ├── ... (user, project, task, note, capture, weekly, comment, attachment, decision, risk, audit, timeline)
+│   │   ├── ... (user, project, task, note, capture, comment, attachment, decision, risk, audit, timeline)
 │   │   ├── context_repo.py            # + get_all_by_user/get_by_id/create/delete (SCRIPT 3)
 │   │   ├── user_repo.py               # + update_foco (SCRIPT 8); + get_by_telegram_chat_id/set_telegram_chat_id — AUDITORIA
 │   │   ├── task_repo.py               # +order_index (nullslast); reorder/next/max-order; standalone_only; next/pending_count_by_project (10A/11); ordenação e validação de reorder deduplicadas (`_project_task_order`, `_load_reorderable_tasks`) — AUDITORIA
@@ -105,16 +105,16 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── capture_service.py         # process_as_task (aceita context_id) /project/note/discard
 │   │   ├── dashboard_service.py       # get_projects_in_focus/get_standalone_tasks/pick_now_action (11/12); get_priorities_grouped e helpers REMOVIDOS (código morto) — AUDITORIA
 │   │   ├── importancia_service.py     # SÓ `importancia_from_prioridade` + `faixa_importancia` (SCRIPT 13, vivas). `ImportanciaService`/`calcular_importancia` REMOVIDOS (dead code) — AUDITORIA
-│   │   ├── weekly_directive_service.py
 │   │   ├── ai_service.py              # Protocol + ClaudeProvider + OpenAIProvider + NullProvider
 │   │   └── reminder_service.py        # send_telegram(text, chat_id=None); process_due_telegram/process_telegram_updates roteados por users.telegram_chat_id com fallback ao .env — AUDITORIA
+│   │   # weekly_directive_service.py REMOVIDO (aba Semana excluída do projeto)
 │   ├── routes/
 │   │   ├── auth.py                    # cookies com secure=COOKIE_SECURE
 │   │   ├── dashboard.py               # GET /dashboard/now + /projects-focus + /standalone (11/12); PATCH /dashboard/foco. Rota /priorities legada REMOVIDA — AUDITORIA
 │   │   ├── projects.py                # usa resolve_active_context(); list aceita ?filter=active|archived|all (SCRIPT 5); section_groups/done_by_section/blocked_by_section/responsavel_map (SCRIPT 16A/18); wiring de critérios removido — AUDITORIA
 │   │   ├── capture.py                 # resolve_active_context()
-│   │   ├── weekly.py                  # usa resolve_active_context(); datetime via utils/time.utcnow() — AUDITORIA
 │   │   ├── settings.py               # GET /settings (etiquetas + contextos); wiring de critérios removido — AUDITORIA
+│   │   # weekly.py REMOVIDO (aba Semana excluída do projeto)
 │   │   └── api/
 │   │       ├── tasks.py               # PATCH /{id}/adiar; sem validação de verbo
 │   │       ├── projects.py            # + PATCH /{id}/task-order (SCRIPT 10A); responsavel/proxima_acao/archived; decisões (SCRIPT 5); seções CRUD (SCRIPT 16A); upload de anexo com ownership+limite 20MB+allowlist — AUDITORIA
@@ -129,8 +129,8 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── dashboard.html             # bloco "Agora" + Projetos em foco × Tarefas avulsas (SCRIPT 11/12)
 │   │   ├── capture.html
 │   │   ├── process.html
-│   │   ├── weekly.html
 │   │   ├── settings.html              # etiquetas + contextos + seção "Telegram" (chat_id do usuário) — AUDITORIA. Seção de critérios REMOVIDA
+│   │   # weekly.html REMOVIDO (aba Semana excluída do projeto)
 │   │   ├── auth/ (login.html, setup.html)
 │   │   ├── projects/
 │   │   │   ├── list.html              # tabela com seções colapsáveis Alpine (SCRIPT 17)
@@ -229,11 +229,11 @@ C:\Projetos\Sistema tarefas\
 - Contextos do usuário (`user_id` preenchido): criados/excluídos em `/settings`
 - `type` deixou de ser enum fixo → string livre (preserva os padrões e permite contextos dinâmicos)
 
-**weekly_directives:** `id, user_id, week_start (date), weekly_theme, top_1, top_2, top_3, ignore_list, major_risk, physiological_priority, created_at, updated_at`
-
 **project_comments, project_attachments, project_risks, project_audit:** sem alterações.
 
 > **`project_milestones`** (Marcos) foi **removida do código** no SCRIPT 5 (model/repo/rotas/template). A tabela legada pode permanecer órfã no banco (não é dropada — operação não-destrutiva); nada mais a lê.
+
+> **`weekly_directives`** (aba Semana / revisão semanal) foi **removida do código** (model, repository, service, rota `/weekly`, template, link na sidebar). A tabela legada pode permanecer órfã no banco (não é dropada — operação não-destrutiva); nada mais a lê.
 
 ---
 
@@ -394,8 +394,6 @@ TELEGRAM_CHAT_ID=               # opcional
 | GET | `/projects/{id}` | Detalhe do projeto |
 | GET | `/capture` | Inbox de captura |
 | GET | `/process` | Processar capturas pendentes |
-| GET | `/weekly` | Revisão semanal |
-| POST | `/weekly` | Salvar diretiva semanal |
 | GET | `/settings` | Configurações: etiquetas + contextos (SCRIPT 3) |
 | GET | `/api/reminders/due` | Lembretes vencidos do usuário (popup HTMX, polling 60s) |
 | POST | `/api/reminders/{id}/ack` | Confirmar/dispensar lembrete (popup) |
@@ -448,6 +446,8 @@ TELEGRAM_CHAT_ID=               # opcional
 | POST | `/api/settings/telegram` | Salvar `telegram_chat_id` do usuário (AUDITORIA) |
 
 > **Removidos na AUDITORIA:** `GET /dashboard/priorities` (legado, código morto — dashboard atual usa `/dashboard/now` + `/dashboard/projects-focus` + `/dashboard/standalone`) e `POST /api/settings/criterios/{context_id}` (subsistema de critérios removido).
+>
+> **Removidos (aba Semana):** `GET /weekly` e `POST /weekly` — feature de revisão semanal excluída do projeto (model, repository, service, rota, template e link na sidebar removidos; tabela `weekly_directives` permanece órfã no banco, não-destrutivo).
 
 ---
 

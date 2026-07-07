@@ -4,7 +4,6 @@ from app.models.project import Project
 from app.models.task import Task
 from app.models.capture import CaptureInbox
 from app.models.note import Note
-from app.models.weekly_directive import WeeklyDirective
 from app.models.project_comment import ProjectComment
 from app.models.project_attachment import ProjectAttachment
 from app.models.project_decision import ProjectDecision
@@ -15,4 +14,4 @@ from app.models.label import Label
 from app.models.repository import RepositoryItem
 from app.models.project_section import ProjectSection
 
-__all__ = ["Context", "User", "Project", "Task", "CaptureInbox", "Note", "WeeklyDirective", "ProjectComment", "ProjectAttachment", "ProjectDecision", "ProjectRisk", "ProjectAudit", "ProjectTimeline", "TimelineEventType", "Label", "RepositoryItem", "ProjectSection"]
+__all__ = ["Context", "User", "Project", "Task", "CaptureInbox", "Note", "ProjectComment", "ProjectAttachment", "ProjectDecision", "ProjectRisk", "ProjectAudit", "ProjectTimeline", "TimelineEventType", "Label", "RepositoryItem", "ProjectSection"]

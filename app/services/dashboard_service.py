@@ -24,7 +24,7 @@ class DashboardService:
 
         Ordem = prioridade do projeto (estratégica). Cada item traz a próxima ação:
         primeira tarefa pendente em ordem manual, ou fallback proxima_acao. Projetos
-        sem próxima ação não entram na lista — só são contados (revisão semanal depois).
+        sem próxima ação não entram na lista — só são contados.
         """
         projects = await self.projects.get_active_by_user(user_id, context_id=context_id)
         ids = [p.id for p in projects]
