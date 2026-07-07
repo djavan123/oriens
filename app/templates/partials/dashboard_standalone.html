@@ -10,7 +10,7 @@
 
   {% if standalone_tasks %}
   <div>
-    {% with show_importancia = true, refresh_priorities = true %}
+    {% with show_importancia = true, refresh_priorities = true, plain_badges = true %}
     {% for task in standalone_tasks %}
       {% include "partials/task_item.html" %}
     {% endfor %}

@@ -8,12 +8,12 @@
 <div class="max-w-5xl mx-auto">
 
   <!-- Cabeçalho: "Hoje" como título, data como metadado + energia secundária -->
-  <div class="flex items-start justify-between gap-4 mb-1 flex-wrap">
+  <div class="flex items-center justify-between gap-4 mb-1 flex-wrap">
     <div>
       <h1 class="text-xl font-bold text-oriens-primary tracking-tight">Hoje</h1>
       <p class="text-xs text-oriens-muted mt-0.5">{{ day_of_week | lower }} · {{ current_date }}</p>
     </div>
-    <div class="flex items-center gap-1 flex-wrap pt-0.5">
+    <div class="flex items-center gap-1 flex-wrap">
       {% for level, label in energy_labels.items() %}
       <a href="/dashboard?energy={{ level }}"
          class="px-2 py-0.5 rounded text-[11px] transition-colors
@@ -31,7 +31,7 @@
   {% include "partials/dashboard_evolution.html" %}
 
   <!-- Projetos em foco + Tarefas avulsas -->
-  <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-8">
+  <div class="grid grid-cols-1 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] gap-6 items-start">
 
     <!-- Projetos em foco -->
     <div class="bg-oriens-surface border border-oriens-divider rounded-lg px-5 py-4">

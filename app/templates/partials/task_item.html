@@ -8,7 +8,9 @@
      refresh_priorities (bool) — ao concluir, dispara refreshPriorities em vez de remover DOM
      reload_on_done (bool)  — ao concluir, recarrega a página (projeto: atualiza próxima ação/ordem)
      context_labels (dict)  — {context_id: name}
+     plain_badges (bool)    — badges como metadado simples (texto+cor, sem pill/fundo/borda) — Dashboard
 #}
+{% set badge_pill = 'text-[11px] px-1.5 py-0.5 rounded font-medium ' if not (plain_badges is defined and plain_badges) else 'text-[11px] ' %}
 {% set ds = due_status(task.deadline) if task.deadline and task.status.value != 'done' else None %}
 {% set cb_border = 'border-oriens-urgent' if ds == 'overdue' else ('border-oriens-today' if ds == 'today' else 'border-oriens-border') %}
 
@@ -67,16 +69,16 @@
       {% endif %}
 
       {% if ds == 'overdue' %}
-      <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-urgent/15 text-oriens-urgent">atrasado · {{ (now().date() - task.deadline.date()).days }}d</span>
+      <span class="{{ badge_pill }}{% if not (plain_badges is defined and plain_badges) %}bg-oriens-urgent/15 {% endif %}text-oriens-urgent">atrasado · {{ (now().date() - task.deadline.date()).days }}d</span>
       {% elif ds == 'today' %}
-      <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-today/15 text-oriens-today">hoje</span>
+      <span class="{{ badge_pill }}{% if not (plain_badges is defined and plain_badges) %}bg-oriens-today/15 {% endif %}text-oriens-today">hoje</span>
       {% elif task.deadline and task.status.value != 'done' %}
       <span class="text-[11px] text-oriens-muted">{{ task.deadline.strftime('%d/%m/%y') }}</span>
       {% endif %}
 
       {% if (show_importancia is defined and show_importancia) and task.status.value != 'done' %}
         {% if faixa_importancia(task.importancia, task.sem_nota) == 'alta' %}
-        <span class="text-[11px] px-1.5 py-0.5 rounded font-medium bg-oriens-accent/10 text-oriens-accent border border-oriens-accent/20" title="Importância alta">Alta</span>
+        <span class="{{ badge_pill }}{% if not (plain_badges is defined and plain_badges) %}bg-oriens-accent/10 border border-oriens-accent/20 {% endif %}text-oriens-accent" title="Importância alta">Alta</span>
         {% elif task.sem_nota %}
         <span class="text-[11px] text-oriens-muted" title="Sem nota de importância">⚠</span>
         {% endif %}
@@ -91,7 +93,7 @@
       {% endif %}
 
       {% if context_labels is defined and task.context_id and context_labels.get(task.context_id) %}
-      <span class="text-[11px] px-1.5 py-0.5 rounded bg-oriens-surface border border-oriens-border text-oriens-secondary">{{ context_labels[task.context_id] }}</span>
+      <span class="{% if plain_badges is defined and plain_badges %}text-[11px] text-oriens-muted{% else %}text-[11px] px-1.5 py-0.5 rounded bg-oriens-surface border border-oriens-border text-oriens-secondary{% endif %}">{{ context_labels[task.context_id] }}</span>
       {% endif %}
 
       {% if task.tags %}
