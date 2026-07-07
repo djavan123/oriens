@@ -10,7 +10,6 @@ from app.models.user import User
 from app.repositories.project_repo import ProjectRepository
 from app.repositories.task_repo import TaskRepository
 from app.services.ai_service import get_ai_provider
-from app.services.dashboard_service import DashboardService
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/api/ai", tags=["api:ai"])
@@ -77,32 +76,4 @@ async def suggest_actions(
         request,
         "partials/ai_result.html",
         {"label": "Próximas ações sugeridas", "items": items},
-    )
-
-
-@router.post("/overload-context", response_class=HTMLResponse)
-async def overload_context(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    if not get_settings().AI_ENABLED:
-        return _ai_disabled_response()
-
-    service = DashboardService(db)
-    data = await service.get_dashboard_data(current_user.id)
-
-    user_data = {
-        "active_projects": data.overload.active_projects_count,
-        "pending_tasks": data.overload.pending_tasks_count,
-        "overload_score": data.overload.score,
-    }
-
-    provider = get_ai_provider()
-    text = await provider.detect_overload_context(user_data)
-
-    if not text:
-        return _ai_empty_response()
-    return HTMLResponse(
-        f'<p class="text-oriens-secondary text-sm italic leading-relaxed">{text}</p>'
     )

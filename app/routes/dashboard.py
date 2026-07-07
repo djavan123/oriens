@@ -50,9 +50,6 @@ async def dashboard(
     user_labels = await LabelRepository(db).get_all_by_user(current_user.id)
 
     service = DashboardService(db)
-    data = await service.get_dashboard_data(
-        current_user.id, energy_filter=energy_enum, context_id=context_id,
-    )
     projects_focus = await service.get_projects_in_focus(
         current_user.id, context_id=context_id,
     )
@@ -60,12 +57,13 @@ async def dashboard(
         current_user.id, energy=energy_enum, context_id=context_id,
     )
     now_action = service.pick_now_action(projects_focus, standalone_tasks)
+    evolution = await service.get_evolution(current_user.id)
 
     now = datetime.now()
     context = {
         "user": current_user,
-        "data": data,
         "now_action": now_action,
+        "evolution": evolution,
         "projects_focus": projects_focus,
         "standalone_tasks": standalone_tasks,
         "energy_filter": energy_filter,
@@ -76,7 +74,6 @@ async def dashboard(
         "user_labels": user_labels,
         "current_date": f"{now.day} de {_MONTHS_PT[now.month]} de {now.year}",
         "day_of_week": _DAYS_PT[now.weekday()],
-        "ai_enabled": get_settings().AI_ENABLED,
     }
 
     response = templates.TemplateResponse(request, "dashboard.html", context)
@@ -95,13 +92,11 @@ async def dashboard(
     return response
 
 
-@router.get("/dashboard/now", response_class=HTMLResponse)
-async def dashboard_now(
-    request: Request,
-    energy: Optional[str] = Query(None),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+async def _build_now_context(
+    request: Request, db: AsyncSession, current_user: User, energy: Optional[str]
+) -> dict:
+    """Contexto compartilhado por /dashboard/now e /dashboard/foco — ambos
+    devolvem o `#now-block` inteiro (foco embutido nele)."""
     energy_filter = energy if energy in _VALID_ENERGIES else None
     energy_enum = EnergyLevel(energy_filter) if energy_filter else None
     context_id, _, all_contexts = await resolve_active_context(request, db, current_user.id)
@@ -112,10 +107,34 @@ async def dashboard_now(
         current_user.id, energy=energy_enum, context_id=context_id,
     )
     now_action = service.pick_now_action(projects_focus, standalone_tasks)
+    return {
+        "now_action": now_action,
+        "context_labels": context_labels,
+        "energy_filter": energy_filter,
+    }
+
+
+@router.get("/dashboard/now", response_class=HTMLResponse)
+async def dashboard_now(
+    request: Request,
+    energy: Optional[str] = Query(None),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ctx = await _build_now_context(request, db, current_user, energy)
+    ctx["user"] = current_user
+    return templates.TemplateResponse(request, "partials/dashboard_now.html", ctx)
+
+
+@router.get("/dashboard/evolution", response_class=HTMLResponse)
+async def dashboard_evolution(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    evolution = await DashboardService(db).get_evolution(current_user.id)
     return templates.TemplateResponse(
-        request, "partials/dashboard_now.html",
-        {"now_action": now_action, "context_labels": context_labels,
-         "energy_filter": energy_filter},
+        request, "partials/dashboard_evolution.html", {"evolution": evolution},
     )
 
 
@@ -165,6 +184,6 @@ async def update_foco(
     current_user: User = Depends(get_current_user),
 ):
     user = await UserRepository(db).update_foco(current_user.id, foco.strip() or None)
-    return templates.TemplateResponse(
-        request, "partials/foco_do_dia.html", {"user": user}
-    )
+    ctx = await _build_now_context(request, db, current_user, energy=None)
+    ctx["user"] = user
+    return templates.TemplateResponse(request, "partials/dashboard_now.html", ctx)

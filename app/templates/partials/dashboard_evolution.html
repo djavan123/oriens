@@ -1,0 +1,21 @@
+{# Painel de evolução: progresso pessoal, GLOBAL (não filtra por contexto).
+   Var: evolution = {done_today: int, streak: int}. #}
+<div id="evolution-panel"
+     hx-get="/dashboard/evolution"
+     hx-trigger="refreshProjectsFocus from:body, refreshPriorities from:body"
+     hx-swap="outerHTML"
+     class="mb-8 flex items-center gap-2 text-xs flex-wrap">
+
+  <span class="inline-flex items-center gap-1 text-oriens-success">
+    <span class="w-1.5 h-1.5 rounded-full bg-oriens-success"></span>
+    {{ evolution.done_today }} concluída{{ 's' if evolution.done_today != 1 else '' }} hoje
+  </span>
+
+  <span class="text-oriens-muted">·</span>
+
+  <span class="inline-flex items-center gap-1 text-oriens-accent">
+    <span class="w-1.5 h-1.5 rounded-full bg-oriens-accent"></span>
+    {{ evolution.streak }} dia{{ 's' if evolution.streak != 1 else '' }} seguido{{ 's' if evolution.streak != 1 else '' }}
+  </span>
+
+</div>

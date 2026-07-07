@@ -1,6 +1,6 @@
 {# Formulário do foco do dia (compartilhado pelos modos vazio/preenchido). Requer x-data com `editing`. #}
 <form x-show="editing" style="display:none"
-  hx-patch="/dashboard/foco" hx-target="#foco-card" hx-swap="outerHTML"
+  hx-patch="/dashboard/foco" hx-target="#now-block" hx-swap="outerHTML"
   @keydown.escape="editing = false">
   <textarea name="foco" rows="2" x-ref="inp"
     @keydown.enter.prevent="$el.closest('form').requestSubmit()"

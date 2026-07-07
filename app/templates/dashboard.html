@@ -26,43 +26,11 @@
   </div>
 </div>
 
-<!-- Foco do dia (âncora) -->
-{% include "partials/foco_do_dia.html" %}
-
-<!-- Bloco "Agora": a única ação dominante -->
+<!-- Bloco "Agora": a única ação dominante (foco do dia embutido) -->
 {% include "partials/dashboard_now.html" %}
 
-<!-- Overload banner (informativo) -->
-{% if data.overload.is_overload %}
-<div class="mb-8 rounded-xl border border-oriens-alert/40 bg-oriens-alert/5 px-5 py-4">
-  <div class="flex items-start justify-between">
-    <div>
-      <p class="text-oriens-alert text-sm font-semibold">Sobrecarga detectada</p>
-      <p class="text-oriens-secondary text-xs mt-1">
-        {{ data.overload.active_projects_count }} projetos em andamento &nbsp;·&nbsp;
-        {{ data.overload.pending_tasks_count }} tarefas pendentes
-      </p>
-      {% if ai_enabled %}
-      <div class="mt-3">
-        <button
-          hx-post="/api/ai/overload-context"
-          hx-target="#ai-overload-context"
-          hx-swap="innerHTML"
-          hx-indicator="#ai-overload-spinner"
-          class="text-oriens-link text-xs hover:opacity-80 transition-colors">
-          Analisar com IA →
-        </button>
-        <span id="ai-overload-spinner" class="htmx-indicator text-oriens-secondary text-xs ml-2">...</span>
-        <div id="ai-overload-context" class="mt-2"></div>
-      </div>
-      {% endif %}
-    </div>
-    <span class="text-oriens-alert text-xs font-mono mt-0.5 flex-shrink-0 bg-oriens-alert/10 rounded px-2 py-1">
-      {{ data.overload.score }}/15
-    </span>
-  </div>
-</div>
-{% endif %}
+<!-- Painel de evolução: progresso pessoal (global) -->
+{% include "partials/dashboard_evolution.html" %}
 
 <!-- Painel de decisão: Projetos em foco (peso maior) + Tarefas avulsas -->
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-8 max-w-5xl">

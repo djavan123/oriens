@@ -10,7 +10,6 @@ from app.models.project import Project
 class AIProvider(Protocol):
     async def break_task(self, task_title: str) -> list[str]: ...
     async def suggest_next_actions(self, project: Project) -> list[str]: ...
-    async def detect_overload_context(self, user_data: dict) -> str: ...
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -38,9 +37,6 @@ class NullProvider:
 
     async def suggest_next_actions(self, project: Project) -> list[str]:
         return []
-
-    async def detect_overload_context(self, user_data: dict) -> str:
-        return ""
 
 
 # ── ClaudeProvider ─────────────────────────────────────────────────────────────
@@ -114,38 +110,6 @@ class ClaudeProvider:
         except Exception:
             return []
 
-    async def detect_overload_context(self, user_data: dict) -> str:
-        try:
-            active_p = user_data.get("active_projects", 0)
-            active_m = 0  # missions removed
-            pending_t = user_data.get("pending_tasks", 0)
-            score = user_data.get("overload_score", 0)
-
-            response = await self._client.messages.create(
-                model=self.MODEL,
-                max_tokens=256,
-                system=[{
-                    "type": "text",
-                    "text": (
-                        "You are a productivity coach. "
-                        "Help the user reduce cognitive overload in 1-2 direct sentences. "
-                        "Be practical, not generic. Respond in Brazilian Portuguese."
-                    ),
-                    "cache_control": {"type": "ephemeral"},
-                }],
-                messages=[{
-                    "role": "user",
-                    "content": (
-                        f"Tenho {active_p} projetos ativos, {active_m} missões ativas "
-                        f"e {pending_t} tarefas pendentes (score de sobrecarga: {score}/15). "
-                        "O que devo fazer agora para recuperar o foco?"
-                    ),
-                }],
-            )
-            return response.content[0].text.strip()
-        except Exception:
-            return ""
-
 
 # ── OpenAIProvider ─────────────────────────────────────────────────────────────
 
@@ -206,26 +170,6 @@ class OpenAIProvider:
             return _parse_json_list(text)
         except Exception:
             return []
-
-    async def detect_overload_context(self, user_data: dict) -> str:
-        try:
-            active_p = user_data.get("active_projects", 0)
-            active_m = 0  # missions removed
-            pending_t = user_data.get("pending_tasks", 0)
-            text = await self._chat(
-                system=(
-                    "You are a productivity coach. "
-                    "Help the user reduce cognitive overload in 1-2 direct sentences in Brazilian Portuguese."
-                ),
-                user=(
-                    f"Tenho {active_p} projetos, {active_m} missões ativas "
-                    f"e {pending_t} tarefas pendentes. O que devo focar?"
-                ),
-                max_tokens=256,
-            )
-            return text.strip()
-        except Exception:
-            return ""
 
 
 # ── Factory ────────────────────────────────────────────────────────────────────

@@ -15,6 +15,10 @@ pytest-asyncio==0.24.0
 aiosqlite==0.20.0
 asyncpg==0.29.0
 greenlet==3.1.1
+# Garante dados de fuso horário (IANA) para zoneinfo em qualquer SO — Windows não
+# traz tzdata do sistema; Linux/Docker geralmente já tem via apt, mas isso cobre
+# ambos sem depender do SO (usado pelo painel de evolução do Dashboard).
+tzdata==2024.2
 # IA (opcional — comentar se AI_ENABLED=false e quiser imagem menor).
 # Pinado (era >=) para builds reproduzíveis — sem puxar um major novo sem querer.
 anthropic==0.40.0

@@ -8,11 +8,6 @@
 
   <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Tarefas avulsas</h2>
 
-  {# Criação direta de tarefa avulsa (SCRIPT 13): título + contexto + Alta/Média/Baixa #}
-  <div class="mb-4">
-    {% include "partials/task_form.html" %}
-  </div>
-
   {% if standalone_tasks %}
   <div class="bg-oriens-surface rounded-xl px-1 py-1">
     {% with show_importancia = true, refresh_priorities = true, hide_actions = true %}
