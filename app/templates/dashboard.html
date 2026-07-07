@@ -5,42 +5,38 @@
 
 {% block content %}
 
-<!-- Data + energia (cabeçalho compacto) -->
-<div class="flex items-end justify-between gap-4 mb-5 flex-wrap">
+<!-- Cabeçalho: "Hoje" como título, data como metadado + energia secundária -->
+<div class="flex items-start justify-between gap-4 mb-1 flex-wrap">
   <div>
-    <p class="text-[11px] font-semibold text-oriens-secondary tracking-wide uppercase">{{ day_of_week }}</p>
-    <h1 class="text-xl font-bold text-oriens-primary tracking-tight mt-0.5">{{ current_date }}</h1>
+    <h1 class="text-xl font-bold text-oriens-primary tracking-tight">Hoje</h1>
+    <p class="text-xs text-oriens-muted mt-0.5">{{ day_of_week | lower }} · {{ current_date }}</p>
   </div>
-  <div class="flex items-center gap-1.5 flex-wrap">
-    <span class="text-oriens-secondary text-[11px] font-semibold tracking-wide uppercase mr-0.5">Energia</span>
+  <div class="flex items-center gap-1 flex-wrap pt-0.5">
     {% for level, label in energy_labels.items() %}
     <a href="/dashboard?energy={{ level }}"
-       class="px-2.5 py-1 rounded-md text-xs transition-colors border
-       {% if energy_filter == level %}bg-oriens-accent text-oriens-accent-text border-oriens-accent{% else %}bg-transparent border-oriens-border text-oriens-secondary hover:text-oriens-primary{% endif %}">
+       class="px-2 py-0.5 rounded text-[11px] transition-colors
+       {% if energy_filter == level %}bg-oriens-card-hover text-oriens-primary{% else %}text-oriens-muted hover:text-oriens-secondary{% endif %}">
       {{ label }}
     </a>
     {% endfor %}
     {% if energy_filter %}
-    <a href="/dashboard?energy=" class="text-oriens-secondary text-xs hover:text-oriens-primary transition-colors">× limpar</a>
+    <a href="/dashboard?energy=" class="text-oriens-muted text-[11px] hover:text-oriens-secondary transition-colors">× limpar</a>
     {% endif %}
   </div>
 </div>
 
-<!-- Bloco "Agora": a única ação dominante (foco do dia embutido) -->
-{% include "partials/dashboard_now.html" %}
-
 <!-- Painel de evolução: progresso pessoal (global) -->
 {% include "partials/dashboard_evolution.html" %}
 
-<!-- Painel de decisão: Projetos em foco (peso maior) + Tarefas avulsas -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-x-10 gap-y-8 max-w-5xl">
+<!-- Projetos em foco + Tarefas avulsas -->
+<div class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] gap-x-10 gap-y-8 max-w-5xl">
 
-  <!-- Coluna principal -->
-  <div class="lg:col-span-2">
+  <!-- Projetos em foco -->
+  <div>
     {% include "partials/dashboard_projects_focus.html" %}
   </div>
 
-  <!-- Coluna direita -->
+  <!-- Tarefas avulsas -->
   <div>
     {% include "partials/dashboard_standalone.html" %}
   </div>

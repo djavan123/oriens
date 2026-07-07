@@ -5,10 +5,10 @@
      hx-trigger="refreshProjectsFocus from:body"
      hx-swap="outerHTML">
 
-  <h2 class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-4">Projetos em foco</h2>
+  <h2 class="text-oriens-muted text-[11px] font-semibold tracking-wide uppercase mb-3">Projetos em foco</h2>
 
   {% if projects_focus.focus %}
-  <div class="space-y-3">
+  <div>
     {% for item in projects_focus.focus %}
       {% include "partials/dashboard_project_card.html" %}
     {% endfor %}
