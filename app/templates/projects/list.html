@@ -49,7 +49,24 @@
   <!-- Kanban -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
     {% for status_value, label, col_projects in columns %}
-    <section class="h-fit rounded-xl border border-oriens-divider bg-oriens-surface px-4 py-4">
+    <section
+      x-data="{ over: false }"
+      data-status="{{ status_value }}"
+      @dragover.prevent
+      @dragenter.prevent="over = true"
+      @dragleave="over = false"
+      @drop.prevent="
+        over = false;
+        const pid = $event.dataTransfer.getData('text/project-id');
+        const from = $event.dataTransfer.getData('text/status');
+        const to = $el.dataset.status;
+        if (pid && from && from !== to) {
+          fetch('/api/projects/' + pid, { method: 'PATCH', body: new URLSearchParams({ status: to }) })
+            .then(() => window.location.reload());
+        }
+      "
+      :class="over ? 'bg-oriens-card-hover' : 'bg-oriens-surface'"
+      class="h-fit rounded-xl border border-oriens-divider px-4 py-4 transition-colors">
 
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-[11px] font-semibold uppercase tracking-[0.08em] text-oriens-muted">{{ label }}</h2>

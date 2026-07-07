@@ -1,11 +1,16 @@
-{# Card de projeto no kanban de /projects. Var: project, context_labels (dict, opcional). #}
+{# Card de projeto no kanban de /projects. Var: project, context_labels (dict, opcional).
+   Arrastável entre colunas (HTML5 Drag and Drop nativo + Alpine) — ver drop nas
+   <section> de app/templates/projects/list.html. #}
 {% set priority_label = {1: 'Alta', 2: 'Média', 3: 'Baixa'} %}
-{% set status_labels = {'em_andamento': 'Em andamento', 'nao_iniciado': 'Não iniciado', 'concluido': 'Concluído'} %}
 {% set is_done = project.status.value == 'concluido' %}
-{% set other_statuses = ['em_andamento', 'nao_iniciado', 'concluido'] | reject('equalto', project.status.value) | list %}
 
 <article id="project-{{ project.id }}"
-  class="group rounded-lg border border-oriens-divider bg-oriens-surface px-5 py-4 min-h-[120px] hover:bg-oriens-card-hover transition-colors{% if is_done %} opacity-45{% endif %}">
+  x-data="{ dragging: false }"
+  draggable="true"
+  @dragstart="dragging = true; $event.dataTransfer.setData('text/project-id', '{{ project.id }}'); $event.dataTransfer.setData('text/status', '{{ project.status.value }}')"
+  @dragend="dragging = false"
+  :class="dragging ? 'opacity-60' : '{{ 'opacity-45' if is_done else '' }}'"
+  class="rounded-lg border border-oriens-divider bg-oriens-surface px-5 py-4 min-h-[120px] cursor-grab active:cursor-grabbing hover:bg-oriens-card-hover transition-colors">
 
   <a href="/projects/{{ project.id }}"
      class="block text-oriens-primary text-sm font-medium leading-snug hover:text-oriens-accent transition-colors{% if is_done %} line-through{% endif %}">
@@ -24,15 +29,5 @@
   {% else %}
     <p class="text-xs mt-0.5 text-oriens-muted">sem prazo</p>
   {% endif %}
-
-  <div class="mt-3 text-xs text-oriens-muted opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-    Mover para:
-    {% for s in other_statuses %}<button
-      hx-patch="/api/projects/{{ project.id }}"
-      hx-vals='{"status": "{{ s }}"}'
-      hx-target="#project-{{ project.id }}" hx-swap="outerHTML"
-      hx-on::after-request="if(event.detail.successful) window.location.reload()"
-      class="hover:text-oriens-primary transition-colors">{{ status_labels[s] }}</button>{% if not loop.last %} · {% endif %}{% endfor %}
-  </div>
 
 </article>
