@@ -1,0 +1,68 @@
+{# Painel "Tarefas" do detalhe do projeto: progresso + seções + tarefas.
+   Renderizado no load inicial (include) e recarregado via HTMX sempre que
+   `refreshProjectTasks` dispara (concluir/bloquear/editar/arquivar tarefa de
+   projeto) — mantém progresso e badge "Próxima ação" sempre em dia sem reload.
+   Vars: project, progress, section_groups, done_by_section, blocked_by_section,
+   subtasks, responsavel_map, next_action. #}
+
+<!-- Barra de progresso 3px -->
+{% if progress.total %}
+<div style="height:3px; border-radius:2px; background:var(--oriens-divider); overflow:hidden; margin-bottom:8px;">
+  <div style="height:100%; background:#4573d2; width:{{ progress.pct }}%;"></div>
+</div>
+{% endif %}
+
+<!-- Contador -->
+<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+  <span style="color:var(--oriens-secondary); font-size:13px;">
+    {% if progress.total %}{{ progress.done }} / {{ progress.total }} · {{ progress.pct }}%{% endif %}
+  </span>
+</div>
+
+<!-- Cabeçalho de colunas com resizable-th -->
+<table style="width:100%; table-layout:fixed; border-collapse:collapse; margin-bottom:2px;">
+  <colgroup>
+    <col style="width:24px">
+    <col style="width:40px">
+    <col>
+    <col style="width:90px">
+    <col style="width:100px">
+    <col style="width:110px">
+  </colgroup>
+  <thead>
+    <tr>
+      <th class="resizable-th tasks-th"></th>
+      <th class="resizable-th tasks-th"></th>
+      <th class="resizable-th tasks-th">Nome</th>
+      <th class="resizable-th tasks-th">Energia</th>
+      <th class="resizable-th tasks-th">Prazo</th>
+      <th class="resizable-th tasks-th">Responsável</th>
+    </tr>
+  </thead>
+</table>
+
+<!-- Seções -->
+<div id="project-sections">
+  {% for section, section_tasks in section_groups %}
+    {% include "partials/project_section.html" %}
+  {% endfor %}
+</div>
+
+<!-- + Nova seção -->
+<div x-data="{ addingSection: false }" style="margin-top:20px;">
+  <span x-show="!addingSection" @click="addingSection=true"
+    style="font-size:13px; color:var(--oriens-secondary); opacity:0.5; cursor:pointer; user-select:none;">
+    + Nova seção
+  </span>
+  <form x-show="addingSection" x-cloak
+    hx-post="/api/projects/{{ project.id }}/sections"
+    hx-target="#project-sections"
+    hx-swap="beforeend"
+    @htmx:after-request="if($event.detail.successful){ $el.reset(); addingSection=false }"
+    style="display:flex; align-items:center; gap:8px;">
+    <input type="text" name="name" required placeholder="Nome da seção..." autofocus
+      class="pj-input" style="flex:1;">
+    <button type="submit" class="pj-btn-primary" style="padding:6px 12px; font-size:12px;">Criar</button>
+    <button type="button" @click="addingSection=false" class="pj-btn-ghost" style="font-size:12px;">Cancelar</button>
+  </form>
+</div>

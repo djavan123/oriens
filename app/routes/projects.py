@@ -138,22 +138,17 @@ async def projects_reports(
     )
 
 
-@router.get("/{project_id}", response_class=HTMLResponse)
-async def project_detail(
-    project_id: int,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
+async def _build_tasks_panel_context(
+    db: AsyncSession, project, current_user: User
+) -> dict:
+    """Contexto do painel 'Tarefas' do detalhe do projeto (progresso, seções,
+    tarefas, badge de próxima ação). Reaproveitado pelo render inicial da página
+    (project_detail) e pelo endpoint de refresh via HTMX (project_tasks_panel)."""
     service = ProjectService(db)
-    project = await service.get_by_id(project_id, current_user.id)
-    if not project:
-        raise HTTPException(status_code=404, detail="Projeto não encontrado")
-
-    next_action = await service.get_project_next_action(project_id, current_user.id)
+    next_action = await service.get_project_next_action(project.id, current_user.id)
 
     task_repo = TaskRepository(db)
-    all_tasks = await task_repo.get_all_by_user(current_user.id, project_id=project_id)
+    all_tasks = await task_repo.get_all_by_user(current_user.id, project_id=project.id)
     pending_tasks = [t for t in all_tasks if t.status == TaskStatus.pending]
     blocked_tasks = [t for t in all_tasks if t.status == TaskStatus.blocked]
     done_tasks = [t for t in all_tasks if t.status == TaskStatus.done]
@@ -162,22 +157,7 @@ async def project_detail(
         current_user.id, [t.id for t in all_tasks]
     )
 
-    _, active_context_obj, all_contexts = await resolve_active_context(
-        request, db, current_user.id
-    )
-    context_labels = {ctx.id: ctx.label for ctx in all_contexts}
-
-    user_labels = await LabelRepository(db).get_all_by_user(current_user.id)
-
-    comments = await ProjectCommentRepository(db).get_by_project(project_id)
-    attachments = await ProjectAttachmentRepository(db).get_by_project(project_id)
-    decisions = await ProjectDecisionRepository(db).get_by_project(project_id)
-    risks = await ProjectRiskRepository(db).get_by_project(project_id)
-
-    audit = await ProjectAuditRepository(db).get_by_project(project_id)
-    timeline = await ProjectTimelineRepository(db).get_by_project(project_id)
-
-    sections = await ProjectSectionRepository(db).get_all_by_project(project_id)
+    sections = await ProjectSectionRepository(db).get_all_by_project(project.id)
     section_ids = {s.id for s in sections}
     tasks_by_section: dict = {}
     for task in pending_tasks:
@@ -196,8 +176,8 @@ async def project_detail(
         key = task.section_id if (task.section_id in section_ids) else None
         blocked_by_section.setdefault(key, []).append(task)
 
-    raw = await task_repo.progress_by_project(current_user.id, [project_id])
-    done, total = raw.get(project_id, (0, 0))
+    raw = await task_repo.progress_by_project(current_user.id, [project.id])
+    done, total = raw.get(project.id, (0, 0))
     progress = {
         "done": done,
         "total": total,
@@ -208,19 +188,58 @@ async def project_detail(
     users = list(users_result.scalars().all())
     responsavel_map = {u.id: u.name for u in users}
 
+    return {
+        "project": project,
+        "next_action": next_action,
+        "pending_tasks": pending_tasks,
+        "blocked_tasks": blocked_tasks,
+        "done_tasks": done_tasks,
+        "sections": sections,
+        "section_groups": section_groups,
+        "sem_secao_tasks": sem_secao_tasks,
+        "progress": progress,
+        "subtasks": subtasks,
+        "users": users,
+        "responsavel_map": responsavel_map,
+        "done_by_section": done_by_section,
+        "blocked_by_section": blocked_by_section,
+    }
+
+
+@router.get("/{project_id}", response_class=HTMLResponse)
+async def project_detail(
+    project_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = ProjectService(db)
+    project = await service.get_by_id(project_id, current_user.id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    panel_ctx = await _build_tasks_panel_context(db, project, current_user)
+
+    _, active_context_obj, all_contexts = await resolve_active_context(
+        request, db, current_user.id
+    )
+    context_labels = {ctx.id: ctx.label for ctx in all_contexts}
+
+    user_labels = await LabelRepository(db).get_all_by_user(current_user.id)
+
+    comments = await ProjectCommentRepository(db).get_by_project(project_id)
+    attachments = await ProjectAttachmentRepository(db).get_by_project(project_id)
+    decisions = await ProjectDecisionRepository(db).get_by_project(project_id)
+    risks = await ProjectRiskRepository(db).get_by_project(project_id)
+
+    audit = await ProjectAuditRepository(db).get_by_project(project_id)
+    timeline = await ProjectTimelineRepository(db).get_by_project(project_id)
+
     return templates.TemplateResponse(
         request,
         "projects/detail.html",
         {
             "user": current_user,
-            "project": project,
-            "next_action": next_action,
-            "pending_tasks": pending_tasks,
-            "blocked_tasks": blocked_tasks,
-            "done_tasks": done_tasks,
-            "sections": sections,
-            "section_groups": section_groups,
-            "sem_secao_tasks": sem_secao_tasks,
             "contexts": all_contexts,
             "context_labels": context_labels,
             "active_context_obj": active_context_obj,
@@ -230,15 +249,31 @@ async def project_detail(
             "comments": comments,
             "attachments": attachments,
             "fmt_size": _fmt_size,
-            "progress": progress,
             "decisions": decisions,
-            "subtasks": subtasks,
             "risks": risks,
             "audit": audit,
             "timeline": timeline,
-            "users": users,
-            "responsavel_map": responsavel_map,
-            "done_by_section": done_by_section,
-            "blocked_by_section": blocked_by_section,
+            **panel_ctx,
         },
+    )
+
+
+@router.get("/{project_id}/tasks-panel", response_class=HTMLResponse)
+async def project_tasks_panel(
+    project_id: int,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Refresh via HTMX (evento `refreshProjectTasks`) do painel de tarefas do
+    detalhe do projeto: mantém progresso e badge 'Próxima ação' em dia sem
+    depender de reload de página (BUG 3)."""
+    service = ProjectService(db)
+    project = await service.get_by_id(project_id, current_user.id)
+    if not project:
+        raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    panel_ctx = await _build_tasks_panel_context(db, project, current_user)
+    return templates.TemplateResponse(
+        request, "partials/project_tasks_panel.html", panel_ctx
     )

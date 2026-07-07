@@ -45,6 +45,46 @@ def _parse_remind(date_str: Optional[str], time_str: Optional[str]) -> Optional[
 router = APIRouter(prefix="/api/tasks", tags=["api:tasks"])
 
 
+async def _task_row_response(request: Request, db: AsyncSession, task, current_user: User, is_new: bool = False):
+    """Devolve o mesmo partial usado na renderização inicial da tarefa (Bug 2):
+    tarefa de topo de projeto -> project_task_row.html; subtarefa de projeto ->
+    project_subtask_row.html; avulsa -> task_item.html. Marca HX-Trigger para o
+    painel de tarefas do projeto (progresso/próxima ação) resincronizar (Bug 3).
+
+    `project_task_row.html` inclui o container de subtarefas como irmão do próprio
+    card — correto ao ANEXAR uma tarefa nova (is_new=True), mas duplicaria esse
+    container se usado para SUBSTITUIR (outerHTML) uma linha já existente na página
+    (ela já tem seu próprio container de subtarefas ao lado). Por isso, ações sobre
+    uma tarefa de topo já renderizada (concluir/bloquear/editar/etc.) devolvem corpo
+    vazio: o HX-Trigger abaixo já resincroniza o painel inteiro com o markup certo.
+    """
+    if task.project_id is not None and task.parent_id is None:
+        if is_new:
+            from app.services.project_service import ProjectService
+            from app.repositories.task_repo import TaskRepository
+            project = await ProjectService(db).get_by_id(task.project_id, current_user.id)
+            children = await TaskRepository(db).get_children_map(current_user.id, [task.id])
+            response = templates.TemplateResponse(
+                request,
+                "partials/project_task_row.html",
+                {"task": task, "project": project, "subtasks": {task.id: children.get(task.id, [])},
+                 "draggable": True, "reload_on_done": False, "is_next": False},
+            )
+        else:
+            response = HTMLResponse("")
+    elif task.parent_id is not None and task.project_id is not None:
+        response = templates.TemplateResponse(
+            request, "partials/project_subtask_row.html", {"sub": task}
+        )
+    else:
+        response = templates.TemplateResponse(
+            request, "partials/task_item.html", {"task": task}
+        )
+    if task.project_id is not None:
+        response.headers["HX-Trigger"] = "refreshProjectTasks"
+    return response
+
+
 def _verb_error_response(exc: TaskVerbError) -> HTMLResponse:
     suggestions_html = "".join(
         f'<button type="button" '
@@ -154,19 +194,7 @@ async def create_task(
     except TaskVerbError as e:
         return _verb_error_response(e)
 
-    # Tarefa de topo de um projeto: devolve o wrapper arrastável (com data-task-id),
-    # para entrar na lista de execução já reordenável. Subtarefas/avulsas → item simples.
-    if is_project_task and not is_subtask:
-        return templates.TemplateResponse(
-            request,
-            "partials/project_task_row.html",
-            {"task": task, "project": project, "subtasks": {},
-             "draggable": True, "reload_on_done": True, "is_next": False},
-        )
-
-    return templates.TemplateResponse(
-        request, "partials/task_item.html", {"task": task}
-    )
+    return await _task_row_response(request, db, task, current_user, is_new=True)
 
 
 @router.patch("/{task_id}/done", response_class=HTMLResponse)
@@ -180,9 +208,7 @@ async def mark_done(
     task = await service.mark_done(task_id, current_user.id)
     if not task:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse(
-        request, "partials/task_item.html", {"task": task}
-    )
+    return await _task_row_response(request, db, task, current_user)
 
 
 @router.patch("/{task_id}/blocked", response_class=HTMLResponse)
@@ -196,9 +222,7 @@ async def mark_blocked(
     task = await service.mark_blocked(task_id, current_user.id)
     if not task:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse(
-        request, "partials/task_item.html", {"task": task}
-    )
+    return await _task_row_response(request, db, task, current_user)
 
 
 @router.patch("/{task_id}/pending", response_class=HTMLResponse)
@@ -212,9 +236,7 @@ async def mark_pending(
     task = await service.mark_pending(task_id, current_user.id)
     if not task:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse(
-        request, "partials/task_item.html", {"task": task}
-    )
+    return await _task_row_response(request, db, task, current_user)
 
 
 @router.patch("/{task_id}/archive", response_class=HTMLResponse)
@@ -227,7 +249,8 @@ async def archive_task(
     task = await service.archive(task_id, current_user.id)
     if not task:
         raise HTTPException(status_code=404)
-    return HTMLResponse("")
+    headers = {"HX-Trigger": "refreshProjectTasks"} if task.project_id is not None else {}
+    return HTMLResponse("", headers=headers)
 
 
 @router.patch("/{task_id}/adiar", response_class=HTMLResponse)
@@ -255,9 +278,7 @@ async def cancel_edit(
     task = await service.get_by_id(task_id, current_user.id)
     if not task:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse(
-        request, "partials/task_item.html", {"task": task}
-    )
+    return await _task_row_response(request, db, task, current_user)
 
 
 @router.get("/{task_id}/edit", response_class=HTMLResponse)
@@ -355,9 +376,7 @@ async def update_task(
         return _verb_error_response(e)
     if not task:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse(
-        request, "partials/task_item.html", {"task": task}
-    )
+    return await _task_row_response(request, db, task, current_user)
 
 
 @router.get("/{task_id}/detail", response_class=HTMLResponse)

@@ -297,6 +297,7 @@ async def create_section(
 async def rename_section(
     project_id: int,
     section_id: int,
+    request: Request,
     name: str = Form(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -307,13 +308,10 @@ async def rename_section(
     if not section:
         raise HTTPException(status_code=404)
     name = name.strip()
-    if not name:
-        return HTMLResponse(f'<span class="section-name-display">{section.name}</span>')
-    section = await repo.update(section, name=name)
-    return HTMLResponse(
-        f'<span id="section-name-{section.id}" '
-        f'class="text-oriens-secondary text-[11px] font-bold uppercase tracking-wide flex-1">'
-        f'{section.name}</span>'
+    if name:
+        section = await repo.update(section, name=name)
+    return templates.TemplateResponse(
+        request, "partials/section_name_span.html", {"section": section}
     )
 
 

@@ -207,12 +207,11 @@
          style="background: var(--bg-surface); border: 1px solid var(--oriens-border);">
       <div class="flex items-center justify-between mb-3">
         <p class="text-xs font-semibold uppercase tracking-widest" style="color: var(--text-secondary);">Captura rápida</p>
-        <span id="quick-capture-feedback" class="text-xs" style="color: var(--oriens-success);"></span>
       </div>
       <form
         hx-post="/api/capture"
         hx-swap="none"
-        hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ this.reset(); var f=document.getElementById('quick-capture-feedback'); if(f){ f.textContent='Capturado ✓'; setTimeout(()=>{ f.textContent=''; },1500); } var e=document.getElementById('quick-capture-error'); if(e) e.innerHTML=''; }">
+        @htmx:after-request="if($event.detail.successful && !$event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); var e=document.getElementById('quick-capture-error'); if(e) e.innerHTML=''; quickCapture=false }">
         <div id="quick-capture-error" class="mb-2"></div>
         <textarea id="quick-capture-input" name="content" rows="3" required
           placeholder="O que está na sua cabeça? (Esc fecha)"
