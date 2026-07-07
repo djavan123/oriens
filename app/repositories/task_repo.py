@@ -1,10 +1,11 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Optional
 from sqlalchemy import case, func, nullslast, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.task import Task, TaskStatus, CognitiveLoad, EnergyLevel
 from app.models.project_section import ProjectSection
+from app.utils.time import utcnow
 
 
 def _urgency_rank(task: Task) -> int:
@@ -23,6 +24,15 @@ def _urgency_rank(task: Task) -> int:
 def _priority_sort_key(task: Task):
     # Urgência primeiro; dentro do grupo, importância desc; desempate por score e criação.
     return (_urgency_rank(task), -task.importancia, -task.priority_score, task.created_at)
+
+
+def _project_task_order():
+    """Ordem de tarefas de projeto: seção → order_index manual → criação."""
+    return [
+        nullslast(ProjectSection.order_index.asc()),
+        nullslast(Task.order_index.asc()),
+        Task.created_at.asc(),
+    ]
 
 _COGNITIVE_MAP: dict[str, list[CognitiveLoad]] = {
     "morning":    [CognitiveLoad.deep, CognitiveLoad.high],
@@ -78,25 +88,6 @@ class TaskRepository:
         tasks.sort(key=_priority_sort_key)
         return tasks[:limit]
 
-    async def get_pending_for_dashboard(
-        self,
-        user_id: int,
-        energy: Optional[EnergyLevel] = None,
-        context_id: Optional[int] = None,
-    ) -> list[Task]:
-        """Todas as tarefas pendentes de topo (sem limite) para o agrupamento do Dashboard."""
-        q = select(Task).where(
-            Task.user_id == user_id,
-            Task.status == TaskStatus.pending,
-            Task.archived.is_(False),
-            Task.parent_id.is_(None),
-        )
-        if energy is not None:
-            q = q.where(Task.energy == energy)
-        q = self._apply_context(q, context_id)
-        result = await self.db.execute(q)
-        return list(result.scalars().all())
-
     async def get_quick_wins(
         self,
         user_id: int,
@@ -144,11 +135,7 @@ class TaskRepository:
         # Tarefas de projeto: seção → order_index. Avulsas: por score/energia.
         if project_id is not None:
             q = q.outerjoin(ProjectSection, Task.section_id == ProjectSection.id)
-            order = [
-                nullslast(ProjectSection.order_index.asc()),
-                nullslast(Task.order_index.asc()),
-                Task.created_at.asc(),
-            ]
+            order = _project_task_order()
         else:
             order = [Task.priority_score.desc(), _energy_order, Task.created_at.asc()]
         result = await self.db.execute(q.order_by(*order))
@@ -218,7 +205,7 @@ class TaskRepository:
         """Retorna {project_id: nº de tarefas atrasadas} (prazo no passado, não concluídas)."""
         if not project_ids:
             return {}
-        today = datetime.now(timezone.utc)
+        today = utcnow()
         result = await self.db.execute(
             select(Task.project_id, func.count())
             .where(
@@ -250,7 +237,7 @@ class TaskRepository:
 
     async def update(self, task: Task, **kwargs) -> Task:
         if "status" in kwargs and kwargs["status"] == TaskStatus.done:
-            kwargs.setdefault("done_at", datetime.utcnow())
+            kwargs.setdefault("done_at", utcnow())
         for key, value in kwargs.items():
             setattr(task, key, value)
         await self.db.commit()
@@ -269,11 +256,7 @@ class TaskRepository:
                 Task.archived.is_(False),
                 Task.parent_id.is_(None),
             )
-            .order_by(
-                nullslast(ProjectSection.order_index.asc()),
-                nullslast(Task.order_index.asc()),
-                Task.created_at.asc(),
-            )
+            .order_by(*_project_task_order())
             .limit(1)
         )
         return result.scalar_one_or_none()
@@ -287,20 +270,29 @@ class TaskRepository:
         val = result.scalar_one_or_none()
         return val if val is not None else -1
 
+    async def _load_reorderable_tasks(
+        self, project_id: int, user_id: int, task_ids: list[int]
+    ) -> Optional[dict[int, Task]]:
+        """Carrega as tarefas de `task_ids` validando ownership, pertencimento ao
+        projeto e que são tarefas de topo (sem subtarefas). None se algo falhar."""
+        result = await self.db.execute(
+            select(Task).where(Task.id.in_(task_ids), Task.user_id == user_id)
+        )
+        tasks = {t.id: t for t in result.scalars().all()}
+        if len(tasks) != len(task_ids):
+            return None
+        if any(t.project_id != project_id or t.parent_id is not None for t in tasks.values()):
+            return None
+        return tasks
+
     async def reorder_project_tasks(
         self, project_id: int, user_id: int, task_ids: list[int]
     ) -> bool:
         """Persiste order_index na sequência dada. Retorna False se validação falhar."""
         if not task_ids:
             return False
-        result = await self.db.execute(
-            select(Task).where(Task.id.in_(task_ids), Task.user_id == user_id)
-        )
-        tasks = {t.id: t for t in result.scalars().all()}
-        # Todos os IDs devem existir, pertencer a este projeto e ser tarefas de topo.
-        if len(tasks) != len(task_ids):
-            return False
-        if any(t.project_id != project_id or t.parent_id is not None for t in tasks.values()):
+        tasks = await self._load_reorderable_tasks(project_id, user_id, task_ids)
+        if tasks is None:
             return False
         for idx, task_id in enumerate(task_ids):
             tasks[task_id].order_index = idx
@@ -323,12 +315,7 @@ class TaskRepository:
                 Task.archived.is_(False),
                 Task.parent_id.is_(None),
             )
-            .order_by(
-                Task.project_id,
-                nullslast(ProjectSection.order_index.asc()),
-                nullslast(Task.order_index.asc()),
-                Task.created_at.asc(),
-            )
+            .order_by(Task.project_id, *_project_task_order())
         )
         out: dict[int, Task] = {}
         for t in result.scalars().all():
@@ -369,13 +356,8 @@ class TaskRepository:
         """
         if not task_ids:
             return True
-        result = await self.db.execute(
-            select(Task).where(Task.id.in_(task_ids), Task.user_id == user_id)
-        )
-        tasks = {t.id: t for t in result.scalars().all()}
-        if len(tasks) != len(task_ids):
-            return False
-        if any(t.project_id != project_id or t.parent_id is not None for t in tasks.values()):
+        tasks = await self._load_reorderable_tasks(project_id, user_id, task_ids)
+        if tasks is None:
             return False
         for idx, task_id in enumerate(task_ids):
             tasks[task_id].section_id = section_id

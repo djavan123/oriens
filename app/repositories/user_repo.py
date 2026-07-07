@@ -42,3 +42,20 @@ class UserRepository:
         await self.db.commit()
         await self.db.refresh(user)
         return user
+
+    async def get_by_telegram_chat_id(self, chat_id: str) -> Optional[User]:
+        result = await self.db.execute(
+            select(User).where(User.telegram_chat_id == chat_id)
+        )
+        return result.scalars().first()
+
+    async def set_telegram_chat_id(
+        self, user_id: int, chat_id: Optional[str]
+    ) -> Optional[User]:
+        user = await self.get_by_id(user_id)
+        if not user:
+            return None
+        user.telegram_chat_id = chat_id or None
+        await self.db.commit()
+        await self.db.refresh(user)
+        return user

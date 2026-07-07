@@ -1,9 +1,13 @@
-import asyncio
-import contextlib
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+
+from app.logging_setup import configure_logging, check_production_secrets
+
+configure_logging()
+logger = logging.getLogger("oriens.main")
 
 from app.routes.auth import router as auth_router
 from app.routes.dashboard import router as dashboard_router
@@ -22,57 +26,16 @@ from app.routes.lists import router as lists_router
 from app.routes.api.lists import router as api_lists_router
 
 
-async def _reminder_loop():
-    """Verifica lembretes vencidos a cada 60s e dispara o Telegram.
-    Premissa: 1 worker uvicorn (Dockerfile padrão) — evita envios duplicados."""
-    from app.database import AsyncSessionLocal
-    from app.services.reminder_service import process_due_telegram
-    while True:
-        try:
-            async with AsyncSessionLocal() as db:
-                await process_due_telegram(db)
-        except Exception:
-            pass
-        await asyncio.sleep(60)
-
-
-async def _telegram_capture_loop():
-    """Captura por Telegram (SCRIPT 13): long polling getUpdates → caixa de entrada.
-    Mantém o offset em memória. Premissa: 1 worker uvicorn (evita updates duplicados)."""
-    from app.database import AsyncSessionLocal
-    from app.services.reminder_service import process_telegram_updates
-    offset = 0
-    while True:
-        try:
-            async with AsyncSessionLocal() as db:
-                offset = await process_telegram_updates(db, offset)
-        except Exception:
-            pass
-        await asyncio.sleep(2)
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # init_db() é idempotente (create_all com checkfirst) e seed_defaults() só
-    # insere se vazio — seguro rodar sempre, inclusive em produção (DEBUG=false).
-    from app.database import init_db, AsyncSessionLocal
-    await init_db()
-    from app.repositories.context_repo import ContextRepository
-    async with AsyncSessionLocal() as db:
-        await ContextRepository(db).seed_defaults()
-        # Critérios de importância desativados no SCRIPT 13 — não semear mais.
-    tasks = [
-        asyncio.create_task(_reminder_loop()),
-        asyncio.create_task(_telegram_capture_loop()),
-    ]
-    try:
-        yield
-    finally:
-        for t in tasks:
-            t.cancel()
-        for t in tasks:
-            with contextlib.suppress(asyncio.CancelledError):
-                await t
+    # init_db() é idempotente (create_all com checkfirst + advisory lock no PG) e
+    # seed_defaults() só insere se vazio — seguro rodar em todo worker do web.
+    # Os loops de fundo (lembretes/Telegram) rodam no processo `app.worker`, não aqui,
+    # para que o web possa escalar com múltiplos workers sem duplicar envios.
+    check_production_secrets()
+    from app.database import init_db
+    await init_db()  # migração + seed de contextos, guardados por advisory lock
+    yield
 
 
 app = FastAPI(title="Oriens", lifespan=lifespan)
@@ -112,4 +75,13 @@ async def root():
 
 @app.get("/health")
 async def health():
+    """Healthcheck com ping no banco — detecta app 'de pé' mas sem DB."""
+    from sqlalchemy import text
+    from app.database import AsyncSessionLocal
+    try:
+        async with AsyncSessionLocal() as db:
+            await db.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("Healthcheck falhou ao consultar o banco")
+        return JSONResponse(status_code=503, content={"status": "error", "db": "down"})
     return {"status": "ok"}

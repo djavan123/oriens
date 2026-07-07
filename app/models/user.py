@@ -16,3 +16,6 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     # Foco do dia (singleton por usuário, sem histórico) — editável no Dashboard.
     foco_do_dia: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Chat do Telegram do usuário (lembretes + captura roteados por dono). NULL =
+    # usa o TELEGRAM_CHAT_ID global do .env (compatibilidade single-user).
+    telegram_chat_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True, index=True)

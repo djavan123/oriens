@@ -32,6 +32,25 @@ services:
       # Acesso direto pelo IP da VPS (http://IP:8000).
       # Quando entrar Nginx + domínio, voltar para "127.0.0.1:8000:8000".
       - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Processo de fundo (lembretes + captura Telegram). ÚNICO — não escalar.
+  # Mantém o web livre para rodar com múltiplos workers sem duplicar envios.
+  worker:
+    build: .
+    restart: always
+    command: python -m app.worker
+    env_file: .env
+    environment:
+      TZ: America/Sao_Paulo
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:

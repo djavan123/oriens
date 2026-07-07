@@ -24,16 +24,6 @@ async def settings_page(
     user_contexts = [c for c in all_contexts if c.user_id is not None]
     default_contexts = [c for c in all_contexts if c.user_id is None]
 
-    from app.repositories.criterio_repo import CriterioContextoRepository
-    grouped = await CriterioContextoRepository(db).get_for_contexts([c.id for c in all_contexts])
-    criterios_json = {
-        cid: [
-            {"nome": c.nome, "peso": c.peso, "inverter": "true" if c.inverter else "false"}
-            for c in lst
-        ]
-        for cid, lst in grouped.items()
-    }
-
     return templates.TemplateResponse(
         request,
         "settings.html",
@@ -44,6 +34,5 @@ async def settings_page(
             "active_context_obj": active_context_obj,
             "user_contexts": user_contexts,
             "default_contexts": default_contexts,
-            "criterios_json": criterios_json,
         },
     )

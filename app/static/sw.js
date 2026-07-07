@@ -1,8 +1,18 @@
-// app/static/sw.js — service worker mínimo do Oriens.
-// Objetivo: tornar o app "instalável" no celular (PWA). Mantém estratégia
-// network-first sem cache agressivo de HTML, evitando telas desatualizadas.
-const CACHE = "oriens-static-v1";
-const STATIC_ASSETS = ["/static/icon.svg", "/static/manifest.webmanifest"];
+// app/static/sw.js — service worker do Oriens (PWA).
+// Estratégia: HTML network-first (evita telas desatualizadas); assets estáticos
+// cache-first COM população de cache no primeiro fetch → app funciona offline
+// depois da 1ª visita (Tailwind/HTMX/Alpine/Sortable/fonte são auto-hospedados).
+const CACHE = "oriens-static-v2";
+const STATIC_ASSETS = [
+  "/static/icon.svg",
+  "/static/manifest.webmanifest",
+  "/static/css/theme.css",
+  "/static/vendor/tailwind.js",
+  "/static/vendor/htmx.min.js",
+  "/static/vendor/alpine.min.js",
+  "/static/vendor/sortable.min.js",
+  "/static/vendor/fonts/inter.css",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(STATIC_ASSETS)));
@@ -23,9 +33,21 @@ self.addEventListener("fetch", (event) => {
   // Só intercepta GET. POST/PATCH/DELETE (HTMX, login) passam direto.
   if (req.method !== "GET") return;
 
-  // Assets estáticos: cache-first (rápido e offline).
+  // Assets estáticos: cache-first; ao buscar da rede, guarda no cache (offline).
   if (req.url.includes("/static/")) {
-    event.respondWith(caches.match(req).then((hit) => hit || fetch(req)));
+    event.respondWith(
+      caches.match(req).then(
+        (hit) =>
+          hit ||
+          fetch(req).then((res) => {
+            if (res && res.ok) {
+              const copy = res.clone();
+              caches.open(CACHE).then((c) => c.put(req, copy));
+            }
+            return res;
+          })
+      )
+    );
     return;
   }
 

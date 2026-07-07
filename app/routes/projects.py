@@ -174,11 +174,6 @@ async def project_detail(
     decisions = await ProjectDecisionRepository(db).get_by_project(project_id)
     risks = await ProjectRiskRepository(db).get_by_project(project_id)
 
-    from app.repositories.criterio_repo import CriterioContextoRepository
-    criterios = (
-        await CriterioContextoRepository(db).get_by_context(project.context_id)
-        if project.context_id else []
-    )
     audit = await ProjectAuditRepository(db).get_by_project(project_id)
     timeline = await ProjectTimelineRepository(db).get_by_project(project_id)
 
@@ -237,7 +232,6 @@ async def project_detail(
             "fmt_size": _fmt_size,
             "progress": progress,
             "decisions": decisions,
-            "criterios": criterios,
             "subtasks": subtasks,
             "risks": risks,
             "audit": audit,

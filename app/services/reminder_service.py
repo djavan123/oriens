@@ -1,5 +1,6 @@
 # app/services/reminder_service.py
-from datetime import datetime
+import logging
+from typing import Optional
 
 import httpx
 from sqlalchemy import select
@@ -7,39 +8,44 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.models.task import Task, TaskStatus
+from app.utils.time import now_local
+
+logger = logging.getLogger("oriens.reminders")
 
 
-async def send_telegram(text: str) -> None:
-    """Envia mensagem ao Telegram. No-op se não configurado."""
+async def send_telegram(text: str, chat_id: Optional[str] = None) -> None:
+    """Envia mensagem ao Telegram. No-op se não configurado.
+
+    `chat_id` = destino (chat do usuário). Se omitido, cai no TELEGRAM_CHAT_ID
+    global do .env (compatibilidade single-user). O bot token é sempre global.
+    """
     settings = get_settings()
     token = settings.TELEGRAM_BOT_TOKEN
-    chat_id = settings.TELEGRAM_CHAT_ID
-    if not token or not chat_id:
+    target = chat_id or settings.TELEGRAM_CHAT_ID
+    if not token or not target:
         return
     url = f"https://api.telegram.org/bot{token}/sendMessage"
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            await client.post(url, json={"chat_id": chat_id, "text": text})
+            await client.post(url, json={"chat_id": target, "text": text})
     except Exception:
         # Lembrete não deve derrubar o loop nem o app.
-        pass
+        logger.exception("Falha ao enviar mensagem ao Telegram")
 
 
 async def process_telegram_updates(db: AsyncSession, offset: int) -> int:
-    """Long polling getUpdates (SCRIPT 13). Aceita só mensagens do TELEGRAM_CHAT_ID,
-    cria captura para o usuário dono e confirma com '✓ Capturado'.
+    """Long polling getUpdates. Cada mensagem é roteada ao usuário dono do chat
+    (users.telegram_chat_id); cria a captura dele e confirma com '✓ Capturado'.
 
-    Retorna o novo offset (último update_id + 1). No-op (retorna o offset recebido)
-    se o bot/chat não estiverem configurados.
+    Compatibilidade single-user: se nenhum usuário tem aquele chat mas ele é o
+    TELEGRAM_CHAT_ID global do .env, a captura vai para o primeiro usuário.
+
+    Retorna o novo offset (último update_id + 1). No-op se o bot não estiver
+    configurado.
     """
     settings = get_settings()
     token = settings.TELEGRAM_BOT_TOKEN
-    chat_id = settings.TELEGRAM_CHAT_ID
-    if not token or not chat_id:
-        return offset
-    try:
-        allowed_chat = int(chat_id)
-    except (TypeError, ValueError):
+    if not token:
         return offset
 
     url = f"https://api.telegram.org/bot{token}/getUpdates"
@@ -49,8 +55,13 @@ async def process_telegram_updates(db: AsyncSession, offset: int) -> int:
     try:
         async with httpx.AsyncClient(timeout=40) as client:
             resp = await client.get(url, params=params)
-            updates = resp.json().get("result", [])
+            payload = resp.json()
+        if not payload.get("ok"):
+            logger.warning("getUpdates retornou erro: %s", payload.get("description"))
+            return offset
+        updates = payload.get("result", [])
     except Exception:
+        logger.exception("Falha ao consultar getUpdates do Telegram")
         return offset
 
     if not updates:
@@ -59,24 +70,31 @@ async def process_telegram_updates(db: AsyncSession, offset: int) -> int:
     from app.repositories.user_repo import UserRepository
     from app.services.capture_service import CaptureService
 
-    owner = await UserRepository(db).get_first()
+    urepo = UserRepository(db)
+    legacy_chat = (settings.TELEGRAM_CHAT_ID or "").strip()
     new_offset = offset
     for upd in updates:
         new_offset = max(new_offset, upd.get("update_id", 0) + 1)
         message = upd.get("message") or {}
         text = (message.get("text") or "").strip()
         chat = (message.get("chat") or {}).get("id")
-        # Só o chat configurado; ignora comandos vazios e outros chats.
-        if not text or chat != allowed_chat or owner is None:
+        if not text or chat is None:
             continue
-        await CaptureService(db).create(user_id=owner.id, content=text)
-        await send_telegram(f"✓ Capturado: {text[:60]}")
+        chat = str(chat)
+        user = await urepo.get_by_telegram_chat_id(chat)
+        if user is None and legacy_chat and chat == legacy_chat:
+            user = await urepo.get_first()
+        if user is None:
+            # Chat desconhecido — ignora (não vaza captura para outro usuário).
+            continue
+        await CaptureService(db).create(user_id=user.id, content=text)
+        await send_telegram(f"✓ Capturado: {text[:60]}", chat_id=chat)
 
     return new_offset
 
 
 def _due_filter():
-    now = datetime.now()
+    now = now_local()
     return (
         Task.remind_at.is_not(None),
         Task.remind_at <= now,
@@ -86,7 +104,7 @@ def _due_filter():
 
 
 async def process_due_telegram(db: AsyncSession) -> None:
-    """Envia ao Telegram os lembretes vencidos ainda não enviados."""
+    """Envia ao Telegram os lembretes vencidos, cada um ao chat do dono da tarefa."""
     result = await db.execute(
         select(Task).where(
             *_due_filter(),
@@ -96,11 +114,25 @@ async def process_due_telegram(db: AsyncSession) -> None:
     tasks = list(result.scalars().all())
     if not tasks:
         return
+
+    from app.repositories.user_repo import UserRepository
+    urepo = UserRepository(db)
+    legacy_chat = (get_settings().TELEGRAM_CHAT_ID or "").strip() or None
+    chat_cache: dict[int, Optional[str]] = {}
+    changed = False
     for task in tasks:
+        if task.user_id not in chat_cache:
+            owner = await urepo.get_by_id(task.user_id)
+            chat_cache[task.user_id] = (owner.telegram_chat_id if owner else None) or legacy_chat
+        chat = chat_cache[task.user_id]
+        if not chat:
+            continue  # dono sem Telegram e sem fallback — tenta de novo depois
         quando = task.remind_at.strftime("%d/%m %H:%M") if task.remind_at else ""
-        await send_telegram(f"🔔 Lembrete Oriens\n{task.title}\n{quando}")
+        await send_telegram(f"🔔 Lembrete Oriens\n{task.title}\n{quando}", chat_id=chat)
         task.reminder_telegram_sent = True
-    await db.commit()
+        changed = True
+    if changed:
+        await db.commit()
 
 
 async def get_due_popups(db: AsyncSession, user_id: int) -> list[Task]:

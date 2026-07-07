@@ -1,5 +1,4 @@
 # app/routes/weekly.py
-from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -14,6 +13,7 @@ from app.repositories.task_repo import TaskRepository
 from app.services.weekly_directive_service import WeeklyDirectiveService, current_week_start
 from app.utils.auth import get_current_user
 from app.utils.context_utils import resolve_active_context
+from app.utils.time import utcnow
 
 router = APIRouter(prefix="/weekly", tags=["weekly"])
 
@@ -32,8 +32,7 @@ async def weekly_view(
     all_projects = await project_repo.get_all_by_user(current_user.id)
     em_andamento = [p for p in all_projects if p.status == ProjectStatus.em_andamento]
 
-    now = datetime.now(timezone.utc)
-    now_naive = now.replace(tzinfo=None)
+    now_naive = utcnow()
 
     ids = [p.id for p in em_andamento]
     pending_counts = await task_repo.pending_count_by_project(current_user.id, ids)

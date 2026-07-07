@@ -3,7 +3,7 @@
 {% block title %}{{ project.name }} — Oriens{% endblock %}
 
 {% block head %}
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/Sortable.min.js"></script>
+<script src="/static/vendor/sortable.min.js"></script>
 {% endblock %}
 
 {% set status_label = {
@@ -519,17 +519,17 @@
     });
   }
 
-  function init(){
+  // Exposto para o init unificado no fim do arquivo.
+  window.__oriensInitSortables = function(){
     initTaskSortables();
     initSectionSortable();
-  }
+  };
 
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', window.__oriensInitSortables);
   } else {
-    init();
+    window.__oriensInitSortables();
   }
-  document.addEventListener('htmx:afterSettle', initTaskSortables);
 })();
 </script>
 
@@ -646,7 +646,10 @@ document.querySelectorAll('.resizable-th').forEach(th => {
     });
   }
 
+  // Init unificado: SortableJS + formulários/chevron/ellipsis. Todas as funções
+  // são idempotentes (guardadas por data-*), então um único afterSettle basta.
   function init(){
+    if(window.__oriensInitSortables) window.__oriensInitSortables();
     setupSectionForms();
     setupSectionCollapse();
     setupEllipsis();
