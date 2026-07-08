@@ -32,8 +32,11 @@ async def lifespan(app: FastAPI):
     # Os loops de fundo (lembretes/Telegram) rodam no processo `app.worker`, não aqui,
     # para que o web possa escalar com múltiplos workers sem duplicar envios.
     check_production_secrets()
-    from app.database import init_db
+    from app.database import init_db, AsyncSessionLocal
     await init_db()  # migração + seed de contextos, guardados por advisory lock
+    from app.services.list_migration import migrate_notes_and_repository_to_tasks
+    async with AsyncSessionLocal() as db:
+        await migrate_notes_and_repository_to_tasks(db)
     yield
 
 

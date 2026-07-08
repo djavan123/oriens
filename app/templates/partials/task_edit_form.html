@@ -73,6 +73,19 @@
       </div>
       {% endif %}
 
+      {% if is_standalone_top is defined and is_standalone_top %}
+      <div class="flex items-center gap-2">
+        <label class="text-oriens-secondary text-xs">Lista</label>
+        <select name="list_id"
+          class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="" {% if not task.list_id %}selected{% endif %}>Tarefas avulsas</option>
+          {% if notes_list %}<option value="{{ notes_list.id }}" {% if task.list_id == notes_list.id %}selected{% endif %}>{{ notes_list.name }}</option>{% endif %}
+          {% if repo_list %}<option value="{{ repo_list.id }}" {% if task.list_id == repo_list.id %}selected{% endif %}>{{ repo_list.name }}</option>{% endif %}
+          {% for l in custom_lists %}<option value="{{ l.id }}" {% if task.list_id == l.id %}selected{% endif %}>{{ l.name }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
       <label class="flex items-center gap-2 cursor-pointer">
         <input type="checkbox" name="is_quick_win" value="true"
           {% if task.is_quick_win %}checked{% endif %}

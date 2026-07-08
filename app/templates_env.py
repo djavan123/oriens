@@ -28,3 +28,20 @@ templates.env.globals["due_status"] = due_status
 from app.services.importancia_service import faixa_importancia  # noqa: E402
 
 templates.env.globals["faixa_importancia"] = faixa_importancia
+
+
+def url_domain(url):
+    """Domínio de uma URL (sem 'www.'), para exibição discreta nos itens de Repositório."""
+    if not url:
+        return None
+    from urllib.parse import urlparse
+    try:
+        host = urlparse(url).hostname
+    except ValueError:
+        return None
+    if host and host.startswith("www."):
+        host = host[4:]
+    return host
+
+
+templates.env.globals["url_domain"] = url_domain

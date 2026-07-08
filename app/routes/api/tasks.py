@@ -9,9 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.models.task import EnergyLevel
 from app.models.user import User
+from app.repositories.task_list_repo import TaskListRepository
 from app.services.task_service import TaskService, TaskVerbError
 from app.services.importancia_service import importancia_from_prioridade
 from app.utils.auth import get_current_user
+from app.utils.link_meta import extract_url, fetch_link_title
+from app.utils.time import utcnow
 
 
 def _parse_date(v: Optional[str]) -> Optional[datetime]:
@@ -30,6 +33,21 @@ def _parse_int(v: Optional[str]) -> Optional[int]:
         return int(v)
     except ValueError:
         return None
+
+
+def _parse_list_id(v: Optional[str]) -> Optional[int]:
+    if not v or v.strip().lower() in ("", "default", "null"):
+        return None
+    return _parse_int(v)
+
+
+async def _resolve_link_fields(title: str) -> dict:
+    """Detecta URL no título e busca o título da página (PARTE 4). Nunca levanta."""
+    url = extract_url(title)
+    if not url:
+        return {"link_url": None, "link_title": None, "link_checked_at": None}
+    link_title = await fetch_link_title(url)
+    return {"link_url": url, "link_title": link_title, "link_checked_at": utcnow()}
 
 
 def _parse_remind(date_str: Optional[str], time_str: Optional[str]) -> Optional[datetime]:
@@ -77,9 +95,14 @@ async def _task_row_response(request: Request, db: AsyncSession, task, current_u
             request, "partials/project_subtask_row.html", {"sub": task}
         )
     else:
-        response = templates.TemplateResponse(
-            request, "partials/task_item.html", {"task": task}
-        )
+        ctx: dict = {"task": task}
+        if task.list_id is not None:
+            task_list = await TaskListRepository(db).get_by_id(task.list_id, current_user.id)
+            if task_list and task_list.system_key == "notes":
+                ctx["clamp_title"] = True
+            elif task_list and task_list.system_key == "repository":
+                ctx["show_link"] = True
+        response = templates.TemplateResponse(request, "partials/task_item.html", ctx)
     if task.project_id is not None:
         response.headers["HX-Trigger"] = "refreshProjectTasks"
     return response
@@ -122,6 +145,7 @@ async def create_task(
     deadline: Optional[str] = Form(None),
     responsavel_id: Optional[str] = Form(None),
     tags: Optional[str] = Form(None),
+    list_id: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -151,14 +175,25 @@ async def create_task(
                 extra["section_id"] = sec_id
     else:
         cid = _parse_int(context_id)
-        # Tarefa avulsa de topo (SCRIPT 13): contexto é obrigatório.
-        if cid is None and pid is None:
+        # list_id só vale para tarefa avulsa de topo (nunca subtarefa/projeto).
+        lid = None
+        if pid is None:
+            lid_raw = _parse_list_id(list_id)
+            if lid_raw is not None:
+                owned = await TaskListRepository(db).get_by_id(lid_raw, current_user.id)
+                if owned is not None:
+                    lid = owned.id
+        # Tarefa avulsa de topo sem lista (SCRIPT 13): contexto é obrigatório.
+        # Tarefas dentro de uma lista (Notas/Repositório/personalizada) dispensam contexto.
+        if cid is None and pid is None and lid is None:
             return HTMLResponse(
                 '<p class="text-oriens-alert text-sm">Escolha um contexto.</p>',
                 headers={"HX-Retarget": "#task-form-error", "HX-Reswap": "innerHTML"},
             )
         if cid is not None:
             extra["context_id"] = cid
+        if lid is not None:
+            extra["list_id"] = lid
     if pid is not None:
         extra["parent_id"] = pid
     if cognitive_load and cognitive_load in {c.value for c in CognitiveLoad}:
@@ -172,14 +207,17 @@ async def create_task(
     if tags is not None:
         extra["tags"] = tags.strip() or None
 
-    # Importância (SCRIPT 13): só tarefa avulsa de topo recebe nota, a partir da
-    # escolha Alta/Média/Baixa. Tarefas de projeto (execução por ordem) e subtarefas
-    # ficam sem nota.
+    # Importância (SCRIPT 13): só tarefa avulsa de topo SEM lista recebe nota, a
+    # partir da escolha Alta/Média/Baixa. Tarefas de projeto, subtarefas e tarefas
+    # dentro de uma lista (Notas/Repositório/personalizada) ficam sem nota.
     is_subtask = pid is not None
     is_project_task = proj_id is not None
-    if not is_subtask and not is_project_task:
+    is_in_list = extra.get("list_id") is not None
+    if not is_subtask and not is_project_task and not is_in_list:
         extra["importancia"] = importancia_from_prioridade(prioridade)
         extra["sem_nota"] = False
+
+    extra.update(await _resolve_link_fields(title))
 
     service = TaskService(db)
     try:
@@ -308,13 +346,23 @@ async def edit_form(
     is_project_task = task.project_id is not None
     prioridade = faixa_importancia(task.importancia, task.sem_nota) or "media"
 
+    # Lista (PARTE 6): seletor só para tarefa avulsa de topo (nunca projeto/subtarefa).
+    notes_list = repo_list = None
+    custom_lists: list = []
+    if is_standalone_top:
+        all_lists = await TaskListRepository(db).get_active_by_user(current_user.id)
+        notes_list = next((l for l in all_lists if l.system_key == "notes"), None)
+        repo_list = next((l for l in all_lists if l.system_key == "repository"), None)
+        custom_lists = [l for l in all_lists if l.system_key is None]
+
     return templates.TemplateResponse(
         request,
         "partials/task_edit_form.html",
         {"task": task, "contexts": contexts, "context_labels": context_labels,
          "user_labels": user_labels, "users": users,
          "show_prioridade": is_standalone_top, "is_project_task": is_project_task,
-         "prioridade": prioridade},
+         "prioridade": prioridade, "is_standalone_top": is_standalone_top,
+         "notes_list": notes_list, "repo_list": repo_list, "custom_lists": custom_lists},
     )
 
 
@@ -332,6 +380,7 @@ async def update_task(
     tags: Optional[str] = Form(None),
     remind_date: Optional[str] = Form(None),
     remind_time: Optional[str] = Form(None),
+    list_id: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -364,11 +413,34 @@ async def update_task(
         kwargs["reminder_telegram_sent"] = False
         kwargs["reminder_acked"] = False
 
-    # Importância (SCRIPT 13): só tarefa avulsa de topo recebe nota, de Alta/Média/Baixa.
     is_subtask = existing.parent_id is not None
-    if existing.project_id is None and not is_subtask:
-        kwargs["importancia"] = importancia_from_prioridade(prioridade)
-        kwargs["sem_nota"] = False
+    is_standalone_top = existing.project_id is None and not is_subtask
+
+    # Lista (PARTE 6): mover entre listas só para tarefa avulsa de topo. Campo ausente
+    # no form → não mexe. "Tarefas avulsas" → NULL. Lista com ownership válido → id.
+    new_list_id = existing.list_id
+    if is_standalone_top and list_id is not None:
+        lid = _parse_list_id(list_id)
+        if lid is None:
+            new_list_id = None
+        else:
+            owned = await TaskListRepository(db).get_by_id(lid, current_user.id)
+            new_list_id = owned.id if owned is not None else existing.list_id
+        kwargs["list_id"] = new_list_id
+
+    # Importância (SCRIPT 13): tarefa avulsa de topo SEM lista recebe nota Alta/Média/Baixa;
+    # dentro de uma lista (Notas/Repositório/personalizada), fica sem nota.
+    if is_standalone_top:
+        if new_list_id is None:
+            kwargs["importancia"] = importancia_from_prioridade(prioridade)
+            kwargs["sem_nota"] = False
+        else:
+            kwargs["importancia"] = 0.0
+            kwargs["sem_nota"] = True
+
+    # Metadados de link (PARTE 4): recomputa só quando o título muda.
+    if title != existing.title:
+        kwargs.update(await _resolve_link_fields(title))
 
     try:
         task = await service.update(task_id, current_user.id, **kwargs)

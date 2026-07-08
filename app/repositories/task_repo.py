@@ -80,7 +80,9 @@ class TaskRepository:
     ) -> list[Task]:
         q = select(Task).where(Task.user_id == user_id, Task.status == TaskStatus.pending, Task.archived.is_(False), Task.parent_id.is_(None))
         if standalone_only:
-            q = q.where(Task.project_id.is_(None))
+            # Avulsas de verdade: sem projeto E sem lista (Notas/Repositório/personalizada
+            # não vazam para o Dashboard).
+            q = q.where(Task.project_id.is_(None), Task.list_id.is_(None))
         if energy is not None:
             q = q.where(Task.energy == energy)
         q = self._apply_context(q, context_id)
@@ -146,18 +148,52 @@ class TaskRepository:
         result = await self.db.execute(q.order_by(*order))
         return list(result.scalars().all())
 
-    async def get_standalone_tasks(self, user_id: int, context_id: Optional[int] = None) -> list[Task]:
-        """Tarefas avulsas pendentes (project_id IS NULL) para a página Listas."""
+    async def get_standalone_by_list(
+        self, user_id: int, list_id: Optional[int], context_id: Optional[int] = None
+    ) -> list[Task]:
+        """Tarefas avulsas pendentes de uma lista, para a página Listas.
+
+        `list_id=None` retorna a lista padrão "Tarefas avulsas" (list_id IS NULL).
+        """
         q = select(Task).where(
             Task.user_id == user_id,
             Task.project_id.is_(None),
             Task.parent_id.is_(None),
             Task.archived.is_(False),
             Task.status == TaskStatus.pending,
-        ).order_by(Task.importancia.desc(), Task.created_at.desc())
+        )
+        q = q.where(Task.list_id.is_(None)) if list_id is None else q.where(Task.list_id == list_id)
         q = self._apply_context(q, context_id)
-        result = await self.db.execute(q)
+        result = await self.db.execute(q.order_by(Task.importancia.desc(), Task.created_at.desc()))
         return list(result.scalars().all())
+
+    async def count_standalone_default(self, user_id: int) -> int:
+        """Nº de tarefas pendentes na lista padrão "Tarefas avulsas" (list_id IS NULL)."""
+        result = await self.db.execute(
+            select(func.count()).select_from(Task).where(
+                Task.user_id == user_id,
+                Task.project_id.is_(None),
+                Task.list_id.is_(None),
+                Task.status == TaskStatus.pending,
+                Task.archived.is_(False),
+            )
+        )
+        return result.scalar_one()
+
+    async def count_by_list(self, user_id: int) -> dict[int, int]:
+        """{list_id: nº de tarefas pendentes} para as listas (Notas/Repositório/personalizadas)."""
+        result = await self.db.execute(
+            select(Task.list_id, func.count())
+            .where(
+                Task.user_id == user_id,
+                Task.project_id.is_(None),
+                Task.list_id.is_not(None),
+                Task.status == TaskStatus.pending,
+                Task.archived.is_(False),
+            )
+            .group_by(Task.list_id)
+        )
+        return {row[0]: int(row[1]) for row in result.all()}
 
     async def get_children_map(self, user_id: int, parent_ids: list[int]) -> dict[int, list[Task]]:
         """Retorna {parent_id: [subtarefas]} para renderizar aninhado no detalhe."""

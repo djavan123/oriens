@@ -36,7 +36,10 @@ class Task(Base):
     project_id: Mapped[Optional[int]] = mapped_column(ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
     parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True)
     context_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contexts.id", ondelete="SET NULL"), nullable=True, index=True)
-    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Lista avulsa (Notas/Repositório/personalizada). NULL = "Tarefas avulsas" (padrão) ou tarefa de projeto.
+    list_id: Mapped[Optional[int]] = mapped_column(ForeignKey("task_lists.id", ondelete="SET NULL"), nullable=True, index=True)
+    # 2000 (era 255): comporta notas antigas migradas para task (SCRIPT Listas personalizadas).
+    title: Mapped[str] = mapped_column(String(2000), nullable=False)
     status: Mapped[TaskStatus] = mapped_column(Enum(TaskStatus, native_enum=False, length=50), default=TaskStatus.pending, nullable=False, index=True)
     energy: Mapped[EnergyLevel] = mapped_column(Enum(EnergyLevel, native_enum=False, length=50), default=EnergyLevel.medium, nullable=False)
     is_quick_win: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -64,3 +67,7 @@ class Task(Base):
     order_index:             Mapped[Optional[int]]      = mapped_column(Integer, nullable=True)
     # Seção do projeto (NULL = "Sem seção").
     section_id:              Mapped[Optional[int]]      = mapped_column(ForeignKey("project_sections.id", ondelete="SET NULL"), nullable=True, index=True)
+    # Link detectado no título (Repositório): URL original + título da página/vídeo.
+    link_url:                Mapped[Optional[str]]      = mapped_column(String(2048), nullable=True)
+    link_title:              Mapped[Optional[str]]      = mapped_column(String(300), nullable=True)
+    link_checked_at:         Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

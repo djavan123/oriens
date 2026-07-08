@@ -1,0 +1,50 @@
+{# Form de criação de tarefa na página Listas.
+   Cria sempre tarefa avulsa; associa à lista ativa via list_id (oculto).
+   Lista padrão "Tarefas avulsas" (sem active_list_id): pede contexto + importância.
+   Listas (Notas/Repositório/personalizada): só o título. #}
+<form
+  hx-post="/api/tasks"
+  hx-target="#list-tasks"
+  hx-swap="beforeend"
+  hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); var er=document.getElementById('task-form-error'); if(er) er.innerHTML=''; var es=document.getElementById('list-empty'); if(es) es.remove(); var i=$el.querySelector('input[name=title]'); if(i) i.focus(); }"
+  class="space-y-2">
+
+  {% if active_list_id %}
+  <input type="hidden" name="list_id" value="{{ active_list_id }}">
+  {% endif %}
+
+  <div id="task-form-error"></div>
+
+  <div class="flex items-center gap-2">
+    <input
+      type="text"
+      name="title"
+      required
+      placeholder="{{ active_placeholder }}"
+      class="flex-1 bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors placeholder-oriens-muted">
+    <button type="submit"
+      class="bg-oriens-btn hover:bg-oriens-accent-hover text-white rounded-md px-4 py-2 text-sm font-semibold transition-colors flex-shrink-0">
+      +
+    </button>
+  </div>
+
+  {% if not active_list_id %}
+  {# Lista padrão "Tarefas avulsas": contexto obrigatório + prioridade (SCRIPT 13) #}
+  <div class="grid grid-cols-2 gap-2">
+    <select name="context_id" required
+      class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-2 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+      <option value="" disabled {% if not active_context_id %}selected{% endif %}>Contexto...</option>
+      {% for ctx in all_contexts %}
+      <option value="{{ ctx.id }}" {% if active_context_id and ctx.id == active_context_id %}selected{% endif %}>{{ ctx.name }}</option>
+      {% endfor %}
+    </select>
+    <select name="prioridade"
+      class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-2 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+      <option value="alta">Alta</option>
+      <option value="media" selected>Média</option>
+      <option value="baixa">Baixa</option>
+    </select>
+  </div>
+  {% endif %}
+
+</form>

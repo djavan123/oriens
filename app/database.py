@@ -67,6 +67,10 @@ _ENSURE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("sem_nota", "BOOLEAN NOT NULL DEFAULT 1"),
         ("order_index", "INTEGER"),
         ("section_id", "INTEGER"),
+        ("list_id", "INTEGER"),
+        ("link_url", "TEXT"),
+        ("link_title", "TEXT"),
+        ("link_checked_at", "DATETIME"),
     ],
     "users": [
         ("foco_do_dia", "TEXT"),
@@ -130,6 +134,10 @@ _ENSURE_COLUMNS_PG: dict[str, list[tuple[str, str]]] = {
         ("sem_nota", "BOOLEAN NOT NULL DEFAULT TRUE"),
         ("order_index", "INTEGER"),
         ("section_id", "INTEGER"),
+        ("list_id", "INTEGER"),
+        ("link_url", "TEXT"),
+        ("link_title", "TEXT"),
+        ("link_checked_at", "TIMESTAMP"),
     ],
     "users": [
         ("foco_do_dia", "TEXT"),
@@ -177,6 +185,13 @@ def _ensure_columns_postgres(conn) -> None:
                     f'ALTER TABLE "{table}" ALTER COLUMN {col} '
                     f"TYPE VARCHAR(50) USING {col}::text"
                 )
+    # Amplia tasks.title (era VARCHAR(255)) para caber notas/referências migradas para task.
+    row = conn.exec_driver_sql(
+        "SELECT character_maximum_length FROM information_schema.columns "
+        "WHERE table_name = 'tasks' AND column_name = 'title'"
+    ).fetchone()
+    if row and row[0] is not None and row[0] < 2000:
+        conn.exec_driver_sql('ALTER TABLE "tasks" ALTER COLUMN title TYPE VARCHAR(2000)')
     # Inicializa order_index para tarefas de projeto existentes (idempotente).
     try:
         conn.exec_driver_sql("""
@@ -255,6 +270,7 @@ _INDEXES: list[tuple[str, str, str]] = [
     ("ix_tasks_status", "tasks", "status"),
     ("ix_tasks_archived", "tasks", "archived"),
     ("ix_tasks_section_id", "tasks", "section_id"),
+    ("ix_tasks_list_id", "tasks", "list_id"),
     ("ix_capture_inbox_processed", "capture_inbox", "processed"),
 ]
 

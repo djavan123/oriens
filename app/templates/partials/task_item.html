@@ -46,11 +46,16 @@
   <div class="flex-1 min-w-0">
 
     <!-- Título -->
+    {% set _clamp = 'line-clamp-2' if (clamp_title is defined and clamp_title) else '' %}
+    {% set _title_state = 'line-through text-oriens-empty' if task.status.value == 'done' else ('text-oriens-alert' if task.status.value == 'blocked' else 'text-oriens-primary') %}
     <div class="flex items-start gap-2">
-      <p class="flex-1 min-w-0 text-sm leading-snug
-        {% if task.status.value == 'done' %}line-through text-oriens-empty
-        {% elif task.status.value == 'blocked' %}text-oriens-alert
-        {% else %}text-oriens-primary{% endif %}">{{ task.title }}</p>
+      {% if show_link is defined and show_link and task.link_url %}
+      <a href="{{ task.link_url }}" target="_blank" rel="noopener noreferrer"
+         title="{{ task.link_url }}"
+         class="flex-1 min-w-0 text-sm leading-snug truncate hover:underline {{ _title_state }}">{{ task.link_title or task.title }}</a>
+      {% else %}
+      <p class="flex-1 min-w-0 text-sm leading-snug {{ _clamp }} {{ _title_state }}">{{ task.title }}</p>
+      {% endif %}
       {% if allow_subtask is defined and allow_subtask %}
       <button type="button"
         onclick="var f=document.getElementById('subtask-form-{{ task.id }}');if(f){var o=f.style.display==='flex';f.style.display=o?'none':'flex';if(!o){var i=document.getElementById('subtask-input-{{ task.id }}');if(i)i.focus();}}"
@@ -61,6 +66,10 @@
 
     <!-- Badges -->
     <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+
+      {% if show_link is defined and show_link and task.link_url and url_domain(task.link_url) %}
+      <span class="text-[11px] text-oriens-muted">{{ url_domain(task.link_url) }}</span>
+      {% endif %}
 
       {% if (show_project is defined and show_project) and task.project_id and project_map is defined and project_map.get(task.project_id) %}
       <span class="text-[11px] text-oriens-muted inline-flex items-center gap-1">📁 {{ project_map[task.project_id] }}</span>
