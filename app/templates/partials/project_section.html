@@ -61,13 +61,17 @@
     {% endwith %}
   {% endfor %}
 
-  <!-- Concluídas da seção (inline, sem drag) -->
+  <!-- Concluídas da seção (inline, sem drag; mesma estrutura/alinhamento das pendentes) -->
   {% set section_done = done_by_section.get(section.id, []) if done_by_section is defined else [] %}
-  {% for task in section_done %}
-    {% with draggable=false %}
-      {% include "partials/project_task_row.html" %}
-    {% endwith %}
-  {% endfor %}
+  {% if section_done %}
+  <div class="pl-2">
+    {% for task in section_done %}
+      {% with draggable=false %}
+        {% include "partials/project_task_row.html" %}
+      {% endwith %}
+    {% endfor %}
+  </div>
+  {% endif %}
 
   <!-- Form de adição rápida dentro da seção -->
   {% with project_id=project.id, section_id=section.id, task_list_target="#task-list-section-" ~ section.id, form_id="task-form-section-" ~ section.id %}
