@@ -747,6 +747,22 @@ Revisão completa do projeto em 5 fases (branch `refactor/producao-limpeza-bugs`
 - **Caixa de Entrada:** `process_as_note`/`process_as_repository` **inalterados** (ainda gravam nas tabelas legadas); a migração de boot os reconcilia como Task no próximo restart (idempotente). Fora do escopo deste script.
 - **Sem alteração** de Dashboard, Projetos ou Configurações. 33 testes verdes.
 
+#### FIX — Deadlock na migração de listas com múltiplos workers do gunicorn (pós-deploy)
+
+Produção com 3 workers gunicorn rodando o lifespan em paralelo expôs um **deadlock real** no primeiro deploy: `migrate_notes_and_repository_to_tasks` mantinha uma transação aberta durante `fetch_link_title` (chamada HTTP), colidindo com outro worker fazendo `ALTER TABLE tasks ALTER COLUMN title TYPE VARCHAR(2000)`. A migração **completou com sucesso** mesmo assim (retries idempotentes), mas o risco de recorrência ficava latente a cada novo item de repositório + deploy futuro.
+
+- **`app/services/list_migration.py`:** a advisory lock própria (`825739301`) foi trocada pela **mesma** `_MIGRATION_LOCK_KEY` (`825739201`) usada pelo DDL de `init_db()` — serializa migração de schema e de dados entre todos os workers.
+- **`_migrate_repository_items`:** reordenada em 3 passos — (1) resolve o que falta migrar só com SELECTs (sem I/O de rede), (2) busca todos os `fetch_link_title` (rede) **antes** de montar qualquer `Task`, (3) monta os `db.add(...)` e faz um único commit — elimina INSERTs pendentes/locks na transação durante a chamada HTTP lenta.
+- Validado com segundo deploy na VPS: boot sem nenhum erro, contagens de dados idênticas (zero duplicatas).
+
+### FIX — Alinhamento das tarefas concluídas na aba Tarefas do projeto
+
+Tarefas concluídas (e bloqueadas) de uma seção eram renderizadas em `partials/project_section.html` **fora** do `<div class="section-task-list pl-2">` que envolve as pendentes — perdiam o recuo esquerdo e quebravam o alinhamento das colunas (drag/checkbox/nome/energia/prazo/responsável) em relação às pendentes acima.
+
+- **Correção cirúrgica:** o loop de "Concluídas da seção" passou a renderizar dentro de um `<div class="pl-2">` (mesma classe do container de pendentes) — sem tocar em `project_task_row.html`, que **já** usa uma única estrutura de linha para todo status (`pending`/`blocked`/`done`), variando só classes visuais (`opacity-40`, título riscado, checkbox preenchido). Nenhuma bifurcação estrutural existia para remover.
+- **Bloqueadas** não foram tocadas (mesmo padrão, fora do escopo pedido).
+- Sem alteração de backend, rotas, Dashboard, Listas ou listagem de Projetos. 33 testes verdes.
+
 ---
 
 ## PRODUÇÃO E OPERAÇÃO (VPS)
