@@ -6,10 +6,12 @@ originais em `notes`/`repository_items` — cria uma Task equivalente na lista
 interna correspondente (Notas/Repositório) se ainda não existir uma.
 """
 import logging
+from typing import Optional
 
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.database import _MIGRATION_LOCK_KEY
 from app.models.note import Note
 from app.models.repository import RepositoryItem
 from app.models.task import Task, TaskStatus, EnergyLevel
@@ -20,16 +22,18 @@ from app.utils.time import utcnow
 
 logger = logging.getLogger("oriens.list_migration")
 
-# Distinto do _MIGRATION_LOCK_KEY em app/database.py (lock de DDL).
-_LOCK_KEY = 825739301
 _TITLE_MAX = 2000
 
 
 async def migrate_notes_and_repository_to_tasks(db: AsyncSession) -> None:
     bind = db.get_bind()
     if bind.dialect.name == "postgresql":
-        # Serializa entre os workers do gunicorn (cada um roda o lifespan no boot).
-        await db.execute(text(f"SELECT pg_advisory_xact_lock({_LOCK_KEY})"))
+        # Mesma chave do lock de DDL em init_db() (não uma própria): com 3 workers do
+        # gunicorn rodando o lifespan em paralelo, um worker pode estar no meio do
+        # ALTER TABLE tasks (AccessExclusiveLock) enquanto outro já está fazendo INSERT
+        # INTO tasks aqui — reusar a mesma trava serializa migração de schema e de
+        # dados entre todos os workers e elimina o deadlock entre as duas transações.
+        await db.execute(text(f"SELECT pg_advisory_xact_lock({_MIGRATION_LOCK_KEY})"))
 
     list_repo = TaskListRepository(db)
     user_ids = (await db.execute(select(User.id))).scalars().all()
@@ -97,8 +101,10 @@ async def _migrate_repository_items(db: AsyncSession, list_repo: TaskListReposit
     items = (await db.execute(select(RepositoryItem))).scalars().all()
     if not items:
         return
+
+    # 1) Resolve o que falta migrar (só leituras — SELECTs rápidos, sem I/O de rede).
     list_id_cache: dict[int, int] = {}
-    created = False
+    pending: list[tuple] = []
     for item in items:
         list_id = list_id_cache.get(item.user_id)
         if list_id is None:
@@ -112,12 +118,20 @@ async def _migrate_repository_items(db: AsyncSession, list_repo: TaskListReposit
             continue
         if await _already_migrated(db, item.user_id, list_id, title, item.created_at):
             continue
-        link_url = extract_url(title)
-        link_title = None
-        link_checked_at = None
+        pending.append((item, list_id, title, extract_url(title)))
+
+    if not pending:
+        return
+
+    # 2) Busca os títulos de link (I/O de rede) ANTES de montar os objetos a inserir —
+    # evita manter INSERTs pendentes (e locks) na transação durante chamadas HTTP lentas.
+    link_titles: dict[int, Optional[str]] = {}
+    for item, _list_id, _title, link_url in pending:
         if link_url:
-            link_title = await fetch_link_title(link_url)
-            link_checked_at = utcnow()
+            link_titles[item.id] = await fetch_link_title(link_url)
+
+    # 3) Só agora monta e grava — sem nenhum SELECT/HTTP entre os adds e o commit.
+    for item, list_id, title, link_url in pending:
         db.add(Task(
             user_id=item.user_id,
             list_id=list_id,
@@ -127,9 +141,7 @@ async def _migrate_repository_items(db: AsyncSession, list_repo: TaskListReposit
             energy=EnergyLevel.medium,
             created_at=item.created_at,
             link_url=link_url,
-            link_title=link_title,
-            link_checked_at=link_checked_at,
+            link_title=link_titles.get(item.id) if link_url else None,
+            link_checked_at=utcnow() if link_url else None,
         ))
-        created = True
-    if created:
-        await db.commit()
+    await db.commit()
