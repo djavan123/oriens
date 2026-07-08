@@ -104,7 +104,7 @@ C:\Projetos\Sistema tarefas\
 │   │   ├── task_service.py            # priority_score + timeline; order_index no create (10A); SEM validação de verbo (import morto removido — AUDITORIA)
 │   │   ├── capture_service.py         # process_as_task (aceita context_id) /project/note/discard
 │   │   ├── dashboard_service.py       # get_projects_in_focus/get_standalone_tasks/pick_now_action (11/12); get_priorities_grouped e helpers REMOVIDOS (código morto) — AUDITORIA
-│   │   ├── importancia_service.py     # SÓ `importancia_from_prioridade` + `faixa_importancia` (SCRIPT 13, vivas). `ImportanciaService`/`calcular_importancia` REMOVIDOS (dead code) — AUDITORIA
+│   │   ├── importancia_service.py     # SÓ `importancia_from_prioridade` + `faixa_importancia` (Máxima/Alta/Média/Baixa → 6/5/3/1). `ImportanciaService`/`calcular_importancia` REMOVIDOS (dead code) — AUDITORIA
 │   │   ├── ai_service.py              # Protocol + ClaudeProvider + OpenAIProvider + NullProvider
 │   │   └── reminder_service.py        # send_telegram(text, chat_id=None); process_due_telegram/process_telegram_updates roteados por users.telegram_chat_id com fallback ao .env — AUDITORIA
 │   │   # weekly_directive_service.py REMOVIDO (aba Semana excluída do projeto)
@@ -192,7 +192,7 @@ C:\Projetos\Sistema tarefas\
 **users:** `id, email (unique), password (bcrypt), name, created_at, foco_do_dia (text, nullable — SCRIPT 8), telegram_chat_id (varchar(64), nullable, indexed — AUDITORIA)`
 - `telegram_chat_id`: chat do Telegram do usuário (lembretes + captura roteados por dono). `NULL` → usa o `TELEGRAM_CHAT_ID` global do `.env` (compatibilidade single-user). Editável em `/settings`.
 
-**projects:** `id, user_id, responsavel_id (nullable, FK users), context_id (nullable), name, objective, status, priority (1-3), deadline, notes, done_at, scope, tags, strategic (bool), quarter, owner, strategic_priority, proxima_acao (text), premissas (text), archived (bool, default false), created_at, updated_at`
+**projects:** `id, user_id, responsavel_id (nullable, FK users), context_id (nullable), name, objective, status, priority (0-3; 0=Máxima, 1=Alta, 2=Média, 3=Baixa; menor = mais prioritário), deadline, notes, done_at, scope, tags, strategic (bool), quarter, owner, strategic_priority, proxima_acao (text), premissas (text), archived (bool, default false), created_at, updated_at`
 - status: `nao_iniciado | em_andamento | concluido`
 - Todo projeto novo nasce com `nao_iniciado`
 - `archived` (SCRIPT 5): true esconde da operação diária (listagem/dashboard/semanal); continua acessível por URL, editável e pesquisável
@@ -276,7 +276,7 @@ C:\Projetos\Sistema tarefas\
 
 ### Execução de projetos e Dashboard (SCRIPTS 10–12)
 
-23. **Três tipos de importância:** **Projeto** = importância estratégica (`priority` 1-3 = Alta/Média/Baixa). **Tarefa de projeto** = ordem de execução (`order_index`), **não** usa importância. **Tarefa avulsa** = importância própria (critérios do contexto).
+23. **Três tipos de importância:** **Projeto** = importância estratégica (`priority` 0-3 = Máxima/Alta/Média/Baixa; menor = mais prioritário). **Tarefa de projeto** = ordem de execução (`order_index`), **não** usa importância. **Tarefa avulsa** = importância própria (Máxima/Alta/Média/Baixa → `importancia` 6/5/3/1).
 24. **Próxima ação operacional de um projeto:** 1ª tarefa pendente em ordem manual → fallback `project.proxima_acao` → se não houver nenhum, projeto **não é executável**. Energia é informativa e **não** reordena projetos nem tarefas de projeto.
 25. **Ordem manual (SCRIPT 10A):** `tasks.order_index` só vale para tarefas de topo de projeto. Reordenável por drag-and-drop (SortableJS) **apenas no detalhe do projeto**; persiste via `PATCH /api/projects/{id}/task-order` (valida ownership/pertencimento, rejeita avulsas/subtarefas). Nova tarefa de projeto vai ao fim.
 26. **Estado operacional do projeto (SCRIPT 10C):** `completed | not_started | no_action | stalled | executable` (em `get_executability`; `stalled` = em andamento sem atividade ≥7 dias). Exibido na lista como próxima ação ou "Precisa de revisão" (discreto, nunca vermelho).
@@ -762,6 +762,35 @@ Tarefas concluídas (e bloqueadas) de uma seção eram renderizadas em `partials
 - **Correção cirúrgica:** o loop de "Concluídas da seção" passou a renderizar dentro de um `<div class="pl-2">` (mesma classe do container de pendentes) — sem tocar em `project_task_row.html`, que **já** usa uma única estrutura de linha para todo status (`pending`/`blocked`/`done`), variando só classes visuais (`opacity-40`, título riscado, checkbox preenchido). Nenhuma bifurcação estrutural existia para remover.
 - **Bloqueadas** não foram tocadas (mesmo padrão, fora do escopo pedido).
 - Sem alteração de backend, rotas, Dashboard, Listas ou listagem de Projetos. 33 testes verdes.
+
+### ✅ SCRIPT — Listas unificadas (tudo é Task comum)
+
+Eliminada qualquer diferença entre **Tarefas avulsas, Notas, Repositório e listas personalizadas** em `/lists`: tudo é uma `Task` comum, a lista (`list_id`) é **só agrupamento**. Sem novo model/tabela/rota; nada de dados apagados (tabelas legadas `notes`/`repository_items` preservadas).
+
+- **`templates/lists.html`:** renderização de item unificada — todas as listas usam `partials/task_item.html` com os mesmos flags (`show_importancia=True, show_link=True`). Removida a bifurcação por `active_kind` (`clamp_title`/`show_link`/`show_importancia` por tipo). Destaque do menu lateral usa `active_list_id` (não mais `active_kind`).
+- **`routes/lists.py`:** removida a variável `active_kind` e os títulos/placeholders especiais ("Nova nota"/"Nova referência") — derivam só do nome da lista. **O contexto ativo filtra todas as listas igualmente** (antes só a lista padrão respeitava o contexto).
+- **`partials/list_task_form.html`:** mesmo formulário para todas as listas (título + contexto obrigatório + importância). Removido o `{% if not active_list_id %}`.
+- **`routes/api/tasks.py`:** contexto obrigatório e importância atribuída para **qualquer** tarefa avulsa de topo (removido o caso especial `is_in_list` em `create_task`/`update_task`). Em `_task_row_response`, o item avulso sempre renderiza com os mesmos flags (removido o lookup de `system_key` notes/repository).
+- **`services/capture_service.py`:** `process_as_note`/`process_as_repository` passaram a **criar Task** nas listas internas Notas/Repositório (via `_system_list_id` + `process_as_task`), com detecção de link global. Não gravam mais em `Note`/`RepositoryItem`.
+- **Detecção de link é global à Task** (não da lista): qualquer tarefa avulsa de topo com URL no título recebe `link_url`/`link_title`; o **display** do link (`show_link`) agora vale para todas as listas.
+
+### ✅ SCRIPT — Caixa de Entrada simplificada (4 destinos)
+
+A tela "Decidir como" (`partials/capture_decide.html`) mostra **apenas 4 ações**, na ordem: **Descartar · Tarefa de projeto · Projeto · Listas**. Removidos os destinos diretos "Tarefa avulsa", "Nota" e "Repositório" — tudo vira Task (o `list_id` define a lista; Notas/Repositório/avulsas são só listas).
+
+- **Caixas flutuantes (Alpine)** pequenas para "Tarefa de projeto" (lista projetos ativos, linha simples → cria Task com `project_id`, contexto herdado, sem `list_id`) e "Listas" (Tarefas avulsas + Notas + Repositório + personalizadas → cria Task na lista escolhida, `list_id` NULL = avulsas). Fecham ao escolher (o item é trocado no swap), ao clicar fora (`@click.outside`) e com Esc (`@keydown.escape.window`); tokens `oriens-surface/border/primary/secondary/card-hover`, sem ícones, sem cor nova.
+- **"Projeto"** mantém o formulário inline; **"Descartar"** mantém o post direto. Sem reload completo (swap do próprio item).
+- **`routes/api/capture.py`:** `decide_capture` busca as listas e um `default_context_id` (ativo → 1º disponível) para o clique único. `process_capture` ganhou `list_id` (valida ownership; só tarefa de topo não-projeto) e o repassa a `process_as_task`.
+- **`services/capture_service.py`:** `process_as_task` aceita `list_id` e resolve link (global à Task). Nenhuma captura nova grava em tabela legada de notas/repositório. Endpoints legados preservados (fora de uso pela UI).
+
+### ✅ SCRIPT — Prioridade Máxima (projetos + tarefas avulsas/listas)
+
+Quatro níveis de prioridade: **Máxima > Alta > Média > Baixa**, acima de Alta em ordenação, selects e exibição. **Sem novo model/tabela/enum e sem migração** (os campos existentes comportam o novo valor).
+
+- **Projetos** (`projects.priority`, inteiro, **menor = mais prioritário**, ordenado `priority.asc()`): **Máxima = 0**, Alta = 1, Média = 2, Baixa = 3. Validações em `project_service.create`/`update` e `schemas/project.py` passaram de `(1,2,3)` → `(0,1,2,3)`. Ordenação (listagem/detalhe/Dashboard via `get_active_by_user`) coloca Máxima primeiro automaticamente. `priority_label` `{0:'Máxima',...}` em `detail.html`, `project_card.html`, `project_kanban_card.html`. Selects de prioridade ganharam "Máxima" (`project_form`, `detail`, `capture_decide`, `process_item`).
+- **Tarefas avulsas/listas** (`tasks.importancia`, float, **maior = mais prioritário**, ordenado `importancia.desc()` e `_priority_sort_key`): `importancia_from_prioridade` mapeia **`maxima`→6.0**, `alta`→5.0, `media`→3.0, `baixa`→1.0. `faixa_importancia` ganhou a banda `maxima` (≥5.5); `alta` continua 4–5. Selects ganharam "Máxima" (`list_task_form`, `task_form`, `task_edit_form`, `process_item`). Exibição: badge "Máxima" discreto em `task_item.html` (`bg-oriens-accent/15`, `font-semibold` — um passo acima de "Alta", **sem vermelho**), meta em `dashboard_standalone_task.html`, label em `task_detail_drawer.html`.
+- **Tarefas de projeto:** intocadas — sem prioridade própria, sem seletor, **ordem manual de execução preservada**. A Máxima aplica-se ao projeto, não às tarefas internas.
+- **Visual:** vermelho segue reservado a atraso/urgência real. Testes: 3 novos em `test_importancia.py` (Máxima=6.0, Máxima>Alta, faixa 6.0→maxima). Suíte: **36 testes verdes**.
 
 ---
 
