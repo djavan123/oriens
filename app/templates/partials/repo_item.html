@@ -1,7 +1,7 @@
 <div id="repo-{{ item.id }}"
      class="group flex items-start gap-3 px-3 py-2.5 border-b border-oriens-divider last:border-b-0 hover:bg-oriens-card-hover transition-colors">
 
-  <p class="flex-1 text-sm text-oriens-primary leading-snug min-w-0">{{ item.content }}</p>
+  <p class="flex-1 text-sm text-oriens-primary leading-snug min-w-0 truncate">{{ item.content }}</p>
 
   <div class="flex items-center gap-3 flex-shrink-0 mt-0.5">
     <span class="text-[11px] text-oriens-muted">{{ item.created_at.strftime('%d/%m/%Y') }}</span>
