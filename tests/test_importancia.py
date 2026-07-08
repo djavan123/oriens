@@ -4,7 +4,15 @@ from app.services.importancia_service import (
 )
 
 
-# ── importancia_from_prioridade (Alta/Média/Baixa → 5/3/1) ─────────────────────
+# ── importancia_from_prioridade (Máxima/Alta/Média/Baixa → 6/5/3/1) ────────────
+
+def test_from_prioridade_maxima():
+    assert importancia_from_prioridade("maxima") == 6.0
+
+
+def test_maxima_acima_de_alta():
+    assert importancia_from_prioridade("maxima") > importancia_from_prioridade("alta")
+
 
 def test_from_prioridade_alta():
     assert importancia_from_prioridade("alta") == 5.0
@@ -48,3 +56,7 @@ def test_faixa_media():
 def test_faixa_alta():
     assert faixa_importancia(4.0) == "alta"
     assert faixa_importancia(5.0) == "alta"
+
+
+def test_faixa_maxima():
+    assert faixa_importancia(6.0) == "maxima"

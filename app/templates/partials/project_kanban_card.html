@@ -1,7 +1,7 @@
 {# Card de projeto no kanban de /projects. Var: project, context_labels (dict, opcional).
    Arrastável entre colunas (HTML5 Drag and Drop nativo + Alpine) — ver drop nas
    <section> de app/templates/projects/list.html. #}
-{% set priority_label = {1: 'Alta', 2: 'Média', 3: 'Baixa'} %}
+{% set priority_label = {0: 'Máxima', 1: 'Alta', 2: 'Média', 3: 'Baixa'} %}
 {% set is_done = project.status.value == 'concluido' %}
 
 <article id="project-{{ project.id }}"

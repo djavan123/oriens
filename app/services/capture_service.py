@@ -3,14 +3,14 @@ from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.capture import CaptureInbox
-from app.models.note import Note
 from app.models.project import Project
 from app.models.task import Task, EnergyLevel
 from app.repositories.capture_repo import CaptureRepository
-from app.repositories.note_repo import NoteRepository
-from app.repositories.repository_repo import RepositoryRepository
+from app.repositories.task_list_repo import TaskListRepository
 from app.services.project_service import ProjectService
 from app.services.task_service import TaskService
+from app.utils.link_meta import extract_url, fetch_link_title
+from app.utils.time import utcnow
 
 
 class CaptureService:
@@ -52,12 +52,25 @@ class CaptureService:
         is_quick_win: bool = False,
         context_id: Optional[int] = None,
         importancia: Optional[float] = None,
+        list_id: Optional[int] = None,
     ) -> tuple[CaptureInbox, Task]:
-        extra = {"context_id": context_id} if context_id is not None else {}
+        extra: dict = {}
+        if context_id is not None:
+            extra["context_id"] = context_id
         # Importância vinda de Alta/Média/Baixa (SCRIPT 13). None = tarefa de projeto (sem nota).
         if importancia is not None:
             extra["importancia"] = importancia
             extra["sem_nota"] = False
+        # list_id só vale para tarefa avulsa de topo (a lista é só agrupamento).
+        if list_id is not None:
+            extra["list_id"] = list_id
+        # Link é global à Task: qualquer conteúdo avulso com URL vira link.
+        if project_id is None:
+            url = extract_url(title)
+            if url:
+                extra["link_url"] = url
+                extra["link_title"] = await fetch_link_title(url)
+                extra["link_checked_at"] = utcnow()
         task = await TaskService(self.db).create(
             user_id=user_id,
             title=title,
@@ -96,14 +109,10 @@ class CaptureService:
         user_id: int,
         content: str,
         project_id: Optional[int] = None,
-    ) -> tuple[CaptureInbox, Note]:
-        note = await NoteRepository(self.db).create(
-            user_id=user_id,
-            content=content,
-            project_id=project_id,
-        )
-        capture = await self.repo.mark_processed(capture_id, user_id)
-        return capture, note
+    ) -> tuple[CaptureInbox, Task]:
+        # Nota é apenas uma Task na lista interna "Notas" (tudo é Task).
+        lid = await self._system_list_id(user_id, "notes")
+        return await self.process_as_task(capture_id, user_id, content, list_id=lid)
 
     async def discard(self, capture_id: int, user_id: int) -> Optional[CaptureInbox]:
         return await self.repo.mark_processed(capture_id, user_id)
@@ -116,7 +125,13 @@ class CaptureService:
         capture_id: int,
         user_id: int,
         content: str,
-    ):
-        item = await RepositoryRepository(self.db).create(user_id=user_id, content=content)
-        capture = await self.repo.mark_processed(capture_id, user_id)
-        return capture, item
+    ) -> tuple[CaptureInbox, Task]:
+        # Repositório é apenas uma Task na lista interna "Repositório".
+        lid = await self._system_list_id(user_id, "repository")
+        return await self.process_as_task(capture_id, user_id, content, list_id=lid)
+
+    async def _system_list_id(self, user_id: int, system_key: str) -> Optional[int]:
+        list_repo = TaskListRepository(self.db)
+        await list_repo.ensure_system_lists(user_id)
+        task_list = await list_repo.get_system_list(user_id, system_key)
+        return task_list.id if task_list else None

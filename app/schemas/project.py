@@ -16,8 +16,8 @@ class ProjectCreate(BaseModel):
     @field_validator("priority")
     @classmethod
     def priority_range(cls, v: int) -> int:
-        if v not in (1, 2, 3):
-            raise ValueError("priority must be 1, 2, or 3")
+        if v not in (0, 1, 2, 3):
+            raise ValueError("priority must be 0 (máxima), 1, 2, or 3")
         return v
 
 

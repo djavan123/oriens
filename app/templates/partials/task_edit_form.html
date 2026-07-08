@@ -66,7 +66,7 @@
         <label class="text-oriens-secondary text-xs">Importância</label>
         <select name="prioridade"
           class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1 text-xs focus:outline-none focus:border-oriens-accent transition-colors">
-          {% for val, label in [('alta','Alta'),('media','Média'),('baixa','Baixa')] %}
+          {% for val, label in [('maxima','Máxima'),('alta','Alta'),('media','Média'),('baixa','Baixa')] %}
           <option value="{{ val }}" {% if prioridade == val %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
         </select>

@@ -81,7 +81,7 @@ class ProjectService:
         responsavel_id: Optional[int] = None,
         proxima_acao: Optional[str] = None,
     ) -> Project:
-        if priority not in (1, 2, 3):
+        if priority not in (0, 1, 2, 3):
             priority = 2
         project = await self.repo.create(
             user_id=user_id,
@@ -161,7 +161,7 @@ class ProjectService:
         project = await self.repo.get_by_id(project_id, user_id)
         if not project:
             return None
-        if "priority" in kwargs and kwargs["priority"] not in (1, 2, 3):
+        if "priority" in kwargs and kwargs["priority"] not in (0, 1, 2, 3):
             kwargs.pop("priority")
         new_status = kwargs.get("status")
         if new_status is not None and new_status != project.status:

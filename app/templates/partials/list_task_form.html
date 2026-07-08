@@ -1,7 +1,7 @@
 {# Form de criação de tarefa na página Listas.
    Cria sempre tarefa avulsa; associa à lista ativa via list_id (oculto).
-   Lista padrão "Tarefas avulsas" (sem active_list_id): pede contexto + importância.
-   Listas (Notas/Repositório/personalizada): só o título. #}
+   Igual para TODAS as listas: título + contexto (obrigatório) + importância.
+   A lista é apenas agrupamento — uma task numa lista funciona como uma avulsa. #}
 <form
   hx-post="/api/tasks"
   hx-target="#list-tasks"
@@ -28,8 +28,7 @@
     </button>
   </div>
 
-  {% if not active_list_id %}
-  {# Lista padrão "Tarefas avulsas": contexto obrigatório + prioridade (SCRIPT 13) #}
+  {# Contexto obrigatório + importância — igual para todas as listas #}
   <div class="grid grid-cols-2 gap-2">
     <select name="context_id" required
       class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-2 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
@@ -40,11 +39,11 @@
     </select>
     <select name="prioridade"
       class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-2 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+      <option value="maxima">Máxima</option>
       <option value="alta">Alta</option>
       <option value="media" selected>Média</option>
       <option value="baixa">Baixa</option>
     </select>
   </div>
-  {% endif %}
 
 </form>

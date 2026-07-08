@@ -1,3 +1,9 @@
+{# Decisão de captura. Quatro destinos: Descartar · Tarefa de projeto · Projeto · Listas.
+   Tudo vira Task (list_id define a lista). Notas/Repositório/avulsas são só listas. #}
+{% set chip = 'px-3 py-1.5 border border-oriens-border rounded-md text-xs text-oriens-secondary hover:text-oriens-primary hover:border-oriens-accent transition-colors' %}
+{% set pop = 'absolute left-0 z-30 mt-1 w-56 max-h-72 overflow-y-auto rounded-md border border-oriens-border bg-oriens-surface py-1 shadow-lg' %}
+{% set row = 'block w-full truncate px-3 py-1.5 text-left text-sm text-oriens-primary hover:bg-oriens-card-hover transition-colors' %}
+
 <div id="capture-{{ capture.id }}"
      x-data="{ dest: null }"
      class="px-3 py-3 border-b border-oriens-divider">
@@ -5,117 +11,90 @@
   <!-- Conteúdo original -->
   <p class="text-sm text-oriens-primary leading-snug mb-3">{{ capture.content }}</p>
 
-  <!-- PASSO 1: chips de destino -->
+  <!-- Escolha de destino -->
   <div x-show="dest === null">
     <p class="text-[11px] text-oriens-muted uppercase tracking-wider mb-2">Decidir como</p>
-    <div class="flex flex-wrap gap-1.5 mb-3">
-      <button @click="dest = 'task'"
-              class="px-3 py-1.5 border border-oriens-border rounded-md text-xs text-oriens-secondary hover:text-oriens-primary hover:border-oriens-accent transition-colors">
-        Tarefa avulsa
-      </button>
-      <button @click="dest = 'project'"
-              class="px-3 py-1.5 border border-oriens-border rounded-md text-xs text-oriens-secondary hover:text-oriens-primary hover:border-oriens-accent transition-colors">
-        Projeto
-      </button>
-      <button @click="dest = 'project_task'"
-              class="px-3 py-1.5 border border-oriens-border rounded-md text-xs text-oriens-secondary hover:text-oriens-primary hover:border-oriens-accent transition-colors">
-        Tarefa de projeto
-      </button>
-      <button @click="dest = 'note'"
-              class="px-3 py-1.5 border border-oriens-border rounded-md text-xs text-oriens-secondary hover:text-oriens-primary hover:border-oriens-accent transition-colors">
-        Nota
-      </button>
-      <button
-        hx-post="/api/process/{{ capture.id }}"
-        hx-vals='{"action": "repository"}'
-        hx-target="#capture-{{ capture.id }}"
-        hx-swap="outerHTML"
-        class="px-3 py-1.5 border border-oriens-border rounded-md text-xs text-oriens-secondary hover:text-oriens-primary hover:border-oriens-accent transition-colors">
-        Repositório
-      </button>
+    <div class="flex flex-wrap items-start gap-1.5">
+
+      <!-- Descartar -->
       <button
         hx-post="/api/process/{{ capture.id }}"
         hx-vals='{"action": "discard"}'
         hx-target="#capture-{{ capture.id }}"
         hx-swap="outerHTML"
-        class="px-3 py-1.5 border border-oriens-border rounded-md text-xs text-oriens-secondary hover:border-oriens-urgent hover:text-oriens-urgent transition-colors ml-1">
+        class="px-3 py-1.5 border border-oriens-border rounded-md text-xs text-oriens-secondary hover:border-oriens-urgent hover:text-oriens-urgent transition-colors">
         Descartar
       </button>
+
+      <!-- Tarefa de projeto (popover com projetos ativos) -->
+      <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false">
+        <button type="button" @click="open = !open" class="{{ chip }}">Tarefa de projeto</button>
+        <div x-show="open" style="display:none" @click.outside="open = false" class="{{ pop }}">
+          {% for p in active_projects %}
+          <button type="button"
+            hx-post="/api/process/{{ capture.id }}"
+            hx-vals='{"action": "task", "title": {{ capture.content|tojson }}, "task_project_id": "{{ p.id }}"}'
+            hx-target="#capture-{{ capture.id }}"
+            hx-swap="outerHTML"
+            class="{{ row }}">{{ p.name }}</button>
+          {% else %}
+          <p class="px-3 py-1.5 text-xs text-oriens-secondary">Nenhum projeto ativo.</p>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Projeto (formulário inline) -->
+      <button type="button" @click="dest = 'project'" class="{{ chip }}">Projeto</button>
+
+      <!-- Listas (popover com todas as listas) -->
+      <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false">
+        <button type="button" @click="open = !open" class="{{ chip }}">Listas</button>
+        <div x-show="open" style="display:none" @click.outside="open = false" class="{{ pop }}">
+          <button type="button"
+            hx-post="/api/process/{{ capture.id }}"
+            hx-vals='{"action": "task", "title": {{ capture.content|tojson }}, "list_id": "", "task_context_id": "{{ default_context_id or '' }}"}'
+            hx-target="#capture-{{ capture.id }}" hx-swap="outerHTML"
+            class="{{ row }}">Tarefas avulsas</button>
+          {% if notes_list %}
+          <button type="button"
+            hx-post="/api/process/{{ capture.id }}"
+            hx-vals='{"action": "task", "title": {{ capture.content|tojson }}, "list_id": "{{ notes_list.id }}", "task_context_id": "{{ default_context_id or '' }}"}'
+            hx-target="#capture-{{ capture.id }}" hx-swap="outerHTML"
+            class="{{ row }}">{{ notes_list.name }}</button>
+          {% endif %}
+          {% if repo_list %}
+          <button type="button"
+            hx-post="/api/process/{{ capture.id }}"
+            hx-vals='{"action": "task", "title": {{ capture.content|tojson }}, "list_id": "{{ repo_list.id }}", "task_context_id": "{{ default_context_id or '' }}"}'
+            hx-target="#capture-{{ capture.id }}" hx-swap="outerHTML"
+            class="{{ row }}">{{ repo_list.name }}</button>
+          {% endif %}
+          {% for l in custom_lists %}
+          <button type="button"
+            hx-post="/api/process/{{ capture.id }}"
+            hx-vals='{"action": "task", "title": {{ capture.content|tojson }}, "list_id": "{{ l.id }}", "task_context_id": "{{ default_context_id or '' }}"}'
+            hx-target="#capture-{{ capture.id }}" hx-swap="outerHTML"
+            class="{{ row }}">{{ l.name }}</button>
+          {% endfor %}
+        </div>
+      </div>
+
     </div>
+
+    <!-- Erro (HX-Retarget das ações de tarefa aponta para este id) -->
+    <div id="process-task-error-{{ capture.id }}" class="text-xs mt-2"></div>
+
     <button
       hx-get="/api/capture/{{ capture.id }}/cancel-decide"
       hx-target="#capture-{{ capture.id }}"
       hx-swap="outerHTML"
-      class="text-[11px] text-oriens-muted hover:text-oriens-secondary transition-colors">
+      class="text-[11px] text-oriens-muted hover:text-oriens-secondary transition-colors mt-2">
       Cancelar
     </button>
   </div>
 
-  <!-- Div de erro compartilhado para ações de tarefa (HX-Retarget aponta para este id) -->
-  <div id="process-task-error-{{ capture.id }}" x-show="dest === 'task' || dest === 'project_task'" class="text-xs mb-1"></div>
-
-  <!-- PASSO 2: formulários por destino -->
-
-  <!-- Tarefa avulsa -->
-  <form x-show="dest === 'task'"
-        hx-post="/api/process/{{ capture.id }}"
-        hx-target="#capture-{{ capture.id }}"
-        hx-swap="outerHTML"
-        class="space-y-3">
-    <input type="hidden" name="action" value="task">
-
-    <div>
-      <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Título *</label>
-      <input type="text" name="title" value="{{ capture.content }}" required
-             class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-    </div>
-
-    <div class="grid grid-cols-2 gap-3">
-      <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Contexto *</label>
-        <select name="task_context_id" required
-                class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-          <option value="" disabled selected>Selecione...</option>
-          {% for ctx in all_contexts %}
-          <option value="{{ ctx.id }}" {% if ctx.id == active_context_id %}selected{% endif %}>{{ ctx.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Energia</label>
-        <select name="task_energy"
-                class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-          <option value="high">Alta</option>
-          <option value="medium" selected>Média</option>
-          <option value="low">Baixa</option>
-        </select>
-      </div>
-    </div>
-
-    <div>
-      <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Importância</label>
-      <select name="prioridade"
-              class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-        <option value="alta">Alta</option>
-        <option value="media" selected>Média</option>
-        <option value="baixa">Baixa</option>
-      </select>
-    </div>
-
-    <div class="flex items-center justify-between pt-1">
-      <button type="button" @click="dest = null"
-              class="text-[11px] text-oriens-muted hover:text-oriens-secondary transition-colors">
-        ← Voltar
-      </button>
-      <button type="submit"
-              class="bg-oriens-btn hover:bg-oriens-accent-hover text-oriens-accent-text rounded-md px-4 py-2 text-sm font-semibold transition-colors">
-        Criar tarefa
-      </button>
-    </div>
-  </form>
-
-  <!-- Projeto -->
-  <form x-show="dest === 'project'"
+  <!-- Destino "Projeto": formulário inline (fluxo mantido) -->
+  <form x-show="dest === 'project'" style="display:none"
         hx-post="/api/process/{{ capture.id }}"
         hx-target="#capture-{{ capture.id }}"
         hx-swap="outerHTML"
@@ -150,6 +129,7 @@
         <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Prioridade</label>
         <select name="project_priority"
                 class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="0">Máxima</option>
           <option value="1">Alta</option>
           <option value="2" selected>Média</option>
           <option value="3">Baixa</option>
@@ -171,92 +151,6 @@
       <button type="submit"
               class="bg-oriens-btn hover:bg-oriens-accent-hover text-oriens-accent-text rounded-md px-4 py-2 text-sm font-semibold transition-colors">
         Criar projeto
-      </button>
-    </div>
-  </form>
-
-  <!-- Tarefa de projeto -->
-  <form x-show="dest === 'project_task'"
-        hx-post="/api/process/{{ capture.id }}"
-        hx-target="#capture-{{ capture.id }}"
-        hx-swap="outerHTML"
-        class="space-y-3">
-    <input type="hidden" name="action" value="task">
-
-    <div>
-      <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Projeto *</label>
-      <select name="task_project_id" required
-              class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-        <option value="" disabled selected>Selecione o projeto...</option>
-        {% for p in active_projects %}
-        <option value="{{ p.id }}">{{ p.name }}</option>
-        {% endfor %}
-      </select>
-      <p class="text-[11px] text-oriens-muted mt-1">O contexto será herdado do projeto.</p>
-    </div>
-
-    <div>
-      <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Título *</label>
-      <input type="text" name="title" value="{{ capture.content }}" required
-             class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-    </div>
-
-    <div>
-      <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Energia</label>
-      <select name="task_energy"
-              class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-        <option value="high">Alta</option>
-        <option value="medium" selected>Média</option>
-        <option value="low">Baixa</option>
-      </select>
-    </div>
-
-    <div class="flex items-center justify-between pt-1">
-      <button type="button" @click="dest = null"
-              class="text-[11px] text-oriens-muted hover:text-oriens-secondary transition-colors">
-        ← Voltar
-      </button>
-      <button type="submit"
-              class="bg-oriens-btn hover:bg-oriens-accent-hover text-oriens-accent-text rounded-md px-4 py-2 text-sm font-semibold transition-colors">
-        Criar tarefa
-      </button>
-    </div>
-  </form>
-
-  <!-- Nota -->
-  <form x-show="dest === 'note'"
-        hx-post="/api/process/{{ capture.id }}"
-        hx-target="#capture-{{ capture.id }}"
-        hx-swap="outerHTML"
-        class="space-y-3">
-    <input type="hidden" name="action" value="note">
-    <div id="process-note-error-{{ capture.id }}" class="text-xs"></div>
-
-    <div>
-      <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Conteúdo *</label>
-      <textarea name="note_content" rows="3" required
-                class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors resize-none">{{ capture.content }}</textarea>
-    </div>
-
-    <div>
-      <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Projeto</label>
-      <select name="note_project_id"
-              class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
-        <option value="">Sem projeto</option>
-        {% for p in active_projects %}
-        <option value="{{ p.id }}">{{ p.name }}</option>
-        {% endfor %}
-      </select>
-    </div>
-
-    <div class="flex items-center justify-between pt-1">
-      <button type="button" @click="dest = null"
-              class="text-[11px] text-oriens-muted hover:text-oriens-secondary transition-colors">
-        ← Voltar
-      </button>
-      <button type="submit"
-              class="bg-oriens-btn hover:bg-oriens-accent-hover text-oriens-accent-text rounded-md px-4 py-2 text-sm font-semibold transition-colors">
-        Salvar nota
       </button>
     </div>
   </form>

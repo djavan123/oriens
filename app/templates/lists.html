@@ -19,7 +19,7 @@
 
       <!-- Tarefas avulsas -->
       <a href="/lists"
-        class="{{ base_item }} {{ active_cls if active_kind == 'tasks' else idle_cls }}">
+        class="{{ base_item }} {{ active_cls if not active_list_id else idle_cls }}">
         <span>Tarefas avulsas</span>
         <span class="text-[11px] text-oriens-muted">{{ count_default }}</span>
       </a>
@@ -55,7 +55,7 @@
       <!-- Notas -->
       {% if notes_list %}
       <a href="/lists?list={{ notes_list.id }}"
-        class="{{ base_item }} {{ active_cls if active_kind == 'notes' else idle_cls }}">
+        class="{{ base_item }} {{ active_cls if active_list_id == notes_list.id else idle_cls }}">
         <span>Notas</span>
         <span class="text-[11px] text-oriens-muted">{{ counts_by_list.get(notes_list.id, 0) }}</span>
       </a>
@@ -64,7 +64,7 @@
       <!-- Repositório -->
       {% if repo_list %}
       <a href="/lists?list={{ repo_list.id }}"
-        class="{{ base_item }} {{ active_cls if active_kind == 'repository' else idle_cls }}">
+        class="{{ base_item }} {{ active_cls if active_list_id == repo_list.id else idle_cls }}">
         <span>Repositório</span>
         <span class="text-[11px] text-oriens-muted">{{ counts_by_list.get(repo_list.id, 0) }}</span>
       </a>
@@ -107,15 +107,7 @@
       <div id="list-tasks" class="rounded-md overflow-hidden border border-oriens-border">
         {% if tasks %}
           {% for task in tasks %}
-            {% if active_kind == 'notes' %}
-              {% with clamp_title=True %}{% include "partials/task_item.html" %}{% endwith %}
-            {% elif active_kind == 'repository' %}
-              {% with show_link=True %}{% include "partials/task_item.html" %}{% endwith %}
-            {% elif active_kind == 'tasks' %}
-              {% with show_importancia=True %}{% include "partials/task_item.html" %}{% endwith %}
-            {% else %}
-              {% include "partials/task_item.html" %}
-            {% endif %}
+            {% with show_importancia=True, show_link=True %}{% include "partials/task_item.html" %}{% endwith %}
           {% endfor %}
         {% else %}
           <p id="list-empty" class="px-3 py-8 text-center text-oriens-muted text-sm">Nada por aqui ainda.</p>

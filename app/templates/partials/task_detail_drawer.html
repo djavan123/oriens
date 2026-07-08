@@ -1,5 +1,5 @@
 {% set energy_labels = {'high': 'Alta', 'medium': 'Média', 'low': 'Baixa'} %}
-{% set prioridade_labels = {'alta': 'Alta', 'media': 'Média', 'baixa': 'Baixa'} %}
+{% set prioridade_labels = {'maxima': 'Máxima', 'alta': 'Alta', 'media': 'Média', 'baixa': 'Baixa'} %}
 {% set ds = due_status(task.deadline) %}
 
 <div id="task-detail-{{ task.id }}"

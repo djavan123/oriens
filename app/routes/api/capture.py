@@ -10,6 +10,7 @@ from app.models.task import EnergyLevel
 from app.models.user import User
 from app.repositories.capture_repo import CaptureRepository
 from app.repositories.project_repo import ProjectRepository
+from app.repositories.task_list_repo import TaskListRepository
 from app.services.capture_service import CaptureService
 from app.services.task_service import TaskService, TaskVerbError
 from app.services.importancia_service import importancia_from_prioridade
@@ -64,6 +65,17 @@ async def decide_capture(
     )
     active_projects = await ProjectRepository(db).get_active_by_user(current_user.id)
 
+    # Listas para o popover "Listas" (padrão avulsas + Notas/Repositório + personalizadas).
+    list_repo = TaskListRepository(db)
+    await list_repo.ensure_system_lists(current_user.id)
+    all_lists = await list_repo.get_active_by_user(current_user.id)
+    notes_list = next((l for l in all_lists if l.system_key == "notes"), None)
+    repo_list = next((l for l in all_lists if l.system_key == "repository"), None)
+    custom_lists = [l for l in all_lists if l.system_key is None]
+
+    # Contexto usado ao criar Task via popover (um clique): ativo → 1º disponível.
+    default_context_id = active_context_id or (all_contexts[0].id if all_contexts else None)
+
     return templates.TemplateResponse(
         request,
         "partials/capture_decide.html",
@@ -72,6 +84,10 @@ async def decide_capture(
             "all_contexts": all_contexts,
             "active_projects": active_projects,
             "active_context_id": active_context_id,
+            "default_context_id": default_context_id,
+            "notes_list": notes_list,
+            "repo_list": repo_list,
+            "custom_lists": custom_lists,
         },
     )
 
@@ -103,6 +119,7 @@ async def process_capture(
     task_energy: EnergyLevel = Form(EnergyLevel.medium),
     prioridade: str = Form("media"),
     is_quick_win: bool = Form(False),
+    list_id: Optional[str] = Form(None),
     # Project fields
     project_name: Optional[str] = Form(None),
     project_objective: Optional[str] = Form(None),
@@ -159,6 +176,13 @@ async def process_capture(
             proj = await ProjectRepository(db).get_by_id(proj_id, current_user.id)
             if proj:
                 ctx_id = proj.context_id
+        # list_id só vale para tarefa avulsa de topo; valida ownership.
+        lid = None
+        if proj_id is None:
+            lid_candidate = _parse_int(list_id)
+            if lid_candidate is not None:
+                owned = await TaskListRepository(db).get_by_id(lid_candidate, current_user.id)
+                lid = owned.id if owned is not None else None
         if proj_id is None and ctx_id is None:
             return HTMLResponse(
                 '<p class="text-oriens-alert text-sm">Escolha um contexto.</p>',
@@ -175,6 +199,7 @@ async def process_capture(
                 is_quick_win=is_quick_win,
                 context_id=ctx_id,
                 importancia=importancia,
+                list_id=lid,
             )
         except TaskVerbError as e:
             return _task_error(e)

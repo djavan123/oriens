@@ -11,7 +11,7 @@
   'nao_iniciado': 'Não iniciado',
   'concluido':    'Concluído',
 } %}
-{% set priority_label = {1: 'Alta', 2: 'Média', 3: 'Baixa'} %}
+{% set priority_label = {0: 'Máxima', 1: 'Alta', 2: 'Média', 3: 'Baixa'} %}
 
 {% block content %}
 
@@ -136,6 +136,7 @@
       <div>
         <label class="pj-form-label">Prioridade</label>
         <select name="priority" class="pj-select">
+          <option value="0" {% if project.priority == 0 %}selected{% endif %}>Máxima</option>
           <option value="1" {% if project.priority == 1 %}selected{% endif %}>Alta</option>
           <option value="2" {% if project.priority == 2 %}selected{% endif %}>Média</option>
           <option value="3" {% if project.priority == 3 %}selected{% endif %}>Baixa</option>

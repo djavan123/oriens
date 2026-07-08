@@ -95,14 +95,11 @@ async def _task_row_response(request: Request, db: AsyncSession, task, current_u
             request, "partials/project_subtask_row.html", {"sub": task}
         )
     else:
-        ctx: dict = {"task": task}
-        if task.list_id is not None:
-            task_list = await TaskListRepository(db).get_by_id(task.list_id, current_user.id)
-            if task_list and task_list.system_key == "notes":
-                ctx["clamp_title"] = True
-            elif task_list and task_list.system_key == "repository":
-                ctx["show_link"] = True
-        response = templates.TemplateResponse(request, "partials/task_item.html", ctx)
+        # Tarefa avulsa (em qualquer lista): sempre o mesmo item, com os mesmos flags.
+        response = templates.TemplateResponse(
+            request, "partials/task_item.html",
+            {"task": task, "show_importancia": True, "show_link": True},
+        )
     if task.project_id is not None:
         response.headers["HX-Trigger"] = "refreshProjectTasks"
     return response
@@ -183,9 +180,9 @@ async def create_task(
                 owned = await TaskListRepository(db).get_by_id(lid_raw, current_user.id)
                 if owned is not None:
                     lid = owned.id
-        # Tarefa avulsa de topo sem lista (SCRIPT 13): contexto é obrigatório.
-        # Tarefas dentro de uma lista (Notas/Repositório/personalizada) dispensam contexto.
-        if cid is None and pid is None and lid is None:
+        # Tarefa avulsa de topo (em qualquer lista): contexto é obrigatório.
+        # A lista é só agrupamento — uma task numa lista funciona como uma avulsa.
+        if cid is None and pid is None:
             return HTMLResponse(
                 '<p class="text-oriens-alert text-sm">Escolha um contexto.</p>',
                 headers={"HX-Retarget": "#task-form-error", "HX-Reswap": "innerHTML"},
@@ -207,13 +204,11 @@ async def create_task(
     if tags is not None:
         extra["tags"] = tags.strip() or None
 
-    # Importância (SCRIPT 13): só tarefa avulsa de topo SEM lista recebe nota, a
-    # partir da escolha Alta/Média/Baixa. Tarefas de projeto, subtarefas e tarefas
-    # dentro de uma lista (Notas/Repositório/personalizada) ficam sem nota.
+    # Importância (SCRIPT 13): toda tarefa avulsa de topo recebe nota Alta/Média/Baixa,
+    # esteja em qualquer lista. Tarefas de projeto e subtarefas ficam sem nota.
     is_subtask = pid is not None
     is_project_task = proj_id is not None
-    is_in_list = extra.get("list_id") is not None
-    if not is_subtask and not is_project_task and not is_in_list:
+    if not is_subtask and not is_project_task:
         extra["importancia"] = importancia_from_prioridade(prioridade)
         extra["sem_nota"] = False
 
@@ -428,15 +423,11 @@ async def update_task(
             new_list_id = owned.id if owned is not None else existing.list_id
         kwargs["list_id"] = new_list_id
 
-    # Importância (SCRIPT 13): tarefa avulsa de topo SEM lista recebe nota Alta/Média/Baixa;
-    # dentro de uma lista (Notas/Repositório/personalizada), fica sem nota.
+    # Importância (SCRIPT 13): toda tarefa avulsa de topo recebe nota Alta/Média/Baixa,
+    # em qualquer lista (a lista é só agrupamento).
     if is_standalone_top:
-        if new_list_id is None:
-            kwargs["importancia"] = importancia_from_prioridade(prioridade)
-            kwargs["sem_nota"] = False
-        else:
-            kwargs["importancia"] = 0.0
-            kwargs["sem_nota"] = True
+        kwargs["importancia"] = importancia_from_prioridade(prioridade)
+        kwargs["sem_nota"] = False
 
     # Metadados de link (PARTE 4): recomputa só quando o título muda.
     if title != existing.title:

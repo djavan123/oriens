@@ -48,24 +48,17 @@ async def lists_page(
             active_list = next((l for l in all_lists if l.id == wanted), None)
             active_list_id = active_list.id if active_list else None
 
-    kind = active_list.system_key if (active_list and active_list.system_key) else ("custom" if active_list else "tasks")
-
-    if kind == "tasks":
+    # A lista é apenas agrupamento: título/placeholder derivam só do nome da lista.
+    if active_list is None:
         title = "Tarefas avulsas"
-        placeholder = 'Nova tarefa em "Tarefas avulsas"'
-    elif kind == "notes":
-        title, placeholder = "Notas", "Nova nota"
-    elif kind == "repository":
-        title, placeholder = "Repositório", "Nova referência"
     else:
         title = active_list.name
-        placeholder = f'Nova tarefa em "{active_list.name}"'
+    placeholder = f'Nova tarefa em "{title}"'
 
-    # Tarefas da lista ativa. Só a lista padrão respeita o contexto ativo;
-    # Notas/Repositório/personalizadas são coleções independentes de contexto.
+    # Tarefas da lista ativa. O contexto ativo filtra TODAS as listas igualmente
+    # (uma task numa lista funciona exatamente como uma tarefa avulsa).
     tasks = await task_repo.get_standalone_by_list(
-        current_user.id, active_list_id,
-        context_id=context_id if active_list_id is None else None,
+        current_user.id, active_list_id, context_id=context_id,
     )
 
     count_default = await task_repo.count_standalone_default(current_user.id)
@@ -89,7 +82,6 @@ async def lists_page(
             # Lista ativa
             "active_list": active_list,
             "active_list_id": active_list_id,
-            "active_kind": kind,
             "active_title": title,
             "active_placeholder": placeholder,
         },
