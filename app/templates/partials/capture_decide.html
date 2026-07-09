@@ -46,38 +46,8 @@
       <!-- Projeto (formulário inline) -->
       <button type="button" @click="dest = 'project'" class="{{ chip }}">Projeto</button>
 
-      <!-- Listas (popover com todas as listas) -->
-      <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false">
-        <button type="button" @click="open = !open" class="{{ chip }}">Listas</button>
-        <div x-show="open" style="display:none" @click.outside="open = false" class="{{ pop }}">
-          <button type="button"
-            hx-post="/api/process/{{ capture.id }}"
-            hx-vals='{"action": "task", "title": {{ capture.content|tojson }}, "list_id": "", "task_context_id": "{{ default_context_id or '' }}"}'
-            hx-target="#capture-{{ capture.id }}" hx-swap="outerHTML"
-            class="{{ row }}">Tarefas avulsas</button>
-          {% if notes_list %}
-          <button type="button"
-            hx-post="/api/process/{{ capture.id }}"
-            hx-vals='{"action": "task", "title": {{ capture.content|tojson }}, "list_id": "{{ notes_list.id }}", "task_context_id": "{{ default_context_id or '' }}"}'
-            hx-target="#capture-{{ capture.id }}" hx-swap="outerHTML"
-            class="{{ row }}">{{ notes_list.name }}</button>
-          {% endif %}
-          {% if repo_list %}
-          <button type="button"
-            hx-post="/api/process/{{ capture.id }}"
-            hx-vals='{"action": "task", "title": {{ capture.content|tojson }}, "list_id": "{{ repo_list.id }}", "task_context_id": "{{ default_context_id or '' }}"}'
-            hx-target="#capture-{{ capture.id }}" hx-swap="outerHTML"
-            class="{{ row }}">{{ repo_list.name }}</button>
-          {% endif %}
-          {% for l in custom_lists %}
-          <button type="button"
-            hx-post="/api/process/{{ capture.id }}"
-            hx-vals='{"action": "task", "title": {{ capture.content|tojson }}, "list_id": "{{ l.id }}", "task_context_id": "{{ default_context_id or '' }}"}'
-            hx-target="#capture-{{ capture.id }}" hx-swap="outerHTML"
-            class="{{ row }}">{{ l.name }}</button>
-          {% endfor %}
-        </div>
-      </div>
+      <!-- Listas (formulário inline: contexto + energia + prioridade obrigatórios) -->
+      <button type="button" @click="dest = 'lists'" class="{{ chip }}">Listas</button>
 
     </div>
 
@@ -92,6 +62,78 @@
       Cancelar
     </button>
   </div>
+
+  <!-- Destino "Listas": cria Task na lista escolhida. Contexto + energia + prioridade obrigatórios. -->
+  <form x-show="dest === 'lists'" style="display:none"
+        hx-post="/api/process/{{ capture.id }}"
+        hx-target="#capture-{{ capture.id }}"
+        hx-swap="outerHTML"
+        class="space-y-3">
+    <input type="hidden" name="action" value="task">
+
+    <div>
+      <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Título *</label>
+      <input type="text" name="title" value="{{ capture.content }}" required
+             class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+    </div>
+
+    <div>
+      <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Lista</label>
+      <select name="list_id"
+              class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+        <option value="default" selected>Tarefas avulsas</option>
+        {% if notes_list %}<option value="{{ notes_list.id }}">{{ notes_list.name }}</option>{% endif %}
+        {% if repo_list %}<option value="{{ repo_list.id }}">{{ repo_list.name }}</option>{% endif %}
+        {% for l in custom_lists %}<option value="{{ l.id }}">{{ l.name }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Contexto *</label>
+        <select name="task_context_id" required
+                class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="" disabled selected>Selecionar…</option>
+          {% for ctx in all_contexts %}
+          <option value="{{ ctx.id }}">{{ ctx.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Energia *</label>
+        <select name="task_energy" required
+                class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="" disabled selected>Selecionar…</option>
+          <option value="high">Alta</option>
+          <option value="medium">Média</option>
+          <option value="low">Baixa</option>
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-[11px] font-bold uppercase tracking-wide text-oriens-secondary mb-1">Prioridade *</label>
+      <select name="prioridade" required
+              class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-md px-3 py-2 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+        <option value="" disabled selected>Selecionar…</option>
+        <option value="maxima">Máxima</option>
+        <option value="alta">Alta</option>
+        <option value="media">Média</option>
+        <option value="baixa">Baixa</option>
+      </select>
+    </div>
+
+    <div class="flex items-center justify-between pt-1">
+      <button type="button" @click="dest = null"
+              class="text-[11px] text-oriens-muted hover:text-oriens-secondary transition-colors">
+        ← Voltar
+      </button>
+      <button type="submit"
+              class="bg-oriens-btn hover:bg-oriens-accent-hover text-oriens-accent-text rounded-md px-4 py-2 text-sm font-semibold transition-colors">
+        Criar tarefa
+      </button>
+    </div>
+  </form>
 
   <!-- Destino "Projeto": formulário inline (fluxo mantido) -->
   <form x-show="dest === 'project'" style="display:none"
