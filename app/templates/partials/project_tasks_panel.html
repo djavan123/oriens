@@ -51,10 +51,15 @@
   {% endfor %}
 </div>
 
-<!-- Tarefas sem seção -->
-<div id="sem-secao-container" style="margin-top:20px;">
+<!-- Tarefas sem seção. Mesma estrutura de partials/project_section.html (header
+     .group com espaçador do drag handle + chevron injetado por setupSectionCollapse)
+     para alinhar o título e as colunas com as demais seções. -->
+<div id="sem-secao-container" class="section-row">
   {% if section_groups %}
-  <p style="color:var(--oriens-primary); font-size:14px; font-weight:600; margin:28px 0 4px 4px;">Sem seção</p>
+  <div class="group flex items-center gap-2 mb-2" style="padding:28px 0 8px 0;">
+    <span class="section-drag-handle flex-shrink-0 w-4 self-stretch mr-1"></span>
+    <span class="flex-1" style="font-size:14px; font-weight:600; color:var(--oriens-primary);">Sem seção</span>
+  </div>
   {% endif %}
 
   <div id="task-list-pending" class="section-task-list pl-2" data-section-id="null">
