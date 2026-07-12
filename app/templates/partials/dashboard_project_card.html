@@ -32,7 +32,12 @@
         title="Concluir próxima ação"
         class="flex-shrink-0 mt-0.5 w-4 h-4 border border-oriens-border rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors"></button>
       <div class="min-w-0">
-        <p class="text-oriens-primary text-sm font-normal leading-snug">{{ nt.title }}</p>
+        <button type="button"
+          hx-get="/api/tasks/{{ nt.id }}/panel"
+          hx-target="#task-drawer-content"
+          hx-swap="innerHTML"
+          @click="taskDrawerOpen = true"
+          class="block w-full text-left text-oriens-primary text-sm font-normal leading-snug hover:text-oriens-accent transition-colors">{{ nt.title }}</button>
         <p class="text-xs text-oriens-muted mt-0.5">energia {{ energy_label.get(nt.energy.value, nt.energy.value) }}</p>
       </div>
     </div>

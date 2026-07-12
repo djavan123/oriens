@@ -71,6 +71,7 @@ _ENSURE_COLUMNS: dict[str, list[tuple[str, str]]] = {
         ("link_url", "TEXT"),
         ("link_title", "TEXT"),
         ("link_checked_at", "DATETIME"),
+        ("description", "TEXT"),
     ],
     "users": [
         ("foco_do_dia", "TEXT"),
@@ -138,6 +139,7 @@ _ENSURE_COLUMNS_PG: dict[str, list[tuple[str, str]]] = {
         ("link_url", "TEXT"),
         ("link_title", "TEXT"),
         ("link_checked_at", "TIMESTAMP"),
+        ("description", "TEXT"),
     ],
     "users": [
         ("foco_do_dia", "TEXT"),

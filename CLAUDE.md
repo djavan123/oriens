@@ -197,7 +197,7 @@ C:\Projetos\Sistema tarefas\
 - Todo projeto novo nasce com `nao_iniciado`
 - `archived` (SCRIPT 5): true esconde da operação diária (listagem/dashboard/semanal); continua acessível por URL, editável e pesquisável
 
-**tasks:** `id, user_id, responsavel_id (nullable, FK users), project_id (nullable), parent_id (nullable, self-ref), context_id (nullable), title, status, energy, is_quick_win (bool), cognitive_load, financial_impact, operational_risk, strategic_impact, task_urgency, effort, priority_score (indexed), importancia (float, indexed — SCRIPT 8), sem_nota (bool, default true — SCRIPT 8), order_index (int, nullable — SCRIPT 10A), archived (bool), deadline, tags (text), remind_at (datetime, nullable), reminder_telegram_sent (bool), reminder_acked (bool), created_at, done_at`
+**tasks:** `id, user_id, responsavel_id (nullable, FK users), project_id (nullable), parent_id (nullable, self-ref), context_id (nullable), title, status, energy, is_quick_win (bool), cognitive_load, financial_impact, operational_risk, strategic_impact, task_urgency, effort, priority_score (indexed), importancia (float, indexed — SCRIPT 8), sem_nota (bool, default true — SCRIPT 8), order_index (int, nullable — SCRIPT 10A), archived (bool), deadline, tags (text), description (text, nullable — painel/drawer), remind_at (datetime, nullable), reminder_telegram_sent (bool), reminder_acked (bool), created_at, done_at`
 - `importancia` (0-5): calculada dos critérios do contexto. `sem_nota`=true quando o contexto não tem critérios (ou tarefa criada sem nota). **Importância NÃO se aplica a tarefas de projeto** (SCRIPT 10B): elas ficam `sem_nota` e não exibem badge.
 - `order_index` (SCRIPT 10A): ordem manual das tarefas de **topo de projeto**. NULL em avulsas e subtarefas. Nova tarefa de projeto entra com `max+1` (fim). Reordenável por drag-and-drop só no detalhe (`PATCH /api/projects/{id}/task-order`).
 - status: `pending | done | blocked`
@@ -409,9 +409,10 @@ TELEGRAM_CHAT_ID=               # opcional
 | PATCH | `/api/tasks/{id}/pending` | Marcar pendente |
 | PATCH | `/api/tasks/{id}/archive` | Arquivar |
 | PATCH | `/api/tasks/{id}/adiar` | Adiar: novo prazo; 204 + `HX-Trigger: refreshPriorities` (SCRIPT 8) |
-| GET | `/api/tasks/{id}/edit` | Formulário de edição inline |
-| GET | `/api/tasks/{id}/cancel-edit` | Cancelar edição |
-| PATCH | `/api/tasks/{id}` | Atualizar tarefa (aceita `responsavel_id`) |
+| GET | `/api/tasks/{id}/panel` | Painel de detalhe da tarefa (drawer): metadados editáveis + Descrição + Subtarefas |
+| GET | `/api/tasks/{id}/edit` | ⚠️ CÓDIGO MORTO — form inline, substituído por `/panel`. Sem referência viva; remover após validar em prod |
+| GET | `/api/tasks/{id}/cancel-edit` | ⚠️ CÓDIGO MORTO — par do `/edit` |
+| PATCH | `/api/tasks/{id}` | Atualizar tarefa (aceita `responsavel_id`, `description`) |
 | POST | `/api/projects` | Criar projeto (aceita `responsavel_id`, `proxima_acao`, grava timeline) |
 | PATCH | `/api/projects/{id}` | Atualizar projeto (aceita `responsavel_id`, `proxima_acao`, `archived`, grava timeline) |
 | POST | `/api/projects/{id}/comments` | Adicionar comentário |
@@ -791,6 +792,21 @@ Quatro níveis de prioridade: **Máxima > Alta > Média > Baixa**, acima de Alta
 - **Tarefas avulsas/listas** (`tasks.importancia`, float, **maior = mais prioritário**, ordenado `importancia.desc()` e `_priority_sort_key`): `importancia_from_prioridade` mapeia **`maxima`→6.0**, `alta`→5.0, `media`→3.0, `baixa`→1.0. `faixa_importancia` ganhou a banda `maxima` (≥5.5); `alta` continua 4–5. Selects ganharam "Máxima" (`list_task_form`, `task_form`, `task_edit_form`, `process_item`). Exibição: badge "Máxima" discreto em `task_item.html` (`bg-oriens-accent/15`, `font-semibold` — um passo acima de "Alta", **sem vermelho**), meta em `dashboard_standalone_task.html`, label em `task_detail_drawer.html`.
 - **Tarefas de projeto:** intocadas — sem prioridade própria, sem seletor, **ordem manual de execução preservada**. A Máxima aplica-se ao projeto, não às tarefas internas.
 - **Visual:** vermelho segue reservado a atraso/urgência real. Testes: 3 novos em `test_importancia.py` (Máxima=6.0, Máxima>Alta, faixa 6.0→maxima). Suíte: **36 testes verdes**.
+
+---
+
+### ✅ SCRIPT — Painel de detalhe da tarefa (drawer estilo Asana)
+
+Substitui a edição **inline** (`task_edit_form.html`, aberta por `/edit` trocando o `outerHTML` da linha) por um **drawer lateral** que abre ao clicar no título de qualquer tarefa, em qualquer lista (Dashboard, detalhe de projeto, Listas). O drawer reúne todos os metadados do form inline **+ Descrição** (campo novo) **+ Subtarefas**. Autosave: cada `change` num campo dispara o PATCH, sem botão salvar.
+
+- **`tasks.description`** (text, nullable): migração aditiva em `_ENSURE_COLUMNS` (SQLite) e `_ENSURE_COLUMNS_PG` (PG, sincronizados 1:1); campo `Text` em `models/task.py`. `update_task` aceita `description` (guardado por `is not None` — um PATCH sem o campo **não** apaga a descrição existente).
+- **`GET /api/tasks/{id}/panel`** → `partials/task_detail_panel.html`: mesmo contexto que o `/edit` montava (contexts, labels, users, `prioridade`, `is_standalone_top`, listas) + subtarefas via `TaskRepository.get_children_map`.
+- **Drawer global** em `base_app.html`: `taskDrawerOpen` no `x-data` da raiz; painel `fixed` à direita, carregado por HTMX em `#task-drawer-content`; fecha em `Esc`, `✕` e clique fora.
+- **Gatilho** (título → `<button hx-get=.../panel @click="taskDrawerOpen=true">`) em `task_item.html`, `project_task_row.html`, **`dashboard_standalone_task.html`** e **`dashboard_project_card.html`** (estes dois têm markup próprio, fora do `task_item` — necessários para cobrir o Dashboard). Botão "editar" removido dos dois primeiros. O branch `<a>` de link externo (Repositório) **não** foi tocado.
+- **Prioridade e Lista no painel** (paridade com o form inline): sem eles, o autosave rebaixaria toda tarefa Máxima para Média (o `prioridade` recalcula `importancia` em `update_task`). Travado por teste (`test_panel_patch_preserves_maxima`).
+- **Removido:** `partials/task_detail_drawer.html` + rota `GET /{id}/detail` (drawer somente-leitura, **nunca** referenciado — código morto). **A referência a `task_detail_drawer.html` no bloco "Prioridade Máxima" acima ficou obsoleta.**
+- **Código morto (mantido até validar em prod):** `task_edit_form.html`, rotas `GET /{id}/edit` e `/cancel-edit` — sem referência viva; marcadas com comentário no código.
+- Verificação: **48 testes** verdes + drive end-to-end no navegador (Playwright): abrir/fechar (Esc/✕/fora), autosave de descrição+energia com persistência, Máxima não rebaixada, contexto "herdado" em tarefa de projeto (sem Lista/Importância), subtarefa via drawer, temas dark/light. Sem novo model/tabela.
 
 ---
 

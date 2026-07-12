@@ -300,6 +300,9 @@ async def adiar_task(
     return HTMLResponse("", status_code=204, headers={"HX-Trigger": "refreshPriorities"})
 
 
+# CÓDIGO MORTO (drawer): /edit e /cancel-edit + task_edit_form.html foram
+# substituídos pelo painel /panel (task_detail_panel.html). Nenhum template os
+# referencia. Mantidos temporariamente; remover após validar o drawer em produção.
 @router.get("/{task_id}/cancel-edit", response_class=HTMLResponse)
 async def cancel_edit(
     task_id: int,
@@ -376,6 +379,7 @@ async def update_task(
     remind_date: Optional[str] = Form(None),
     remind_time: Optional[str] = Form(None),
     list_id: Optional[str] = Form(None),
+    description: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -391,6 +395,8 @@ async def update_task(
         raise HTTPException(status_code=404)
 
     kwargs: dict = {"title": title, "is_quick_win": is_quick_win, "deadline": _parse_date(deadline)}
+    if description is not None:
+        kwargs["description"] = description.strip() or None
     if energy and energy in {e.value for e in EnergyLevel}:
         kwargs["energy"] = EnergyLevel(energy)
     rid = _parse_int(responsavel_id)
@@ -442,61 +448,59 @@ async def update_task(
     return await _task_row_response(request, db, task, current_user)
 
 
-@router.get("/{task_id}/detail", response_class=HTMLResponse)
-async def task_detail(
+@router.get("/{task_id}/panel", response_class=HTMLResponse)
+async def task_panel(
     task_id: int,
     request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    """Painel de detalhe da tarefa (drawer). Mesmo contexto do form inline
+    (edit_form) + as subtarefas, editável com autosave. Substitui o fluxo
+    /edit e o antigo /detail somente-leitura."""
     from app.repositories.context_repo import ContextRepository
     from app.repositories.label_repo import LabelRepository
     from app.repositories.task_repo import TaskRepository
-    from app.repositories.project_section_repo import ProjectSectionRepository
     from app.services.importancia_service import faixa_importancia
     from sqlalchemy import select as sa_select
     from app.models.user import User as UserModel
 
-    task = await TaskService(db).get_by_id(task_id, current_user.id)
+    service = TaskService(db)
+    task = await service.get_by_id(task_id, current_user.id)
     if not task:
         raise HTTPException(status_code=404)
 
-    contexts    = await ContextRepository(db).get_all_by_user(current_user.id)
+    contexts = await ContextRepository(db).get_all_by_user(current_user.id)
+    context_labels = {c.id: c.name for c in contexts}
     user_labels = await LabelRepository(db).get_all_by_user(current_user.id)
-    users_res   = await db.execute(sa_select(UserModel).order_by(UserModel.name))
-    users       = list(users_res.scalars().all())
-    responsavel_map = {u.id: u.name for u in users}
-
-    children = await TaskRepository(db).get_children_map(current_user.id, [task_id])
-    subtasks = children.get(task_id, [])
-
-    section = None
-    if task.section_id:
-        section = await ProjectSectionRepository(db).get_by_id(task.section_id, task.project_id or 0)
-
-    project = None
-    if task.project_id:
-        from app.services.project_service import ProjectService
-        project = await ProjectService(db).get_by_id(task.project_id, current_user.id)
+    users_result = await db.execute(sa_select(UserModel).order_by(UserModel.name))
+    users = list(users_result.scalars().all())
 
     is_standalone_top = task.parent_id is None and task.project_id is None
+    is_project_task = task.project_id is not None
     prioridade = faixa_importancia(task.importancia, task.sem_nota) or "media"
+
+    # Lista (PARTE 6): seletor só para tarefa avulsa de topo (nunca projeto/subtarefa).
+    notes_list = repo_list = None
+    custom_lists: list = []
+    if is_standalone_top:
+        all_lists = await TaskListRepository(db).get_active_by_user(current_user.id)
+        notes_list = next((l for l in all_lists if l.system_key == "notes"), None)
+        repo_list = next((l for l in all_lists if l.system_key == "repository"), None)
+        custom_lists = [l for l in all_lists if l.system_key is None]
+
+    subtasks: list = []
+    if task.parent_id is None:
+        children = await TaskRepository(db).get_children_map(current_user.id, [task_id])
+        subtasks = children.get(task_id, [])
 
     return templates.TemplateResponse(
         request,
-        "partials/task_detail_drawer.html",
-        {
-            "task": task,
-            "contexts": contexts,
-            "context_labels": {c.id: c.name for c in contexts},
-            "user_labels": user_labels,
-            "users": users,
-            "responsavel_map": responsavel_map,
-            "subtasks": subtasks,
-            "section": section,
-            "project": project,
-            "show_prioridade": is_standalone_top,
-            "is_project_task": task.project_id is not None,
-            "prioridade": prioridade,
-        },
+        "partials/task_detail_panel.html",
+        {"task": task, "contexts": contexts, "context_labels": context_labels,
+         "user_labels": user_labels, "users": users,
+         "show_prioridade": is_standalone_top, "is_project_task": is_project_task,
+         "prioridade": prioridade, "is_standalone_top": is_standalone_top,
+         "notes_list": notes_list, "repo_list": repo_list, "custom_lists": custom_lists,
+         "subtasks": subtasks},
     )

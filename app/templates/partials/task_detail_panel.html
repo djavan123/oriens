@@ -1,0 +1,192 @@
+{# Painel de detalhe da tarefa (drawer). Substitui o form inline (task_edit_form).
+   Autosave: cada `change` num campo dispara o PATCH — sem botão salvar.
+   Vars: task, contexts, context_labels, user_labels, users, show_prioridade,
+         is_project_task, prioridade, is_standalone_top, notes_list, repo_list,
+         custom_lists, subtasks. #}
+
+<div class="space-y-6">
+
+  <div id="task-edit-error-{{ task.id }}"></div>
+
+  <form
+    hx-patch="/api/tasks/{{ task.id }}"
+    hx-target="#task-{{ task.id }}"
+    hx-swap="outerHTML"
+    hx-trigger="change"
+    class="space-y-5">
+
+    <!-- Título -->
+    <textarea name="title" required rows="2"
+      class="w-full bg-transparent text-oriens-primary text-lg font-semibold leading-snug focus:outline-none resize-none border-b border-transparent focus:border-oriens-accent transition-colors"
+      >{{ task.title }}</textarea>
+
+    <!-- Metadados -->
+    <div class="grid grid-cols-2 gap-4">
+
+      {% if users %}
+      <div>
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">Responsável</label>
+        <select name="responsavel_id"
+          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="">—</option>
+          {% for u in users %}
+          <option value="{{ u.id }}" {% if task.responsavel_id == u.id %}selected{% endif %}>{{ u.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      <div>
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">Prazo</label>
+        <input type="date" name="deadline"
+          value="{{ task.deadline.strftime('%Y-%m-%d') if task.deadline else '' }}"
+          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+      </div>
+
+      <div>
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">Energia</label>
+        <select name="energy"
+          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          {% for val, label in [('high','Alta'),('medium','Média'),('low','Baixa')] %}
+          <option value="{{ val }}" {% if task.energy.value == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if is_project_task %}
+      <div>
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">Contexto</label>
+        <span class="block bg-oriens-card border border-oriens-border text-oriens-muted rounded-lg px-2 py-1.5 text-sm">
+          {{ context_labels.get(task.context_id, 'Independente') }} <span class="text-oriens-empty">· herdado</span>
+        </span>
+      </div>
+      {% elif contexts %}
+      <div>
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">Contexto</label>
+        <select name="context_id" required
+          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          {% for ctx in contexts %}
+          <option value="{{ ctx.id }}" {% if task.context_id == ctx.id %}selected{% endif %}>{{ ctx.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      {% if show_prioridade %}
+      <div>
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">Importância</label>
+        <select name="prioridade"
+          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          {% for val, label in [('maxima','Máxima'),('alta','Alta'),('media','Média'),('baixa','Baixa')] %}
+          <option value="{{ val }}" {% if prioridade == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+      {% if is_standalone_top %}
+      <div>
+        <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">Lista</label>
+        <select name="list_id"
+          class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+          <option value="" {% if not task.list_id %}selected{% endif %}>Tarefas avulsas</option>
+          {% if notes_list %}<option value="{{ notes_list.id }}" {% if task.list_id == notes_list.id %}selected{% endif %}>{{ notes_list.name }}</option>{% endif %}
+          {% if repo_list %}<option value="{{ repo_list.id }}" {% if task.list_id == repo_list.id %}selected{% endif %}>{{ repo_list.name }}</option>{% endif %}
+          {% for l in custom_lists %}<option value="{{ l.id }}" {% if task.list_id == l.id %}selected{% endif %}>{{ l.name }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <!-- Quick win -->
+    <label class="flex items-center gap-2 text-sm text-oriens-secondary cursor-pointer">
+      <input type="checkbox" name="is_quick_win" value="true" {% if task.is_quick_win %}checked{% endif %}
+        class="rounded border-oriens-border">
+      Quick win
+    </label>
+
+    <!-- Lembrete -->
+    <div>
+      <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">🔔 Lembrete</label>
+      <div class="flex items-center gap-2">
+        <input type="date" name="remind_date"
+          value="{{ task.remind_at.strftime('%Y-%m-%d') if task.remind_at else '' }}"
+          class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+        <input type="time" name="remind_time"
+          value="{{ task.remind_at.strftime('%H:%M') if task.remind_at else '' }}"
+          class="bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+      </div>
+      <p class="text-oriens-empty text-[11px] mt-1">deixe a data vazia para remover</p>
+    </div>
+
+    <!-- Etiquetas (só tarefa avulsa) -->
+    {% if not is_project_task %}
+    <div x-data="{ tagsVal: '{{ task.tags or '' }}' }">
+      <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">Etiquetas</label>
+      <input type="text" name="tags" x-model="tagsVal" x-ref="tagsInput"
+        placeholder="ex: urgente, cliente..."
+        class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-oriens-accent transition-colors">
+      {% if user_labels %}
+      <div class="flex flex-wrap gap-1.5 mt-2">
+        {% for lbl in user_labels %}
+        <button type="button"
+          @click="tagsVal = tagsVal ? tagsVal.split(',').map(t=>t.trim()).filter(t=>t!='{{ lbl.name }}').concat(['{{ lbl.name }}']).join(', ') : '{{ lbl.name }}'; $nextTick(() => $refs.tagsInput.dispatchEvent(new Event('change', { bubbles: true })))"
+          class="text-xs px-2 py-0.5 rounded leading-none"
+          style="background: {{ lbl.color or '#2a2a2a' }}; color: #e8edf1;">
+          {{ lbl.name }}
+        </button>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Descrição -->
+    <div class="border-t border-oriens-divider pt-4">
+      <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1.5">Descrição</label>
+      <textarea name="description" rows="6"
+        placeholder="Do que se trata esta tarefa?"
+        class="w-full bg-oriens-card border border-oriens-border text-oriens-primary rounded-lg px-3 py-2 text-sm leading-relaxed focus:outline-none focus:border-oriens-accent transition-colors resize-y placeholder-oriens-muted"
+        >{{ task.description or '' }}</textarea>
+    </div>
+
+  </form>
+
+  <!-- Subtarefas -->
+  {% if task.parent_id is none %}
+  <div class="border-t border-oriens-divider pt-4">
+    <p class="text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-2">Subtarefas</p>
+    <div id="subtasks-{{ task.id }}">
+      {% for sub in subtasks %}
+        {% with task = sub, hide_actions = true %}{% include "partials/task_item.html" %}{% endwith %}
+      {% endfor %}
+    </div>
+    <form
+      hx-post="/api/tasks"
+      hx-target="#subtasks-{{ task.id }}"
+      hx-swap="afterbegin"
+      hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+      class="flex items-center gap-2 mt-2">
+      <input type="hidden" name="parent_id" value="{{ task.id }}">
+      {% if task.project_id %}<input type="hidden" name="project_id" value="{{ task.project_id }}">{% endif %}
+      <input type="text" name="title" id="subtask-input-{{ task.id }}" placeholder="Nova subtarefa..."
+        class="flex-1 bg-transparent border-b border-oriens-border focus:border-oriens-accent text-oriens-secondary text-sm px-1 py-1 focus:outline-none focus:text-oriens-primary transition-colors placeholder-oriens-muted">
+    </form>
+  </div>
+  {% endif %}
+
+  <!-- Arquivar -->
+  <div class="border-t border-oriens-divider pt-4">
+    <button
+      hx-patch="/api/tasks/{{ task.id }}/archive"
+      hx-target="#task-{{ task.id }}"
+      hx-swap="outerHTML"
+      hx-confirm="Arquivar esta tarefa?"
+      @click="taskDrawerOpen = false"
+      class="text-oriens-secondary text-xs hover:text-oriens-urgent transition-colors">
+      Arquivar tarefa
+    </button>
+  </div>
+
+</div>

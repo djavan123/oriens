@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, Boolean, Integer, Float, DateTime, Enum, ForeignKey, func
+from sqlalchemy import String, Boolean, Integer, Float, DateTime, Enum, ForeignKey, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -59,6 +59,8 @@ class Task(Base):
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     deadline: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
     tags:     Mapped[Optional[str]]      = mapped_column(String, nullable=True)
+    # Texto livre editado no painel de detalhe da tarefa (drawer).
+    description: Mapped[Optional[str]]   = mapped_column(Text, nullable=True)
     # Lembrete (sem recorrência)
     remind_at:               Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, index=True)
     reminder_telegram_sent:  Mapped[bool]               = mapped_column(Boolean, default=False, nullable=False)

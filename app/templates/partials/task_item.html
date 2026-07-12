@@ -54,7 +54,12 @@
          title="{{ task.link_url }}"
          class="flex-1 min-w-0 text-sm leading-snug truncate hover:underline {{ _title_state }}">{{ task.link_title or task.title }}</a>
       {% else %}
-      <p class="flex-1 min-w-0 text-sm leading-snug {{ _clamp }} {{ _title_state }}">{{ task.title }}</p>
+      <button type="button"
+        hx-get="/api/tasks/{{ task.id }}/panel"
+        hx-target="#task-drawer-content"
+        hx-swap="innerHTML"
+        @click="taskDrawerOpen = true"
+        class="flex-1 min-w-0 text-left text-sm leading-snug {{ _clamp }} {{ _title_state }} hover:text-oriens-accent transition-colors">{{ task.title }}</button>
       {% endif %}
       {% if allow_subtask is defined and allow_subtask %}
       <button type="button"
@@ -144,8 +149,6 @@
     <button hx-patch="/api/tasks/{{ task.id }}/pending" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
       class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">desbloquear</button>
     {% endif %}
-    <button hx-get="/api/tasks/{{ task.id }}/edit" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
-      class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">editar</button>
     <button hx-patch="/api/tasks/{{ task.id }}/archive" hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
       hx-confirm="Arquivar esta tarefa?"
       class="text-oriens-secondary text-xs hover:text-oriens-muted transition-colors">arquivar</button>

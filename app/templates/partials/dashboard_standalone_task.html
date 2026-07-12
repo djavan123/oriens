@@ -26,7 +26,12 @@
     class="flex-shrink-0 mt-0.5 w-4 h-4 border {{ cb_border }} rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors"></button>
 
   <div class="min-w-0 flex-1">
-    <p class="text-sm font-normal leading-snug text-oriens-primary">{{ task.title }}</p>
+    <button type="button"
+      hx-get="/api/tasks/{{ task.id }}/panel"
+      hx-target="#task-drawer-content"
+      hx-swap="innerHTML"
+      @click="taskDrawerOpen = true"
+      class="block w-full text-left text-sm font-normal leading-snug text-oriens-primary hover:text-oriens-accent transition-colors">{{ task.title }}</button>
     {% if meta %}
     <p class="mt-1 text-xs text-oriens-muted">
       {% for text, color in meta %}<span class="{{ color }}">{{ text }}</span>{% if not loop.last %}<span class="text-oriens-muted"> · </span>{% endif %}{% endfor %}

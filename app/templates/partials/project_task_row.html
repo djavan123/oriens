@@ -59,10 +59,15 @@
     {% if is_next is defined and is_next %}
     <p class="text-oriens-accent text-[10px] font-bold uppercase tracking-wide leading-none mb-0.5">↗ Próxima ação</p>
     {% endif %}
-    <p class="text-sm leading-snug break-words
+    <button type="button"
+      hx-get="/api/tasks/{{ task.id }}/panel"
+      hx-target="#task-drawer-content"
+      hx-swap="innerHTML"
+      @click="taskDrawerOpen = true"
+      class="block w-full text-left text-sm leading-snug break-words hover:text-oriens-accent transition-colors
       {% if task.status.value == 'done' %}line-through text-oriens-empty
       {% elif task.status.value == 'blocked' %}text-oriens-alert
-      {% else %}text-oriens-primary{% endif %}">{{ task.title }}</p>
+      {% else %}text-oriens-primary{% endif %}">{{ task.title }}</button>
     {% if task.remind_at and task.status.value != 'done' %}
     <p class="text-[11px] text-oriens-muted mt-0.5">⏱ {{ task.remind_at.strftime('%d/%m %H:%M') }}</p>
     {% endif %}
@@ -108,10 +113,6 @@
       class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">desbloquear</button>
     <span class="text-oriens-border text-[10px]">·</span>
     {% endif %}
-    <button hx-get="/api/tasks/{{ task.id }}/edit"
-      hx-target="#task-{{ task.id }}" hx-swap="outerHTML"
-      class="text-oriens-secondary text-xs hover:text-oriens-accent transition-colors">editar</button>
-    <span class="text-oriens-border text-[10px]">·</span>
     <button hx-patch="/api/tasks/{{ task.id }}/archive"
       hx-swap="none"
       hx-confirm="Arquivar esta tarefa?"
