@@ -125,6 +125,34 @@ async def test_project_detail_title_opens_drawer(client, db, test_user):
     assert '/edit' not in r.text
 
 
+async def test_project_subtask_uses_drawer_not_edit(client, db, test_user):
+    """A linha de subtarefa de projeto abre o drawer (não a rota /edit removida)."""
+    p = await ProjectService(db).create(
+        test_user.id, name="Proj", status=ProjectStatus.em_andamento
+    )
+    from app.repositories.project_section_repo import ProjectSectionRepository
+    sec = await ProjectSectionRepository(db).create(p.id, "Seção")
+    parent = await TaskService(db).create(
+        test_user.id, "Pai", project_id=p.id, section_id=sec.id
+    )
+    sub = await TaskService(db).create(
+        test_user.id, "Filha de projeto", project_id=p.id, parent_id=parent.id
+    )
+    r = await client.get(f"/projects/{p.id}")
+    assert r.status_code == 200
+    assert "Filha de projeto" in r.text
+    assert f'/api/tasks/{sub.id}/panel' in r.text
+    assert '/edit' not in r.text
+
+
+async def test_edit_route_removed(client, db, test_user):
+    ctx = await ContextRepository(db).create(user_id=test_user.id, name="Trabalho")
+    t = await TaskService(db).create(
+        test_user.id, "X", context_id=ctx.id, importancia=5.0, sem_nota=False,
+    )
+    assert (await client.get(f"/api/tasks/{t.id}/edit")).status_code == 404
+
+
 async def test_panel_project_task_shows_no_list_selector(client, db, test_user):
     """Tarefa de projeto: sem seletor de lista (list_id só para avulsa de topo)."""
     p = await ProjectService(db).create(

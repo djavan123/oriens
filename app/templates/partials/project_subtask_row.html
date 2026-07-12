@@ -31,16 +31,17 @@
   </div>
   {% endif %}
   <!-- Título sub -->
-  <p class="flex-1 min-w-0 text-xs leading-snug truncate
+  <button type="button"
+    hx-get="/api/tasks/{{ sub.id }}/panel"
+    hx-target="#task-drawer-content"
+    hx-swap="innerHTML"
+    @click="taskDrawerOpen = true"
+    class="flex-1 min-w-0 text-left text-xs leading-snug truncate hover:text-oriens-accent transition-colors
     {% if sub.status.value == 'done' %}line-through text-oriens-empty
     {% elif sub.status.value == 'blocked' %}text-oriens-alert
-    {% else %}text-oriens-secondary{% endif %}">{{ sub.title }}</p>
+    {% else %}text-oriens-secondary{% endif %}">{{ sub.title }}</button>
   <!-- Ações sub hover -->
   <div class="flex items-center gap-1.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-    <button hx-get="/api/tasks/{{ sub.id }}/edit"
-      hx-target="#task-{{ sub.id }}" hx-swap="outerHTML"
-      class="text-oriens-muted text-xs hover:text-oriens-accent transition-colors">editar</button>
-    <span class="text-oriens-border text-[10px]">·</span>
     <button hx-patch="/api/tasks/{{ sub.id }}/archive"
       hx-target="#task-{{ sub.id }}" hx-swap="outerHTML"
       hx-confirm="Arquivar subtarefa?"

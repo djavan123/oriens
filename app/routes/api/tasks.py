@@ -300,70 +300,6 @@ async def adiar_task(
     return HTMLResponse("", status_code=204, headers={"HX-Trigger": "refreshPriorities"})
 
 
-# CÓDIGO MORTO (drawer): /edit e /cancel-edit + task_edit_form.html foram
-# substituídos pelo painel /panel (task_detail_panel.html). Nenhum template os
-# referencia. Mantidos temporariamente; remover após validar o drawer em produção.
-@router.get("/{task_id}/cancel-edit", response_class=HTMLResponse)
-async def cancel_edit(
-    task_id: int,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    service = TaskService(db)
-    task = await service.get_by_id(task_id, current_user.id)
-    if not task:
-        raise HTTPException(status_code=404)
-    return await _task_row_response(request, db, task, current_user)
-
-
-@router.get("/{task_id}/edit", response_class=HTMLResponse)
-async def edit_form(
-    task_id: int,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    from app.repositories.context_repo import ContextRepository
-    from app.repositories.label_repo import LabelRepository
-    from app.services.importancia_service import faixa_importancia
-    service = TaskService(db)
-    task = await service.get_by_id(task_id, current_user.id)
-    if not task:
-        raise HTTPException(status_code=404)
-    contexts = await ContextRepository(db).get_all_by_user(current_user.id)
-    context_labels = {c.id: c.name for c in contexts}
-    user_labels = await LabelRepository(db).get_all_by_user(current_user.id)
-    from sqlalchemy import select
-    from app.models.user import User as UserModel
-    users_result = await db.execute(select(UserModel).order_by(UserModel.name))
-    users = list(users_result.scalars().all())
-
-    # Importância (SCRIPT 13): só tarefa avulsa de topo escolhe Alta/Média/Baixa.
-    is_standalone_top = task.parent_id is None and task.project_id is None
-    is_project_task = task.project_id is not None
-    prioridade = faixa_importancia(task.importancia, task.sem_nota) or "media"
-
-    # Lista (PARTE 6): seletor só para tarefa avulsa de topo (nunca projeto/subtarefa).
-    notes_list = repo_list = None
-    custom_lists: list = []
-    if is_standalone_top:
-        all_lists = await TaskListRepository(db).get_active_by_user(current_user.id)
-        notes_list = next((l for l in all_lists if l.system_key == "notes"), None)
-        repo_list = next((l for l in all_lists if l.system_key == "repository"), None)
-        custom_lists = [l for l in all_lists if l.system_key is None]
-
-    return templates.TemplateResponse(
-        request,
-        "partials/task_edit_form.html",
-        {"task": task, "contexts": contexts, "context_labels": context_labels,
-         "user_labels": user_labels, "users": users,
-         "show_prioridade": is_standalone_top, "is_project_task": is_project_task,
-         "prioridade": prioridade, "is_standalone_top": is_standalone_top,
-         "notes_list": notes_list, "repo_list": repo_list, "custom_lists": custom_lists},
-    )
-
-
 @router.patch("/{task_id}", response_class=HTMLResponse)
 async def update_task(
     task_id: int,
@@ -455,9 +391,9 @@ async def task_panel(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Painel de detalhe da tarefa (drawer). Mesmo contexto do form inline
-    (edit_form) + as subtarefas, editável com autosave. Substitui o fluxo
-    /edit e o antigo /detail somente-leitura."""
+    """Painel de detalhe da tarefa (drawer): metadados + subtarefas, editável
+    com autosave. Único fluxo de edição de tarefa (o form inline /edit e o
+    drawer somente-leitura /detail foram removidos)."""
     from app.repositories.context_repo import ContextRepository
     from app.repositories.label_repo import LabelRepository
     from app.repositories.task_repo import TaskRepository
