@@ -1,0 +1,12 @@
+{# app/templates/partials/label_item.html — linha de etiqueta (settings + retorno do POST /api/settings/labels) #}
+<div id="label-{{ label.id }}" class="flex items-center gap-3 py-2.5 border-b border-oriens-divider last:border-0">
+  <span class="w-3 h-3 rounded-full flex-shrink-0" style="background: {{ safe_hex(label.color) or 'var(--oriens-border)' }}"></span>
+  <span class="text-oriens-primary text-sm flex-1">{{ label.name }}</span>
+  <button
+    hx-delete="/api/settings/labels/{{ label.id }}"
+    hx-target="#label-{{ label.id }}"
+    hx-swap="outerHTML"
+    class="text-oriens-secondary text-xs hover:text-oriens-alert transition-colors">
+    excluir
+  </button>
+</div>

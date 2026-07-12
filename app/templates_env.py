@@ -45,3 +45,17 @@ def url_domain(url):
 
 
 templates.env.globals["url_domain"] = url_domain
+
+
+def safe_hex(value):
+    """Valida cor hex (#RRGGBB). Cores fora do padrão viram None — nunca chegam ao CSS.
+
+    Sanitiza também na renderização porque valores antigos podem estar persistidos.
+    """
+    import re
+    if value and re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+        return value
+    return None
+
+
+templates.env.globals["safe_hex"] = safe_hex

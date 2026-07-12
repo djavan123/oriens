@@ -29,8 +29,9 @@ services:
       # Persiste os anexos enviados (gravados em /app/data/attachments).
       - appdata:/app/data
     ports:
-      # Acesso direto pelo IP da VPS (http://IP:8000).
-      # Quando entrar Nginx + domínio, voltar para "127.0.0.1:8000:8000".
+      # CUTOVER DO NGINX (2 deploys):
+      #   1) este deploy mantém 8000 público + nginx na porta 80 — validar http://IP/
+      #   2) próximo deploy: trocar para "127.0.0.1:8000:8000" (fecha o acesso direto)
       - "8000:8000"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
@@ -38,6 +39,19 @@ services:
       timeout: 5s
       retries: 3
       start_period: 20s
+
+  # Proxy reverso: rate-limit no login, gzip, headers de segurança e
+  # estáticos servidos direto do disco (sem passar pelo Python).
+  nginx:
+    image: nginx:1.27-alpine
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/oriens-docker.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./app/static:/static:ro
+    depends_on:
+      - app
 
   # Processo de fundo (lembretes + captura Telegram). ÚNICO — não escalar.
   # Mantém o web livre para rodar com múltiplos workers sem duplicar envios.
