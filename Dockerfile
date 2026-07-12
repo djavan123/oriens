@@ -4,7 +4,8 @@ FROM python:3.12-slim
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    TZ=America/Sao_Paulo
+    TZ=America/Sao_Paulo \
+    WEB_CONCURRENCY=3
 
 WORKDIR /app
 
@@ -19,11 +20,12 @@ COPY . .
 EXPOSE 8000
 
 # Produção: gunicorn com workers Uvicorn (multi-worker). Os loops de fundo NÃO
-# rodam aqui — ficam no serviço `worker` (python -m app.worker). Ajuste -w conforme
-# CPU da VPS (regra prática: 2×núcleos+1). Timeout maior tolera requisições lentas.
+# rodam aqui — ficam no serviço `worker` (python -m app.worker). Nº de workers vem
+# de WEB_CONCURRENCY (lido nativamente pelo gunicorn quando -w não é passado) —
+# ajustável no compose sem rebuild (regra prática: 2×núcleos+1). Ao mudar,
+# redimensione DB_POOL_SIZE/DB_MAX_OVERFLOW para não estourar o max_connections do PG.
 CMD ["gunicorn", "app.main:app", \
      "-k", "uvicorn.workers.UvicornWorker", \
-     "-w", "3", \
      "-b", "0.0.0.0:8000", \
      "--timeout", "60", \
      "--access-logfile", "-"]

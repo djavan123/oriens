@@ -21,8 +21,13 @@ class CaptureService:
     async def create(self, user_id: int, content: str) -> CaptureInbox:
         return await self.repo.create(user_id=user_id, content=content.strip())
 
-    async def get_inbox(self, user_id: int) -> list[CaptureInbox]:
-        return await self.repo.get_inbox(user_id)
+    async def get_inbox(
+        self, user_id: int, limit: Optional[int] = None, offset: int = 0
+    ) -> list[CaptureInbox]:
+        return await self.repo.get_inbox(user_id, limit=limit, offset=offset)
+
+    async def count_inbox(self, user_id: int) -> int:
+        return await self.repo.count_inbox(user_id)
 
     async def get_all(self, user_id: int) -> list[CaptureInbox]:
         return await self.repo.get_all(user_id)
@@ -33,8 +38,10 @@ class CaptureService:
     async def discard_to_trash(self, capture_id: int, user_id: int) -> Optional[CaptureInbox]:
         return await self.repo.discard_to_trash(capture_id, user_id)
 
-    async def get_trash(self, user_id: int) -> list[CaptureInbox]:
-        return await self.repo.get_trash(user_id)
+    async def get_trash(
+        self, user_id: int, limit: Optional[int] = None, offset: int = 0
+    ) -> list[CaptureInbox]:
+        return await self.repo.get_trash(user_id, limit=limit, offset=offset)
 
     async def restore(self, capture_id: int, user_id: int) -> Optional[CaptureInbox]:
         return await self.repo.restore(capture_id, user_id)

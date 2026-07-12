@@ -91,6 +91,12 @@
   </div>
   {% endif %}
 
+  {% if done_capped %}
+  <p style="color:var(--oriens-muted); font-size:12px; font-style:italic; padding:4px 4px 0;">
+    Mostrando as 50 concluídas mais recentes ({{ progress.done }} no total).
+  </p>
+  {% endif %}
+
   {% if not sem_secao_tasks and not sem_secao_blocked and not sem_secao_done and not section_groups %}
   <p id="no-pending" style="color:var(--oriens-empty); font-size:14px; font-style:italic; padding:12px 4px;">Nenhuma tarefa pendente.</p>
   {% endif %}

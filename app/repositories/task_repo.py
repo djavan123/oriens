@@ -129,7 +129,12 @@ class TaskRepository:
         status: Optional[TaskStatus] = None,
         energy: Optional[EnergyLevel] = None,
         include_subtasks: bool = False,
+        exclude_done: bool = False,
+        limit: int = 500,
     ) -> list[Task]:
+        """`limit=500` é um guard-rail (sem UI de paginação): impede que um volume
+        anômalo de tarefas degrade a renderização inteira. `exclude_done=True`
+        deixa as concluídas fora (o detalhe do projeto as busca à parte, limitadas)."""
         q = select(Task).where(Task.user_id == user_id, Task.archived.is_(False))
         if not include_subtasks:
             q = q.where(Task.parent_id.is_(None))
@@ -137,6 +142,8 @@ class TaskRepository:
             q = q.where(Task.project_id == project_id)
         if status is not None:
             q = q.where(Task.status == status)
+        if exclude_done:
+            q = q.where(Task.status != TaskStatus.done)
         if energy is not None:
             q = q.where(Task.energy == energy)
         # Tarefas de projeto: seção → order_index. Avulsas: por score/energia.
@@ -145,15 +152,42 @@ class TaskRepository:
             order = _project_task_order()
         else:
             order = [Task.priority_score.desc(), _energy_order, Task.created_at.asc()]
-        result = await self.db.execute(q.order_by(*order))
+        result = await self.db.execute(q.order_by(*order).limit(limit))
+        return list(result.scalars().all())
+
+    async def get_project_done_tasks(
+        self, user_id: int, project_id: int, limit: int = 50
+    ) -> list[Task]:
+        """Concluídas de topo do projeto, mais recentes primeiro, limitadas.
+
+        Um projeto antigo acumula centenas de concluídas — renderizar todas
+        degrada o detalhe. O total real vem de progress_by_project (agregado)."""
+        result = await self.db.execute(
+            select(Task)
+            .where(
+                Task.user_id == user_id,
+                Task.project_id == project_id,
+                Task.status == TaskStatus.done,
+                Task.archived.is_(False),
+                Task.parent_id.is_(None),
+            )
+            .order_by(nullslast(Task.done_at.desc()), Task.id.desc())
+            .limit(limit)
+        )
         return list(result.scalars().all())
 
     async def get_standalone_by_list(
-        self, user_id: int, list_id: Optional[int], context_id: Optional[int] = None
+        self,
+        user_id: int,
+        list_id: Optional[int],
+        context_id: Optional[int] = None,
+        limit: Optional[int] = None,
+        offset: int = 0,
     ) -> list[Task]:
         """Tarefas avulsas pendentes de uma lista, para a página Listas.
 
         `list_id=None` retorna a lista padrão "Tarefas avulsas" (list_id IS NULL).
+        `limit`/`offset` habilitam o "carregar mais" (Notas/Repositório acumulam).
         """
         q = select(Task).where(
             Task.user_id == user_id,
@@ -164,7 +198,12 @@ class TaskRepository:
         )
         q = q.where(Task.list_id.is_(None)) if list_id is None else q.where(Task.list_id == list_id)
         q = self._apply_context(q, context_id)
-        result = await self.db.execute(q.order_by(Task.importancia.desc(), Task.created_at.desc()))
+        q = q.order_by(Task.importancia.desc(), Task.created_at.desc())
+        if offset:
+            q = q.offset(offset)
+        if limit is not None:
+            q = q.limit(limit)
+        result = await self.db.execute(q)
         return list(result.scalars().all())
 
     async def count_standalone_default(self, user_id: int) -> int:

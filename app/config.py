@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     # Lembretes via Telegram (opcional). Só envia se ambos estiverem preenchidos.
     TELEGRAM_BOT_TOKEN: str = ""
     TELEGRAM_CHAT_ID: str = ""
+    # Pool de conexões do PostgreSQL, POR PROCESSO. Com 3 workers web + 1 worker
+    # de fundo: (5+5) × 4 = 40 conexões potenciais < max_connections=100 do PG.
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 5
 
     # extra="ignore": o .env de produção também contém POSTGRES_PASSWORD (consumido
     # só pelo serviço `db` do docker-compose, não por este app) — sem isso, o Pydantic

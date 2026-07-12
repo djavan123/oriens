@@ -1,0 +1,17 @@
+{# app/templates/partials/capture_page.html — uma "página" de itens da Caixa de Entrada
+   + botão "carregar mais" (auto-substitui pelo próximo fragmento).
+   Vars: captures, has_more, next_offset #}
+{% for capture in captures %}
+  {% include "partials/capture_item.html" %}
+{% endfor %}
+{% if has_more %}
+<div id="capture-load-more" class="py-3 text-center">
+  <button
+    hx-get="/capture?offset={{ next_offset }}"
+    hx-target="#capture-load-more"
+    hx-swap="outerHTML"
+    class="text-xs text-oriens-secondary hover:text-oriens-primary transition-colors">
+    Carregar mais
+  </button>
+</div>
+{% endif %}

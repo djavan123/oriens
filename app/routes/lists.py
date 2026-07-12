@@ -14,11 +14,14 @@ from app.utils.context_utils import resolve_active_context
 
 router = APIRouter(tags=["lists"])
 
+PAGE_SIZE = 100
+
 
 @router.get("/lists", response_class=HTMLResponse)
 async def lists_page(
     request: Request,
     list: Optional[str] = Query(None),
+    offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -57,9 +60,26 @@ async def lists_page(
 
     # Tarefas da lista ativa. O contexto ativo filtra TODAS as listas igualmente
     # (uma task numa lista funciona exatamente como uma tarefa avulsa).
-    tasks = await task_repo.get_standalone_by_list(
+    raw = await task_repo.get_standalone_by_list(
         current_user.id, active_list_id, context_id=context_id,
+        limit=PAGE_SIZE + 1, offset=offset,
     )
+    has_more = len(raw) > PAGE_SIZE
+    tasks = raw[:PAGE_SIZE]
+    next_offset = offset + PAGE_SIZE
+
+    # Fragmento HTMX do "carregar mais": só os itens + próximo botão.
+    if offset and request.headers.get("HX-Request"):
+        return templates.TemplateResponse(
+            request,
+            "partials/list_tasks_page.html",
+            {
+                "tasks": tasks,
+                "has_more": has_more,
+                "next_offset": next_offset,
+                "active_list_id": active_list_id,
+            },
+        )
 
     count_default = await task_repo.count_standalone_default(current_user.id)
     counts_by_list = await task_repo.count_by_list(current_user.id)
@@ -70,6 +90,8 @@ async def lists_page(
         {
             "user": current_user,
             "tasks": tasks,
+            "has_more": has_more,
+            "next_offset": next_offset,
             "active_context_obj": active_context_obj,
             "all_contexts": all_contexts,
             "active_context_id": context_id,

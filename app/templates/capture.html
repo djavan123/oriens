@@ -47,7 +47,7 @@
   <!-- List header -->
   <div class="flex items-center justify-between mb-1">
     <span class="text-[11px] text-oriens-muted uppercase tracking-wider">
-      {% if captures %}{{ captures | length }} {{ 'item' if captures | length == 1 else 'itens' }}{% endif %}
+      {% if inbox_count %}{{ inbox_count }} {{ 'item' if inbox_count == 1 else 'itens' }}{% endif %}
     </span>
     <a href="/lixeira" class="text-[11px] text-oriens-secondary hover:text-oriens-primary transition-colors">
       Lixeira →
@@ -62,9 +62,7 @@
   </div>
   {% endif %}
   <div id="capture-list">
-    {% for capture in captures %}
-      {% include "partials/capture_item.html" %}
-    {% endfor %}
+    {% include "partials/capture_page.html" %}
   </div>
 
 </div>

@@ -106,9 +106,7 @@
       <!-- Itens da lista -->
       <div id="list-tasks" class="rounded-md overflow-hidden border border-oriens-border">
         {% if tasks %}
-          {% for task in tasks %}
-            {% with show_importancia=True, show_link=True %}{% include "partials/task_item.html" %}{% endwith %}
-          {% endfor %}
+          {% include "partials/list_tasks_page.html" %}
         {% else %}
           <p id="list-empty" class="px-3 py-8 text-center text-oriens-muted text-sm">Nada por aqui ainda.</p>
         {% endif %}

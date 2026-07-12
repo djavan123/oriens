@@ -19,11 +19,13 @@ def _make_engine():
     connect_args = {"check_same_thread": False} if is_sqlite else {}
     kwargs = dict(connect_args=connect_args, echo=settings.DEBUG)
     if not is_sqlite:
-        # Pool dimensionado para múltiplos workers; pre_ping/recycle evitam
+        # Pool POR PROCESSO, parametrizado por env (DB_POOL_SIZE/DB_MAX_OVERFLOW).
+        # Teto agregado deve ficar abaixo do max_connections do PG somando todos
+        # os processos (workers web + worker de fundo). pre_ping/recycle evitam
         # conexões mortas atrás de PG gerenciado/pgbouncer ou após restart do banco.
         kwargs.update(
-            pool_size=10,
-            max_overflow=20,
+            pool_size=settings.DB_POOL_SIZE,
+            max_overflow=settings.DB_MAX_OVERFLOW,
             pool_pre_ping=True,
             pool_recycle=1800,
         )
@@ -274,6 +276,11 @@ _INDEXES: list[tuple[str, str, str]] = [
     ("ix_tasks_section_id", "tasks", "section_id"),
     ("ix_tasks_list_id", "tasks", "list_id"),
     ("ix_capture_inbox_processed", "capture_inbox", "processed"),
+    # Índices compostos para os padrões reais de filtro (quase toda query de
+    # tarefa filtra user+status+archived; o detalhe do projeto, user+project+parent).
+    ("ix_tasks_user_status_archived", "tasks", "user_id, status, archived"),
+    ("ix_tasks_user_project_parent", "tasks", "user_id, project_id, parent_id"),
+    ("ix_capture_inbox_user_processed", "capture_inbox", "user_id, processed"),
 ]
 
 

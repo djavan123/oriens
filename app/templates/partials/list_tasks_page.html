@@ -1,0 +1,17 @@
+{# app/templates/partials/list_tasks_page.html — uma "página" de tarefas da lista ativa
+   em /lists + botão "carregar mais".
+   Vars: tasks, has_more, next_offset, active_list_id (p/ montar a URL) #}
+{% for task in tasks %}
+  {% with show_importancia=True, show_link=True %}{% include "partials/task_item.html" %}{% endwith %}
+{% endfor %}
+{% if has_more %}
+<div id="list-load-more" class="py-3 text-center">
+  <button
+    hx-get="/lists?{% if active_list_id %}list={{ active_list_id }}&{% endif %}offset={{ next_offset }}"
+    hx-target="#list-load-more"
+    hx-swap="outerHTML"
+    class="text-xs text-oriens-secondary hover:text-oriens-primary transition-colors">
+    Carregar mais
+  </button>
+</div>
+{% endif %}

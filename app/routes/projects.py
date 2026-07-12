@@ -108,13 +108,12 @@ async def projects_reports(
     progress_raw = await task_repo.progress_by_project(current_user.id, ids)
     overdue_raw = await task_repo.overdue_by_project(current_user.id, ids)
 
-    decision_repo = ProjectDecisionRepository(db)
-    risk_repo = ProjectRiskRepository(db)
+    decisions_raw = await ProjectDecisionRepository(db).count_by_projects(ids)
+    risks_raw = await ProjectRiskRepository(db).count_open_by_projects(ids)
 
     rows = []
     for p in projects:
         done, total = progress_raw.get(p.id, (0, 0))
-        decisions = await decision_repo.get_by_project(p.id)
         rows.append({
             "project": p,
             "done": done,
@@ -122,8 +121,8 @@ async def projects_reports(
             "pct": round(done * 100 / total) if total else 0,
             "remaining": total - done,
             "overdue": overdue_raw.get(p.id, 0),
-            "open_risks": await risk_repo.count_open(p.id),
-            "decisions": len(decisions),
+            "open_risks": risks_raw.get(p.id, 0),
+            "decisions": decisions_raw.get(p.id, 0),
         })
 
     return templates.TemplateResponse(
@@ -148,10 +147,17 @@ async def _build_tasks_panel_context(
     next_action = await service.get_project_next_action(project.id, current_user.id)
 
     task_repo = TaskRepository(db)
-    all_tasks = await task_repo.get_all_by_user(current_user.id, project_id=project.id)
-    pending_tasks = [t for t in all_tasks if t.status == TaskStatus.pending]
-    blocked_tasks = [t for t in all_tasks if t.status == TaskStatus.blocked]
-    done_tasks = [t for t in all_tasks if t.status == TaskStatus.done]
+    # Pendentes/bloqueadas inteiras; concluídas limitadas às 50 mais recentes
+    # (projeto antigo acumula centenas — o total real vem do progresso agregado).
+    open_tasks = await task_repo.get_all_by_user(
+        current_user.id, project_id=project.id, exclude_done=True
+    )
+    pending_tasks = [t for t in open_tasks if t.status == TaskStatus.pending]
+    blocked_tasks = [t for t in open_tasks if t.status == TaskStatus.blocked]
+    done_tasks = await task_repo.get_project_done_tasks(
+        current_user.id, project.id, limit=50
+    )
+    all_tasks = open_tasks + done_tasks
 
     subtasks = await task_repo.get_children_map(
         current_user.id, [t.id for t in all_tasks]
@@ -203,6 +209,7 @@ async def _build_tasks_panel_context(
         "responsavel_map": responsavel_map,
         "done_by_section": done_by_section,
         "blocked_by_section": blocked_by_section,
+        "done_capped": len(done_tasks) >= 50,
     }
 
 
