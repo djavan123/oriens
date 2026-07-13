@@ -17,6 +17,46 @@ Internet ──▶ Nginx (host, :80/:443, TLS) ──▶ App (container, gunicor
 
 ---
 
+## Nginx DENTRO do compose (estado atual, sem domínio)
+
+Enquanto o acesso é por IP (sem domínio/HTTPS), o `docker-compose.prod.yml` já sobe um
+serviço **`nginx`** (imagem `nginx:1.27-alpine`, porta **80**) usando `nginx/oriens-docker.conf`:
+rate-limit no `/auth/login`, gzip, headers de segurança e `/static/` servido direto do disco.
+
+**Cutover em 2 deploys (sem downtime):**
+
+> **Deploy recomendado** (injeta o git SHA para cache-busting dos estáticos/PWA):
+> ```bash
+> git pull && APP_VERSION=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build
+> ```
+> Sem `APP_VERSION`, o build usa `prod` fixo — funciona, mas navegadores/PWA podem
+> servir CSS/JS antigos até o cache expirar.
+
+1. **Deploy 1** (este): `git pull && docker compose -f docker-compose.prod.yml up -d --build`.
+   O app continua exposto em `http://IP:8000` **e** o nginx entra em `http://IP/`.
+   Valide login, dashboard e estáticos pela porta **80**.
+2. **Deploy 2**: em `docker-compose.prod.yml`, troque a porta do serviço `app` de
+   `"8000:8000"` para `"127.0.0.1:8000:8000"` e suba de novo. A partir daí todo o
+   tráfego passa pelo nginx (rate-limit/gzip valem de verdade).
+
+> Quando houver domínio + HTTPS, as seções abaixo (nginx no host + certbot) substituem
+> este arranjo — aí remova o serviço `nginx` do compose e siga o guia original.
+
+## Migrações pesadas antes do deploy (opcional)
+
+O `init_db()` roda no boot com `lock_timeout=5s` / `statement_timeout=120s` (PG):
+uma migração que não conseguir lock falha rápido e o `restart: always` re-tenta —
+melhor do que congelar o site. Para migrações potencialmente demoradas (ex.: um
+futuro `ALTER` que reescreva uma tabela grande), rode ANTES de trocar os containers:
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm app python scripts/run_migrations.py
+```
+
+Assim o boot dos containers novos vira uma passada rápida por guards idempotentes.
+
+---
+
 ## 0. Pré-requisitos
 
 - VPS Hostinger com Ubuntu 24.04 e acesso `root` (ou usuário com `sudo`).

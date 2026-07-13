@@ -8,7 +8,7 @@ interna correspondente (Notas/Repositório) se ainda não existir uma.
 import logging
 from typing import Optional
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import _MIGRATION_LOCK_KEY
@@ -23,9 +23,27 @@ from app.utils.time import utcnow
 logger = logging.getLogger("oriens.list_migration")
 
 _TITLE_MAX = 2000
+# Máximo de títulos de link buscados na rede POR BOOT — o boot não pode ficar
+# refém de HTTP externo. Itens além do cap migram com link_title=None.
+_MAX_LINK_FETCHES = 20
+
+
+async def _has_legacy_rows(db: AsyncSession) -> bool:
+    """Saída rápida: sem NENHUMA linha legada, a migração vira 2 COUNTs por boot."""
+    notes = (await db.execute(
+        select(func.count()).select_from(Note).where(Note.project_id.is_(None))
+    )).scalar_one()
+    if notes:
+        return True
+    items = (await db.execute(
+        select(func.count()).select_from(RepositoryItem)
+    )).scalar_one()
+    return bool(items)
 
 
 async def migrate_notes_and_repository_to_tasks(db: AsyncSession) -> None:
+    if not await _has_legacy_rows(db):
+        return
     bind = db.get_bind()
     if bind.dialect.name == "postgresql":
         # Mesma chave do lock de DDL em init_db() (não uma própria): com 3 workers do
@@ -126,9 +144,11 @@ async def _migrate_repository_items(db: AsyncSession, list_repo: TaskListReposit
     # 2) Busca os títulos de link (I/O de rede) ANTES de montar os objetos a inserir —
     # evita manter INSERTs pendentes (e locks) na transação durante chamadas HTTP lentas.
     link_titles: dict[int, Optional[str]] = {}
+    fetches = 0
     for item, _list_id, _title, link_url in pending:
-        if link_url:
+        if link_url and fetches < _MAX_LINK_FETCHES:
             link_titles[item.id] = await fetch_link_title(link_url)
+            fetches += 1
 
     # 3) Só agora monta e grava — sem nenhum SELECT/HTTP entre os adds e o commit.
     for item, list_id, title, link_url in pending:

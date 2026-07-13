@@ -1,0 +1,16 @@
+{# app/templates/partials/trash_page.html — uma "página" de itens da Lixeira
+   + botão "carregar mais". Vars: captures, has_more, next_offset #}
+{% for capture in captures %}
+  {% include "partials/trash_item.html" %}
+{% endfor %}
+{% if has_more %}
+<div id="trash-load-more" class="py-3 text-center">
+  <button
+    hx-get="/lixeira?offset={{ next_offset }}"
+    hx-target="#trash-load-more"
+    hx-swap="outerHTML"
+    class="text-xs text-oriens-secondary hover:text-oriens-primary transition-colors">
+    Carregar mais
+  </button>
+</div>
+{% endif %}

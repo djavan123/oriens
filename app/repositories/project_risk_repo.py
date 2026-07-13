@@ -34,6 +34,21 @@ class ProjectRiskRepository:
         )
         return result.scalar_one()
 
+    async def count_open_by_projects(self, project_ids: list[int]) -> dict[int, int]:
+        """{project_id: nº de riscos abertos} numa única query (evita N+1 no relatório)."""
+        if not project_ids:
+            return {}
+        from sqlalchemy import func
+        result = await self.db.execute(
+            select(ProjectRisk.project_id, func.count())
+            .where(
+                ProjectRisk.project_id.in_(project_ids),
+                ProjectRisk.status == RiskStatus.open,
+            )
+            .group_by(ProjectRisk.project_id)
+        )
+        return {row[0]: int(row[1]) for row in result.all()}
+
     async def create(
         self,
         project_id: int,

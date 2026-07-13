@@ -1,6 +1,6 @@
 # app/repositories/project_decision_repo.py
 from typing import Optional
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.project_decision import ProjectDecision
@@ -17,6 +17,17 @@ class ProjectDecisionRepository:
             .order_by(ProjectDecision.created_at.desc(), ProjectDecision.id.desc())
         )
         return list(result.scalars().all())
+
+    async def count_by_projects(self, project_ids: list[int]) -> dict[int, int]:
+        """{project_id: nº de decisões} numa única query (evita N+1 no relatório)."""
+        if not project_ids:
+            return {}
+        result = await self.db.execute(
+            select(ProjectDecision.project_id, func.count())
+            .where(ProjectDecision.project_id.in_(project_ids))
+            .group_by(ProjectDecision.project_id)
+        )
+        return {row[0]: int(row[1]) for row in result.all()}
 
     async def create(self, project_id: int, user_id: int, content: str) -> ProjectDecision:
         decision = ProjectDecision(project_id=project_id, user_id=user_id, content=content)

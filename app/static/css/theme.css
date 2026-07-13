@@ -4,6 +4,16 @@
    que mapeia cada cor 'oriens-x' para var(--oriens-x). Assim, todas as classes
    utilitárias (bg-oriens-*, text-oriens-*, border-oriens-*) re-tematizam de uma vez. */
 
+/* Tokens locais da lista/detalhe de projetos (SCRIPT 17). Valores idênticos nos
+   3 temas de propósito — preservam o visual hardcoded original (#4573d2 etc.)
+   enquanto centralizam a cor num único lugar. */
+:root {
+  --oriens-table-accent:  #4573d2;
+  --oriens-table-success: #5DCAA5;
+  --oriens-table-warn:    #e08050;
+  --oriens-table-today:   #EF9F27;
+}
+
 /* ───────────────────────── DARK (padrão) ───────────────────────── */
 :root[data-theme="dark"] {
   --oriens-bg:            #15151A;

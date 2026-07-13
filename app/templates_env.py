@@ -5,6 +5,11 @@ from fastapi.templating import Jinja2Templates
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["now"] = datetime.utcnow
 
+# Versão do app para cache-busting (?v=) de estáticos e do service worker.
+from app.config import get_settings  # noqa: E402
+
+templates.env.globals["app_version"] = get_settings().APP_VERSION
+
 
 def due_status(value):
     """Classifica uma data de prazo em relação a hoje.
@@ -45,3 +50,17 @@ def url_domain(url):
 
 
 templates.env.globals["url_domain"] = url_domain
+
+
+def safe_hex(value):
+    """Valida cor hex (#RRGGBB). Cores fora do padrão viram None — nunca chegam ao CSS.
+
+    Sanitiza também na renderização porque valores antigos podem estar persistidos.
+    """
+    import re
+    if value and re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+        return value
+    return None
+
+
+templates.env.globals["safe_hex"] = safe_hex

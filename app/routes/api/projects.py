@@ -187,9 +187,9 @@ async def update_project(
     project = await service.update(project_id, current_user.id, **updates)
     if not project:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse(
-        request, "partials/project_card.html", {"project": project}
-    )
+    # Todos os chamadores usam hx-swap="none" ou ignoram o corpo (kanban/fetch) —
+    # o antigo partials/project_card.html (órfão) foi removido.
+    return HTMLResponse("")
 
 
 # ── Task order ────────────────────────────────────────────────────────────────
@@ -484,7 +484,9 @@ async def delete_decision(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await ProjectDecisionRepository(db).delete(decision_id, current_user.id)
+    deleted = await ProjectDecisionRepository(db).delete(decision_id, current_user.id)
+    if not deleted:
+        raise HTTPException(status_code=404)
     return HTMLResponse("")
 
 

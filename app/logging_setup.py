@@ -1,20 +1,41 @@
 # app/logging_setup.py
 """Configuração de logging única para o web e o worker."""
+import json
 import logging
 from logging.config import dictConfig
 
 from app.config import get_settings
 
 
+class JsonFormatter(logging.Formatter):
+    """Uma linha JSON por evento (LOG_JSON=true) — pronto para agregadores
+    (Loki, CloudWatch, `docker logs | jq`). Sem dependência externa."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        payload = {
+            "ts": self.formatTime(record),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info:
+            payload["exc"] = self.formatException(record.exc_info)
+        return json.dumps(payload, ensure_ascii=False)
+
+
 def configure_logging() -> None:
-    app_level = "DEBUG" if get_settings().DEBUG else "INFO"
+    settings = get_settings()
+    app_level = "DEBUG" if settings.DEBUG else "INFO"
+    formatter = (
+        {"()": "app.logging_setup.JsonFormatter"}
+        if settings.LOG_JSON
+        else {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"}
+    )
     dictConfig({
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {
-            "default": {
-                "format": "%(asctime)s %(levelname)s %(name)s: %(message)s",
-            },
+            "default": formatter,
         },
         "handlers": {
             "console": {

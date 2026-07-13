@@ -18,7 +18,9 @@ class ProjectRepository:
         context_id: Optional[int] = None,
         archived_only: bool = False,
         include_archived: bool = False,
+        limit: int = 200,
     ) -> list[Project]:
+        # `limit=200` é guard-rail (projetos são dezenas; protege contra anomalia).
         q = (
             select(Project)
             .where(Project.user_id == user_id, Project.status != ProjectStatus.concluido)
@@ -32,12 +34,12 @@ class ProjectRepository:
                 (Project.context_id.is_(None)) | (Project.context_id == context_id)
             )
         result = await self.db.execute(
-            q.order_by(Project.priority.asc(), Project.created_at.desc())
+            q.order_by(Project.priority.asc(), Project.created_at.desc()).limit(limit)
         )
         return list(result.scalars().all())
 
     async def get_active_by_user(
-        self, user_id: int, context_id: Optional[int] = None
+        self, user_id: int, context_id: Optional[int] = None, limit: int = 200
     ) -> list[Project]:
         q = (
             select(Project)
@@ -53,7 +55,7 @@ class ProjectRepository:
                 (Project.context_id.is_(None)) | (Project.context_id == context_id)
             )
         result = await self.db.execute(
-            q.order_by(Project.priority.asc(), Project.created_at.desc())
+            q.order_by(Project.priority.asc(), Project.created_at.desc()).limit(limit)
         )
         return list(result.scalars().all())
 

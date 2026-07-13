@@ -1,9 +1,13 @@
-<div id="section-{{ section.id }}" class="mb-5 section-row" data-section-id="{{ section.id }}">
+<div id="section-{{ section.id }}" class="mb-5 section-row" data-section-id="{{ section.id }}"
+     x-data="{ open: true }">
 
   <!-- Cabeçalho da seção -->
   <div class="group flex items-center gap-2 mb-2" x-data="{ renaming: false }">
 
     <span class="section-drag-handle flex-shrink-0 w-4 flex items-center justify-center cursor-grab text-oriens-muted hover:text-oriens-secondary select-none text-sm leading-none self-stretch opacity-0 group-hover:opacity-100 transition-opacity mr-1">⠿</span>
+
+    <span @click="open = !open" x-text="open ? '▾' : '▸'"
+          class="flex-shrink-0 text-[11px] text-oriens-secondary cursor-pointer select-none mr-0.5"></span>
 
     <span id="section-name-{{ section.id }}"
           x-show="!renaming"
@@ -42,7 +46,8 @@
   </div>
 
   <!-- Tarefas da seção (renderizadas inicialmente via Jinja; novas tarefas appendadas via HTMX) -->
-  <div id="task-list-section-{{ section.id }}" class="section-task-list pl-2" data-section-id="{{ section.id }}">
+  <div id="task-list-section-{{ section.id }}" class="section-task-list pl-2" data-section-id="{{ section.id }}"
+       x-show="open">
     {% if section_tasks is defined %}
     {% for task in section_tasks %}
       {% with draggable=true,
@@ -53,29 +58,42 @@
     {% endif %}
   </div>
 
-  <!-- Bloqueadas da seção -->
-  {% set section_blocked = blocked_by_section.get(section.id, []) if blocked_by_section is defined else [] %}
-  {% for task in section_blocked %}
-    {% with draggable=false %}
-      {% include "partials/project_task_row.html" %}
-    {% endwith %}
-  {% endfor %}
-
-  <!-- Concluídas da seção (inline, sem drag; mesma estrutura/alinhamento das pendentes) -->
-  {% set section_done = done_by_section.get(section.id, []) if done_by_section is defined else [] %}
-  {% if section_done %}
-  <div class="pl-2">
-    {% for task in section_done %}
+  <div x-show="open">
+    <!-- Bloqueadas da seção -->
+    {% set section_blocked = blocked_by_section.get(section.id, []) if blocked_by_section is defined else [] %}
+    {% for task in section_blocked %}
       {% with draggable=false %}
         {% include "partials/project_task_row.html" %}
       {% endwith %}
     {% endfor %}
-  </div>
-  {% endif %}
 
-  <!-- Form de adição rápida dentro da seção -->
-  {% with project_id=project.id, section_id=section.id, task_list_target="#task-list-section-" ~ section.id, form_id="task-form-section-" ~ section.id %}
-  {% include "partials/task_form.html" %}
-  {% endwith %}
+    <!-- Concluídas da seção (inline, sem drag; mesma estrutura/alinhamento das pendentes) -->
+    {% set section_done = done_by_section.get(section.id, []) if done_by_section is defined else [] %}
+    {% if section_done %}
+    <div class="pl-2">
+      {% for task in section_done %}
+        {% with draggable=false %}
+          {% include "partials/project_task_row.html" %}
+        {% endwith %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Adição rápida: trigger discreto que revela o form (padrão de lists.html) -->
+    <div x-data="{ adding: false }">
+      <div x-show="!adding"
+           @click="adding = true; $nextTick(() => { var i = $root.querySelector('input[name=title]'); if (i) i.focus(); })"
+           class="cursor-pointer select-none"
+           style="padding: 6px 0 6px 44px;">
+        <span class="text-[13px] text-oriens-secondary opacity-50">Adicionar tarefa...</span>
+      </div>
+      <div x-show="adding" x-cloak
+           @htmx:after-request="if ($event.detail.successful && !$event.detail.xhr.getResponseHeader('HX-Retarget')) adding = false">
+        {% with project_id=project.id, section_id=section.id, task_list_target="#task-list-section-" ~ section.id, form_id="task-form-section-" ~ section.id %}
+        {% include "partials/task_form.html" %}
+        {% endwith %}
+      </div>
+    </div>
+  </div>
 
 </div>

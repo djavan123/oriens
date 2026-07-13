@@ -1,6 +1,6 @@
 # app/routes/api/capture.py
 from typing import Optional
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from app.templates_env import templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -111,6 +111,7 @@ async def cancel_decide_capture(
 async def process_capture(
     capture_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     action: str = Form(...),
     # Task fields
     title: Optional[str] = Form(None),
@@ -126,9 +127,6 @@ async def process_capture(
     project_priority: int = Form(2),
     project_context_id: Optional[str] = Form(None),
     project_proxima_acao: Optional[str] = Form(None),
-    # Note fields
-    note_content: Optional[str] = Form(None),
-    note_project_id: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -200,6 +198,7 @@ async def process_capture(
                 context_id=ctx_id,
                 importancia=importancia,
                 list_id=lid,
+                background_tasks=background_tasks,
             )
         except TaskVerbError as e:
             return _task_error(e)
@@ -225,31 +224,6 @@ async def process_capture(
             context_id=_parse_int(project_context_id),
             proxima_acao=project_proxima_acao.strip() if project_proxima_acao else None,
         )
-
-    elif action == "note":
-        content = (note_content or "").strip()
-        if not content:
-            return HTMLResponse(
-                '<p class="text-oriens-alert text-sm">Conteúdo é obrigatório.</p>',
-                headers={
-                    "HX-Retarget": f"#process-note-error-{capture_id}",
-                    "HX-Reswap": "innerHTML",
-                },
-            )
-        await service.process_as_note(
-            capture_id=capture_id,
-            user_id=current_user.id,
-            content=content,
-            project_id=_parse_int(note_project_id),
-        )
-
-    elif action == "repository":
-        capture_obj = await CaptureRepository(db).get_by_id(capture_id, current_user.id)
-        content = capture_obj.content.strip() if capture_obj else ""
-        if content:
-            await service.process_as_repository(capture_id, current_user.id, content)
-        else:
-            await service.discard(capture_id, current_user.id)
 
     elif action == "discard":
         await service.discard(capture_id, current_user.id)
@@ -282,7 +256,9 @@ async def resolve_capture(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await CaptureService(db).resolve(capture_id, current_user.id)
+    item = await CaptureService(db).resolve(capture_id, current_user.id)
+    if item is None:
+        raise HTTPException(status_code=404)
     return HTMLResponse("")
 
 
@@ -292,7 +268,9 @@ async def discard_capture_to_trash(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await CaptureService(db).discard_to_trash(capture_id, current_user.id)
+    item = await CaptureService(db).discard_to_trash(capture_id, current_user.id)
+    if item is None:
+        raise HTTPException(status_code=404)
     return HTMLResponse("")
 
 
@@ -302,7 +280,9 @@ async def restore_capture(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await CaptureService(db).restore(capture_id, current_user.id)
+    item = await CaptureService(db).restore(capture_id, current_user.id)
+    if item is None:
+        raise HTTPException(status_code=404)
     return HTMLResponse("")
 
 

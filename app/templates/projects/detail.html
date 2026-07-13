@@ -3,7 +3,7 @@
 {% block title %}{{ project.name }} — Oriens{% endblock %}
 
 {% block head %}
-<script src="/static/vendor/sortable.min.js"></script>
+<script src="/static/vendor/sortable.min.js?v={{ app_version }}"></script>
 {% endblock %}
 
 {% set status_label = {
@@ -20,8 +20,8 @@
 .pj-card-label { font-size:11px; font-weight:600; letter-spacing:0.08em; color:var(--oriens-secondary); text-transform:uppercase; margin-bottom:10px; }
 .pj-chip { display:inline-flex; align-items:center; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:500; white-space:nowrap; }
 .pj-tab { padding:10px 16px; background:none; border:none; border-bottom:2px solid transparent; font-size:14px; cursor:pointer; color:var(--oriens-secondary); margin-bottom:-1px; transition:color .12s; }
-.pj-tab.active { color:var(--oriens-primary); border-bottom-color:#4573d2; }
-.pj-btn-primary { background:#4573d2; color:#fff; border:none; border-radius:6px; padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; transition:opacity .12s; }
+.pj-tab.active { color:var(--oriens-primary); border-bottom-color:var(--oriens-table-accent); }
+.pj-btn-primary { background:var(--oriens-table-accent); color:#fff; border:none; border-radius:6px; padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; transition:opacity .12s; }
 .pj-btn-primary:hover { opacity:0.85; }
 .pj-btn-secondary { background:var(--oriens-surface); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:7px 14px; font-size:13px; cursor:pointer; transition:background .12s; }
 .pj-btn-secondary:hover { background:var(--oriens-card-hover); }
@@ -68,7 +68,7 @@
 /* Hover light theme */
 [data-theme="light"] .project-task-row:hover { background: rgba(0,0,0,0.03) !important; }
 [data-theme="light"] .project-task-row:hover .absolute.right-0 { background: rgba(0,0,0,0.03) !important; }
-/* Botão ··· injetado via JS */
+/* Botão ··· (renderizado no partial project_task_row.html; abre o painel de ações) */
 .pj-ellipsis-btn {
   position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
   opacity: 0; transition: opacity .1s;
@@ -189,12 +189,12 @@
           {% if project.objective %}
           <p style="color:var(--oriens-primary); font-size:14px; line-height:1.6; margin:0 0 8px;">{{ project.objective }}</p>
           <button @click="editingObj=true"
-            style="color:#4573d2; font-size:12px; background:none; border:none; cursor:pointer; padding:0;">
+            style="color:var(--oriens-table-accent); font-size:12px; background:none; border:none; cursor:pointer; padding:0;">
             Editar
           </button>
           {% else %}
           <button @click="editingObj=true"
-            style="color:#4573d2; font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
+            style="color:var(--oriens-table-accent); font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
             + definir objetivo claro para esse projeto
           </button>
           {% endif %}
@@ -223,15 +223,15 @@
               <p style="font-size:24px; font-weight:600; color:var(--oriens-primary); line-height:1; margin:0;">—</p>
               <p style="color:var(--oriens-secondary); font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
             {% elif dias < 0 %}
-              <p style="font-size:24px; font-weight:600; color:#e08050; line-height:1; margin:0;">
+              <p style="font-size:24px; font-weight:600; color:var(--oriens-table-warn); line-height:1; margin:0;">
                 {{ -dias }}<span style="font-size:13px; font-weight:400;"> dia{{ 's' if -dias != 1 else '' }} em atraso</span>
               </p>
               <p style="color:var(--oriens-secondary); font-size:13px; margin:4px 0 0;">era {{ project.deadline.strftime('%d/%m/%Y') }}</p>
             {% elif dias == 0 %}
-              <p style="font-size:24px; font-weight:600; color:#EF9F27; line-height:1; margin:0;">Hoje</p>
+              <p style="font-size:24px; font-weight:600; color:var(--oriens-table-today); line-height:1; margin:0;">Hoje</p>
               <p style="color:var(--oriens-secondary); font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
             {% elif dias <= 3 %}
-              <p style="font-size:24px; font-weight:600; color:#EF9F27; line-height:1; margin:0;">
+              <p style="font-size:24px; font-weight:600; color:var(--oriens-table-today); line-height:1; margin:0;">
                 {{ dias }}<span style="font-size:13px; font-weight:400;"> dia{{ 's' if dias != 1 else '' }}</span>
               </p>
               <p style="color:var(--oriens-secondary); font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
@@ -242,12 +242,12 @@
               <p style="color:var(--oriens-secondary); font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
             {% endif %}
             <button type="button" @click="editingDeadline=true"
-              style="color:#4573d2; font-size:12px; background:none; border:none; cursor:pointer; padding:0; margin-top:10px; display:block;">
+              style="color:var(--oriens-table-accent); font-size:12px; background:none; border:none; cursor:pointer; padding:0; margin-top:10px; display:block;">
               Editar →
             </button>
           {% else %}
           <button type="button" @click="editingDeadline=true"
-            style="color:#4573d2; font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
+            style="color:var(--oriens-table-accent); font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
             + definir prazo
           </button>
           {% endif %}
@@ -275,7 +275,7 @@
           {{ progress.pct }}<span style="font-size:14px; color:var(--oriens-secondary); font-weight:400;">%</span>
         </p>
         <div style="height:6px; border-radius:3px; background:var(--oriens-divider); overflow:hidden; margin-bottom:6px;">
-          <div style="height:100%; border-radius:3px; background:{% if progress.pct == 100 %}#5DCAA5{% else %}#4573d2{% endif %}; width:{{ progress.pct }}%;"></div>
+          <div style="height:100%; border-radius:3px; background:{% if progress.pct == 100 %}var(--oriens-table-success){% else %}var(--oriens-table-accent){% endif %}; width:{{ progress.pct }}%;"></div>
         </div>
         <p style="color:var(--oriens-secondary); font-size:13px; margin:0;">{{ progress.done }} de {{ progress.total }} tarefas concluídas</p>
         {% else %}
@@ -290,7 +290,7 @@
           hx-post="/api/projects/{{ project.id }}/decisions"
           hx-target="#decisions-list"
           hx-swap="afterbegin"
-          hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+          hx-on::after-request="if(event.detail.successful){ this.reset() }"
           style="display:flex; gap:8px; margin-bottom:12px;">
           <input type="text" id="decision-input" name="content" required placeholder="Nova decisão..."
             class="pj-input" style="flex:1;">
@@ -301,7 +301,7 @@
             {% include "partials/project_decision.html" %}
           {% else %}
           <button type="button" onclick="document.getElementById('decision-input').focus()"
-            style="color:#4573d2; font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
+            style="color:var(--oriens-table-accent); font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
             + registrar primeira decisão
           </button>
           {% endfor %}
@@ -322,7 +322,7 @@
           hx-post="/api/projects/{{ project.id }}/comments"
           hx-target="#comments-list"
           hx-swap="beforeend"
-          hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+          hx-on::after-request="if(event.detail.successful){ this.reset() }"
           style="display:flex; flex-direction:column; gap:8px;">
           <textarea name="content" rows="2" required placeholder="Escrever comentário..."
             style="width:100%; background:var(--oriens-bg); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:8px 12px; font-size:14px; resize:none; outline:none; box-sizing:border-box;"></textarea>
@@ -345,7 +345,7 @@
           hx-target="#attachments-list"
           hx-swap="afterbegin"
           hx-encoding="multipart/form-data"
-          hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+          hx-on::after-request="if(event.detail.successful){ this.reset() }"
           style="display:flex; flex-direction:column; gap:8px;">
           <input type="file" name="file" required
             class="text-oriens-tertiary text-xs file:mr-2 file:py-1 file:px-2
@@ -366,17 +366,11 @@
         hx-target="#ai-project-suggestions"
         hx-swap="innerHTML"
         hx-indicator="#ai-project-spinner"
-        style="color:#4573d2; font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
+        style="color:var(--oriens-table-accent); font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
         Sugerir próximas ações →
       </button>
       <span id="ai-project-spinner" class="htmx-indicator" style="color:var(--oriens-muted); font-size:12px; margin-left:8px;">...</span>
       <div id="ai-project-suggestions" style="margin-top:8px;"></div>
-    </div>
-    {% endif %}
-
-    {% if false %}
-    <div x-data="{ adding: false }">
-      {% for r in risks %}{% include "partials/project_risk.html" %}{% endfor %}
     </div>
     {% endif %}
 
@@ -410,6 +404,21 @@
       .filter(function(n){ return !isNaN(n); });
   }
 
+  // PATCH de reordenação com tratamento de erro: se o servidor recusar (4xx/5xx)
+  // ou a rede falhar, re-renderiza o painel a partir do banco (reversão) e avisa.
+  function patchOrder(url, body){
+    fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function(res){
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+    }).catch(function(){
+      alert('Não foi possível salvar a nova ordem. A lista será recarregada.');
+      htmx.trigger(document.body, 'refreshProjectTasks');
+    });
+  }
+
   function initTaskSortables(){
     document.querySelectorAll('.section-task-list:not([data-si])').forEach(function(el){
       el.setAttribute('data-si', '1');
@@ -421,19 +430,11 @@
         onEnd: function(evt){
           var destEl = evt.to;
           var srcEl  = evt.from;
-          var destIds = getTaskIds(destEl);
-          fetch('/api/projects/{{ project.id }}/section-tasks', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ section_id: getSectionId(destEl), task_ids: destIds })
-          });
+          patchOrder('/api/projects/{{ project.id }}/section-tasks',
+                     { section_id: getSectionId(destEl), task_ids: getTaskIds(destEl) });
           if(srcEl !== destEl){
-            var srcIds = getTaskIds(srcEl);
-            fetch('/api/projects/{{ project.id }}/section-tasks', {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ section_id: getSectionId(srcEl), task_ids: srcIds })
-            });
+            patchOrder('/api/projects/{{ project.id }}/section-tasks',
+                       { section_id: getSectionId(srcEl), task_ids: getTaskIds(srcEl) });
           }
         }
       });
@@ -453,26 +454,23 @@
           .map(function(r){ return parseInt(r.getAttribute('data-section-id'), 10); })
           .filter(function(n){ return !isNaN(n); });
         if(!ids.length) return;
-        fetch('/api/projects/{{ project.id }}/section-order', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ section_ids: ids })
-        });
+        patchOrder('/api/projects/{{ project.id }}/section-order', { section_ids: ids });
       }
     });
   }
 
-  // Exposto para o init unificado no fim do arquivo.
-  window.__oriensInitSortables = function(){
+  function init(){
     initTaskSortables();
     initSectionSortable();
-  };
+  }
 
   if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', window.__oriensInitSortables);
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    window.__oriensInitSortables();
+    init();
   }
+  // Re-inicializa após qualquer refresh HTMX do painel (funções idempotentes via data-*).
+  document.addEventListener('htmx:afterSettle', init);
 })();
 </script>
 
@@ -495,116 +493,8 @@ document.querySelectorAll('.resizable-th').forEach(th => {
 });
 </script>
 
-<!-- Aba Tarefas: formulários de seção + botão ··· -->
-<script>
-(function(){
-  // Formulários de seção → "+" trigger
-  function setupSectionForms(){
-    document.querySelectorAll('form[id^="task-form-section-"]:not([data-trigger])').forEach(function(form){
-      form.dataset.trigger = '1';
-      form.style.display = 'none';
-      var trigger = document.createElement('div');
-      trigger.style.cssText = 'padding:6px 0 6px 44px; cursor:pointer; user-select:none;';
-      trigger.innerHTML = '<span style="font-size:13px;color:var(--oriens-secondary);opacity:0.5;">Adicionar tarefa...</span>';
-      form.parentNode.insertBefore(trigger, form);
-      trigger.addEventListener('click', function(){
-        trigger.style.display = 'none';
-        form.style.removeProperty('display');
-        var inp = form.querySelector('input[name="title"]');
-        if(inp) inp.focus();
-      });
-      form.addEventListener('htmx:afterRequest', function(e){
-        if(e.detail.successful){
-          trigger.style.removeProperty('display');
-          form.style.display = 'none';
-        }
-      });
-    });
-  }
-
-  // Chevron colapsável nas seções
-  function setupSectionCollapse(){
-    document.querySelectorAll('.section-row:not([data-collapse-init])').forEach(function(sectionEl){
-      sectionEl.dataset.collapseInit = '1';
-      var header    = sectionEl.querySelector(':scope > .group');
-      var dragHandle = header && header.querySelector('.section-drag-handle');
-      var taskList  = sectionEl.querySelector(':scope > .section-task-list');
-      if(!header || !taskList) return;
-
-      var open = true;
-      var chevron = document.createElement('span');
-      chevron.style.cssText = 'flex-shrink:0;font-size:11px;color:var(--oriens-secondary);cursor:pointer;user-select:none;margin-right:2px;';
-      chevron.textContent = '▾';
-
-      if(dragHandle && dragHandle.nextSibling){
-        header.insertBefore(chevron, dragHandle.nextSibling);
-      } else {
-        header.insertBefore(chevron, header.firstChild);
-      }
-
-      chevron.addEventListener('click', function(){
-        open = !open;
-        chevron.textContent = open ? '▾' : '▸';
-        taskList.style.display = open ? '' : 'none';
-        var trigger = sectionEl.querySelector(':scope > [data-trigger]');
-        if(trigger) trigger.style.display = open ? '' : 'none';
-        var form = sectionEl.querySelector(':scope > form[id^="task-form-section-"]');
-        if(form) form.style.display = 'none';
-      });
-    });
-  }
-
-  // Botão ··· em linhas de tarefa
-  function setupEllipsis(){
-    document.querySelectorAll('.project-task-row:not([data-ell])').forEach(function(row){
-      row.dataset.ell = '1';
-      var panel = row.querySelector('.absolute.right-0');
-      if(!panel) return;
-      panel.style.opacity = '0';
-      panel.style.pointerEvents = 'none';
-      panel.style.transition = 'none';
-      var btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'pj-ellipsis-btn';
-      btn.textContent = '···';
-      row.appendChild(btn);
-      var open = false;
-      row.addEventListener('mouseleave', function(){
-        if(!open) btn.style.opacity = '0';
-      });
-      btn.addEventListener('click', function(e){
-        e.stopPropagation();
-        open = !open;
-        panel.style.opacity = open ? '1' : '0';
-        panel.style.pointerEvents = open ? 'auto' : 'none';
-        btn.style.opacity = open ? '1' : '0';
-      });
-      document.addEventListener('click', function(){
-        if(open){
-          open = false;
-          panel.style.opacity = '0';
-          panel.style.pointerEvents = 'none';
-        }
-      });
-    });
-  }
-
-  // Init unificado: SortableJS + formulários/chevron/ellipsis. Todas as funções
-  // são idempotentes (guardadas por data-*), então um único afterSettle basta.
-  function init(){
-    if(window.__oriensInitSortables) window.__oriensInitSortables();
-    setupSectionForms();
-    setupSectionCollapse();
-    setupEllipsis();
-  }
-
-  if(document.readyState === 'loading'){
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
-  document.addEventListener('htmx:afterSettle', init);
-})();
-</script>
+{# O antigo bloco de "DOM surgery" (trigger de form de seção, chevron de colapso
+   e botão ···) foi migrado para markup Alpine nos partials project_section.html
+   e project_task_row.html — sem listeners acumulando a cada re-render. #}
 
 {% endblock %}

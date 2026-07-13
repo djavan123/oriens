@@ -19,11 +19,13 @@ def _make_engine():
     connect_args = {"check_same_thread": False} if is_sqlite else {}
     kwargs = dict(connect_args=connect_args, echo=settings.DEBUG)
     if not is_sqlite:
-        # Pool dimensionado para múltiplos workers; pre_ping/recycle evitam
+        # Pool POR PROCESSO, parametrizado por env (DB_POOL_SIZE/DB_MAX_OVERFLOW).
+        # Teto agregado deve ficar abaixo do max_connections do PG somando todos
+        # os processos (workers web + worker de fundo). pre_ping/recycle evitam
         # conexões mortas atrás de PG gerenciado/pgbouncer ou após restart do banco.
         kwargs.update(
-            pool_size=10,
-            max_overflow=20,
+            pool_size=settings.DB_POOL_SIZE,
+            max_overflow=settings.DB_MAX_OVERFLOW,
             pool_pre_ping=True,
             pool_recycle=1800,
         )
@@ -195,17 +197,23 @@ def _ensure_columns_postgres(conn) -> None:
     if row and row[0] is not None and row[0] < 2000:
         conn.exec_driver_sql('ALTER TABLE "tasks" ALTER COLUMN title TYPE VARCHAR(2000)')
     # Inicializa order_index para tarefas de projeto existentes (idempotente).
+    # Guard barato antes do UPDATE: sem linha pendente, pula a varredura no boot.
     try:
-        conn.exec_driver_sql("""
-            UPDATE tasks SET order_index = sub.rn
-            FROM (
-                SELECT id,
-                    (ROW_NUMBER() OVER (PARTITION BY project_id ORDER BY id ASC) - 1) AS rn
-                FROM tasks
-                WHERE project_id IS NOT NULL AND parent_id IS NULL
-            ) sub
-            WHERE tasks.id = sub.id AND tasks.order_index IS NULL
-        """)
+        pending = conn.exec_driver_sql(
+            "SELECT 1 FROM tasks WHERE project_id IS NOT NULL "
+            "AND parent_id IS NULL AND order_index IS NULL LIMIT 1"
+        ).fetchone()
+        if pending:
+            conn.exec_driver_sql("""
+                UPDATE tasks SET order_index = sub.rn
+                FROM (
+                    SELECT id,
+                        (ROW_NUMBER() OVER (PARTITION BY project_id ORDER BY id ASC) - 1) AS rn
+                    FROM tasks
+                    WHERE project_id IS NOT NULL AND parent_id IS NULL
+                ) sub
+                WHERE tasks.id = sub.id AND tasks.order_index IS NULL
+            """)
     except Exception:
         logger.exception("Falha ao inicializar order_index (PostgreSQL)")
 
@@ -247,16 +255,21 @@ def _migrate_data(conn) -> None:
     try:
         task_cols = {row[1] for row in conn.exec_driver_sql('PRAGMA table_info("tasks")')}
         if "order_index" in task_cols:
-            conn.exec_driver_sql(
-                "UPDATE tasks "
-                "SET order_index = ("
-                "  SELECT COUNT(*) FROM tasks t2"
-                "  WHERE t2.project_id = tasks.project_id"
-                "  AND t2.parent_id IS NULL"
-                "  AND t2.id < tasks.id"
-                ") "
-                "WHERE project_id IS NOT NULL AND parent_id IS NULL AND order_index IS NULL"
-            )
+            pending = conn.exec_driver_sql(
+                "SELECT 1 FROM tasks WHERE project_id IS NOT NULL "
+                "AND parent_id IS NULL AND order_index IS NULL LIMIT 1"
+            ).fetchone()
+            if pending:
+                conn.exec_driver_sql(
+                    "UPDATE tasks "
+                    "SET order_index = ("
+                    "  SELECT COUNT(*) FROM tasks t2"
+                    "  WHERE t2.project_id = tasks.project_id"
+                    "  AND t2.parent_id IS NULL"
+                    "  AND t2.id < tasks.id"
+                    ") "
+                    "WHERE project_id IS NOT NULL AND parent_id IS NULL AND order_index IS NULL"
+                )
     except Exception:
         logger.exception("Falha ao inicializar order_index (SQLite)")
 
@@ -274,6 +287,11 @@ _INDEXES: list[tuple[str, str, str]] = [
     ("ix_tasks_section_id", "tasks", "section_id"),
     ("ix_tasks_list_id", "tasks", "list_id"),
     ("ix_capture_inbox_processed", "capture_inbox", "processed"),
+    # Índices compostos para os padrões reais de filtro (quase toda query de
+    # tarefa filtra user+status+archived; o detalhe do projeto, user+project+parent).
+    ("ix_tasks_user_status_archived", "tasks", "user_id, status, archived"),
+    ("ix_tasks_user_project_parent", "tasks", "user_id, project_id, parent_id"),
+    ("ix_capture_inbox_user_processed", "capture_inbox", "user_id, processed"),
 ]
 
 
@@ -282,6 +300,18 @@ def _acquire_migration_lock(conn) -> None:
     esperam e reexecutam passos idempotentes. No-op em SQLite (1 processo)."""
     if conn.dialect.name == "postgresql":
         conn.exec_driver_sql(f"SELECT pg_advisory_xact_lock({_MIGRATION_LOCK_KEY})")
+
+
+def _set_migration_timeouts(conn) -> None:
+    """Timeouts da transação de migração (só PG; SET LOCAL morre no commit).
+
+    lock_timeout curto: um ALTER que não conseguir o lock em 5s falha em vez de
+    congelar o boot (e o site) indefinidamente — o restart do compose re-tenta.
+    statement_timeout: teto para qualquer passo pesado (ex.: reescrita de tabela).
+    """
+    if conn.dialect.name == "postgresql":
+        conn.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
+        conn.exec_driver_sql("SET LOCAL statement_timeout = '120s'")
 
 
 def _ensure_indexes(conn) -> None:
@@ -304,13 +334,18 @@ def _seed_contexts(conn) -> None:
 
 
 async def init_db():
+    import time
+
     import app.models  # noqa: F401
+    start = time.perf_counter()
     async with engine.begin() as conn:
         # O lock cobre toda a transação (DDL + índices + seed); libera no commit.
         await conn.run_sync(_acquire_migration_lock)
+        await conn.run_sync(_set_migration_timeouts)
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_ensure_columns)
         await conn.run_sync(_ensure_columns_postgres)
         await conn.run_sync(_migrate_data)
         await conn.run_sync(_ensure_indexes)
         await conn.run_sync(_seed_contexts)
+    logger.info("init_db concluído em %.1fs", time.perf_counter() - start)

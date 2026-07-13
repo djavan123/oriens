@@ -1,5 +1,5 @@
 {# Linha de tarefa de projeto (estilo lista densa).
-   Vars: task, project, subtasks (dict), responsavel_map (dict), draggable, reload_on_done, is_next.
+   Vars: task, project, subtasks (dict), responsavel_map (dict), draggable, is_next.
    Colunas desktop: Drag | Checkbox | Título | Energia | Prazo | Responsável | Ações hover
 #}
 {% set parent = task %}
@@ -12,7 +12,9 @@
             hover:bg-oriens-card-hover transition-colors overflow-hidden
             {% if is_next is defined and is_next %}border-l-2 border-l-oriens-accent{% endif %}
             {% if task.status.value == 'done' %}opacity-40{% endif %}"
-     data-task-id="{{ task.id }}">
+     data-task-id="{{ task.id }}"
+     x-data="{ menu: false }"
+     @click.outside="menu = false">
 
   <!-- Drag handle -->
   {% if draggable is defined and draggable %}
@@ -29,7 +31,7 @@
     hx-patch="/api/tasks/{{ task.id }}/done"
     hx-swap="none"
     hx-on:click="document.getElementById('task-{{ task.id }}').classList.add('task-completing')"
-    hx-on::after-request="if(event.detail.successful){ {% if reload_on_done is defined and reload_on_done %}window.location.reload(){% else %}setTimeout(()=>{var e=document.getElementById('task-{{ task.id }}');if(e)e.remove();},450){% endif %} }"
+    hx-on::after-request="if(event.detail.successful){ setTimeout(()=>{var e=document.getElementById('task-{{ task.id }}');if(e)e.remove();},450) }"
     title="Concluir"
     class="flex-shrink-0 w-5 self-stretch flex items-center justify-center">
     <span class="w-4 h-4 border {{ cb_border }} rounded hover:border-oriens-accent hover:bg-oriens-accent/20 transition-colors pointer-events-none"></span>
@@ -100,8 +102,13 @@
     {% endif %}
   </div>
 
-  <!-- Ações hover (absoluto para não afetar o layout das colunas) -->
-  <div class="absolute right-0 inset-y-0 flex items-center gap-1.5 pr-2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 bg-oriens-card-hover">
+  <!-- Botão ··· abre o painel de ações (visível no hover da linha via CSS .pj-ellipsis-btn) -->
+  <button type="button" class="pj-ellipsis-btn" @click.stop="menu = !menu"
+          :style="menu ? 'opacity:1' : ''">···</button>
+
+  <!-- Ações (absoluto para não afetar o layout das colunas; abertas pelo ···) -->
+  <div class="absolute right-0 inset-y-0 flex items-center gap-1.5 pr-2 bg-oriens-card-hover"
+       :style="menu ? 'opacity:1; pointer-events:auto' : 'opacity:0; pointer-events:none'">
     {% if task.status.value == 'pending' %}
     <button hx-patch="/api/tasks/{{ task.id }}/blocked"
       hx-swap="none"
@@ -137,7 +144,7 @@
     hx-post="/api/tasks"
     hx-target="#subtasks-{{ parent.id }}"
     hx-swap="beforeend"
-    hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); }"
+    hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ this.reset(); }"
     style="display:none"
     class="flex items-center gap-2 py-1.5">
     <input type="hidden" name="parent_id" value="{{ parent.id }}">

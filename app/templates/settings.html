@@ -42,17 +42,7 @@
 
     <div id="labels-list">
       {% for label in labels %}
-      <div id="label-{{ label.id }}" class="flex items-center gap-3 py-2.5 border-b border-oriens-divider last:border-0">
-        <span class="w-3 h-3 rounded-full flex-shrink-0" style="background: {{ label.color or 'var(--oriens-border)' }}"></span>
-        <span class="text-oriens-primary text-sm flex-1">{{ label.name }}</span>
-        <button
-          hx-delete="/api/settings/labels/{{ label.id }}"
-          hx-target="#label-{{ label.id }}"
-          hx-swap="outerHTML"
-          class="text-oriens-secondary text-xs hover:text-oriens-alert transition-colors">
-          excluir
-        </button>
-      </div>
+      {% include "partials/label_item.html" %}
       {% endfor %}
     </div>
 
@@ -60,7 +50,7 @@
       hx-post="/api/settings/labels"
       hx-target="#labels-list"
       hx-swap="afterbegin"
-      hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+      hx-on::after-request="if(event.detail.successful){ this.reset() }"
       class="flex items-center gap-3 mt-4 pt-4 border-t border-oriens-border">
       <input
         type="color"
@@ -117,7 +107,7 @@
     <form
       hx-post="/api/settings/contexts"
       hx-swap="none"
-      hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+      hx-on::after-request="if(event.detail.successful){ this.reset() }"
       class="flex items-center gap-3 mt-4 pt-4 border-t border-oriens-border">
       <input
         type="text"

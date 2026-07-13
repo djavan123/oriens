@@ -14,5 +14,6 @@ from app.models.label import Label
 from app.models.repository import RepositoryItem
 from app.models.project_section import ProjectSection
 from app.models.task_list import TaskList
+from app.models.app_state import AppState
 
-__all__ = ["Context", "User", "Project", "Task", "CaptureInbox", "Note", "ProjectComment", "ProjectAttachment", "ProjectDecision", "ProjectRisk", "ProjectAudit", "ProjectTimeline", "TimelineEventType", "Label", "RepositoryItem", "ProjectSection", "TaskList"]
+__all__ = ["Context", "User", "Project", "Task", "CaptureInbox", "Note", "ProjectComment", "ProjectAttachment", "ProjectDecision", "ProjectRisk", "ProjectAudit", "ProjectTimeline", "TimelineEventType", "Label", "RepositoryItem", "ProjectSection", "TaskList", "AppState"]

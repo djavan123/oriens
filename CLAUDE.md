@@ -808,18 +808,60 @@ Substitui a edição **inline** (`task_edit_form.html`, aberta por `/edit` troca
 
 ---
 
+### ✅ SCRIPT — Produção em larga escala (branch `refactor/producao-larga-escala`)
+
+Preparação completa para rodar liso em escala, em 6 commits isolados (aditivo, não-destrutivo, nada dropado). Suíte foi de 50 → **87 testes** verdes + smoke end-to-end no navegador (Playwright, 13/13).
+
+**Fase 1 — Segurança:**
+- **SSRF corrigido em `utils/link_meta.py`:** hostname é resolvido via DNS e TODOS os IPs validados (antes só IP literal era bloqueado — domínio resolvendo p/ 169.254.169.254 passava); redirects seguidos **manualmente** (máx. 3) com validação de URL+DNS a cada hop ANTES do request (eliminou o TOCTOU da revalidação pós-redirect). Contrato "nunca levanta, retorna None" preservado.
+- **XSS armazenado corrigido nas etiquetas:** `_label_html` (f-string crua) → `partials/label_item.html` (autoescape Jinja), usado no POST e em `settings.html`; cor validada como `#RRGGBB` (inválida → `DEFAULT_LABEL_COLOR`) e sanitizada também na renderização (global Jinja `safe_hex` — cores maliciosas podem já estar persistidas).
+- **Nginx DENTRO do compose de prod** (`nginx/oriens-docker.conf` + serviço `nginx:1.27-alpine` na porta 80): rate-limit no login, gzip, headers de segurança, `/static/` direto do disco. **Cutover em 2 deploys** (porta 8000 pública mantida no 1º; fechar p/ `127.0.0.1:8000:8000` no 2º) — ver DEPLOY.md.
+
+**Fase 2 — Performance/banco:**
+- **Paginação "carregar mais"** (HTMX, `?offset=`, busca page+1 p/ `has_more`; fragmento via header `HX-Request`): Caixa de Entrada e Lixeira (50/página; contador via COUNT real) e Listas (100/página). Partials novos: `capture_page/trash_page/list_tasks_page.html`.
+- **Guard-rails sem UI:** `task_repo.get_all_by_user` `limit=500`; `project_repo.get_all_by_user/get_active_by_user` `limit=200`.
+- **Detalhe do projeto:** concluídas buscadas à parte, limitadas às **50 mais recentes** (`get_project_done_tasks`; pendentes/bloqueadas via `exclude_done=True`); nota "Mostrando as 50..." quando cortado (flag `done_capped`).
+- **N+1 do reports eliminado:** `ProjectDecisionRepository.count_by_projects` + `ProjectRiskRepository.count_open_by_projects` (GROUP BY) — de `2+2N` p/ 4 queries.
+- **Índices compostos:** `tasks(user_id,status,archived)`, `tasks(user_id,project_id,parent_id)`, `capture_inbox(user_id,processed)`.
+- **Pool do PG parametrizado:** `DB_POOL_SIZE=5`/`DB_MAX_OVERFLOW=5` por processo (teto 40 conexões < `max_connections=100`; era até 120). `Dockerfile` sem `-w 3` — nº de workers via `WEB_CONCURRENCY` (default 3, ajustável sem rebuild).
+
+**Fase 3 — Boot blindado + worker resiliente:**
+- **`init_db`:** `SET LOCAL lock_timeout=5s / statement_timeout=120s` (só PG) após o advisory lock — boot que não pega lock **falha rápido** e o `restart: always` re-tenta (em vez de congelar o site); guards `SELECT..LIMIT 1` antes dos UPDATEs de `order_index`; log de duração. **`scripts/run_migrations.py`** roda `init_db()` isolado p/ migrações pesadas antes do cutover de container.
+- **`list_migration`:** saída rápida por COUNT das tabelas legadas + cap de 20 `fetch_link_title` por boot.
+- **Worker:** offset do Telegram persistido na tabela nova **`app_state`** (key/value — restart não reprocessa mensagens → sem capturas duplicadas); backoff exponencial até 300s nos 2 loops; **heartbeat** em `app_state` + healthcheck do serviço `worker` no compose (`scripts/worker_health.py`, falha se >5min).
+- **`reminder_service`:** lote de 100 lembretes/ciclo + throttle entre envios; `send_telegram` trata 429 (retry_after, 1 retry) e loga status != 200.
+- **`fetch_link_title` fora do request handler:** create/update de tarefa e processar captura gravam `link_url` na hora e buscam o título via **BackgroundTasks** (`services/link_title_service.py`).
+
+**Fase 4 — Observabilidade + ownership:**
+- Middleware de request logging (`método rota status latência`, logger `oriens.access`, pula /health e /static); `LOG_JSON=true` → uma linha JSON por evento (`JsonFormatter` stdlib).
+- **`tests/test_ownership.py`:** usuário B atacando recursos de A → 4xx e dado intacto. Pegou 2 brechas reais (DELETE de decisão e resolve/discard/restore de captura retornavam 200 silencioso p/ não-dono) — corrigidas p/ 404.
+
+**Fase 5 — UX/frontend:**
+- **DOM surgery de `detail.html` (setupSectionForms/Collapse/Ellipsis) migrado p/ markup Alpine** em `project_section.html`, `project_tasks_panel.html` e `project_task_row.html` (trigger "Adicionar tarefa...", chevron `open`, botão `···` com `@click.outside`) — eliminou o leak de listener global por linha a cada re-render. Só o init do Sortable permanece em JS (idempotente, re-init em `htmx:afterSettle`).
+- **Drag-drop com tratamento de erro:** falha no PATCH → aviso + `refreshProjectTasks` (re-render do banco = reversão). **Kanban de /projects sem reload:** drop dispara `refreshProjectsList` e o kanban se re-renderiza via `hx-select` na própria página. Branch `reload_on_done` removido (nenhum chamador).
+- **BUGFIX (achado no smoke):** `hx-on::after-request` usava `$el.reset()`, mas htmx não define `$el` — o reset dos forms falhava silenciosamente com erro JS em todo submit. → `this.reset()` em 6 templates.
+- **Cores hardcoded do SCRIPT 17 tokenizadas:** `--oriens-table-accent/success/warn/today` em `theme.css` (`:root`, mesmo valor nos 3 temas — **zero mudança visual**, preserva o 17B).
+- **PWA com cache-busting por build:** `APP_VERSION` (config + `ARG` no Dockerfile + build-arg no compose com git SHA), `?v=` em todos os assets e no registro do SW; `sw.js` deriva o nome do cache da versão — **deploy de CSS/JS chega ao cliente sem bump manual**. Cache de estáticos do nginx: 30d immutable.
+
+**Fase 6 — Código morto removido:** `process.html`, `partials/process_item.html`, `partials/repo_item.html`, `partials/project_card.html` (órfão; `PATCH /api/projects/{id}` agora responde vazio — todos os chamadores usam `hx-swap="none"`), endpoints `POST/DELETE /api/repository`, ramos `action=note/repository` + `process_as_note/process_as_repository` (Caixa de Entrada só tem 4 destinos desde o script "4 destinos"), `note_repo.py`/`repository_repo.py`, bloco `{% if false %}` de riscos em `detail.html` (backend de riscos mantido — reports usa `count_open`), **`alembic/` + `alembic.ini` + dep `alembic`** (abandonados; schema real vem de `_ensure_columns`). Models `Note`/`RepositoryItem` + `list_migration` mantidos por 1 ciclo com `# TODO remover`.
+
+> **Config novas (.env, todas opcionais):** `DB_POOL_SIZE=5`, `DB_MAX_OVERFLOW=5`, `LOG_JSON=false`, `APP_VERSION` (via build-arg). **Deploy recomendado:** `APP_VERSION=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build` (4 serviços: db, app, worker, nginx).
+
+---
+
 ## PRODUÇÃO E OPERAÇÃO (VPS)
 
 **Local na VPS:** `/opt/oriens` · **Acesso atual:** `http://IP_DA_VPS:8000`
 
-**Serviços (pós-AUDITORIA):** `db` (PostgreSQL) + `app` (web, gunicorn com 3 workers Uvicorn) + `worker` (processo único: lembretes + captura Telegram). Os loops de fundo **não** rodam mais dentro do `app` — se o `worker` não estiver de pé, lembretes/Telegram param mas o resto do app funciona normalmente.
+**Serviços (pós-larga-escala):** `db` (PostgreSQL) + `app` (web, gunicorn — nº de workers via `WEB_CONCURRENCY`, default 3) + `worker` (processo único: lembretes + captura Telegram, com healthcheck por heartbeat) + `nginx` (porta 80: rate-limit no login, gzip, estáticos com cache 30d). Os loops de fundo **não** rodam dentro do `app` — se o `worker` cair, lembretes/Telegram param mas o resto funciona.
 
 **Comandos do dia a dia** (na VPS, em `/opt/oriens`):
 ```bash
-docker compose -f docker-compose.prod.yml ps                    # status (db, app, worker)
+docker compose -f docker-compose.prod.yml ps                    # status (db, app, worker, nginx)
 docker compose -f docker-compose.prod.yml logs -f app worker    # logs
 docker compose -f docker-compose.prod.yml restart                # reiniciar
-git pull && docker compose -f docker-compose.prod.yml up -d --build   # atualizar
+# atualizar (APP_VERSION = cache-busting dos estáticos/PWA):
+git pull && APP_VERSION=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 **Regra de ouro:** ⚠️ **nunca** use `down -v` — o `-v` apaga o volume `pgdata` (perde conta/projetos/tarefas). Os dados sobrevivem a `restart`, `up -d --build` e reboot da VPS.
@@ -854,8 +896,8 @@ docker compose -f docker-compose.prod.yml up -d --build --remove-orphans   # rem
 | Endpoints totais | ~46 (`/dashboard/priorities` e `/api/settings/criterios` removidos; `/api/settings/telegram` adicionado) |
 | Templates HTML | ~30 (4 partials órfãos removidos: `task_with_subtasks`, `dashboard_priorities`, `dashboard_task`, `criterio_selector`) |
 | Temas | 3 (`dark`/`light`/`warm`) via `static/css/theme.css` |
-| Testes | 39 (suíte reescrita — era ~90, mas quebrada/legada) |
-| Processos em produção | 2 (`app` multi-worker + `worker` único) — era 1 |
+| Testes | 87 (suíte reescrita na AUDITORIA + segurança/paginação/worker/ownership no script de larga escala) |
+| Processos em produção | 3 serviços app (`app` multi-worker + `worker` único + `nginx`) |
 | Dependências CDN | 0 (Tailwind/HTMX/Alpine/Sortable/Inter auto-hospedados) — era 5 |
 | Ambiente | Dev (SQLite) + Produção (PostgreSQL na VPS) |
 
