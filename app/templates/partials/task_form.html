@@ -4,10 +4,10 @@
   {% if project_id %}
   hx-target="{{ task_list_target if task_list_target is defined else '#task-list-pending' }}"
   hx-swap="beforeend"
-  hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); var er=document.getElementById('task-form-error'); if(er) er.innerHTML=''; var np=document.getElementById('no-pending'); if(np) np.remove(); }"
+  hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ this.reset(); var er=document.getElementById('task-form-error'); if(er) er.innerHTML=''; var np=document.getElementById('no-pending'); if(np) np.remove(); }"
   {% else %}
   hx-swap="none"
-  hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ $el.reset(); var er=document.getElementById('task-form-error'); if(er) er.innerHTML=''; htmx.trigger(document.body,'refreshPriorities'); }"
+  hx-on::after-request="if(event.detail.successful && !event.detail.xhr.getResponseHeader('HX-Retarget')){ this.reset(); var er=document.getElementById('task-form-error'); if(er) er.innerHTML=''; htmx.trigger(document.body,'refreshPriorities'); }"
   {% endif %}
   class="space-y-2">
 

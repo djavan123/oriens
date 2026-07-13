@@ -166,7 +166,7 @@
       hx-post="/api/tasks"
       hx-target="#subtasks-{{ task.id }}"
       hx-swap="afterbegin"
-      hx-on::after-request="if(event.detail.successful){ $el.reset() }"
+      hx-on::after-request="if(event.detail.successful){ this.reset() }"
       class="flex items-center gap-2 mt-2">
       <input type="hidden" name="parent_id" value="{{ task.id }}">
       {% if task.project_id %}<input type="hidden" name="project_id" value="{{ task.project_id }}">{% endif %}

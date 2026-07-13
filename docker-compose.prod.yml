@@ -17,7 +17,12 @@ services:
       retries: 5
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        # Cache-busting dos estáticos/PWA. Deploy recomendado:
+        #   APP_VERSION=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build
+        APP_VERSION: ${APP_VERSION:-prod}
     restart: always
     env_file: .env
     environment:

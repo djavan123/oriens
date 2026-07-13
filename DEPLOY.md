@@ -25,6 +25,13 @@ rate-limit no `/auth/login`, gzip, headers de segurança e `/static/` servido di
 
 **Cutover em 2 deploys (sem downtime):**
 
+> **Deploy recomendado** (injeta o git SHA para cache-busting dos estáticos/PWA):
+> ```bash
+> git pull && APP_VERSION=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build
+> ```
+> Sem `APP_VERSION`, o build usa `prod` fixo — funciona, mas navegadores/PWA podem
+> servir CSS/JS antigos até o cache expirar.
+
 1. **Deploy 1** (este): `git pull && docker compose -f docker-compose.prod.yml up -d --build`.
    O app continua exposto em `http://IP:8000` **e** o nginx entra em `http://IP/`.
    Valide login, dashboard e estáticos pela porta **80**.

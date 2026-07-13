@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 5
     # LOG_JSON=true: uma linha JSON por evento de log (agregadores). Default texto.
     LOG_JSON: bool = False
+    # Versão do build (cache-busting de estáticos/PWA). Em prod, o compose injeta
+    # o git SHA via build-arg; "dev" localmente.
+    APP_VERSION: str = "dev"
 
     # extra="ignore": o .env de produção também contém POSTGRES_PASSWORD (consumido
     # só pelo serviço `db` do docker-compose, não por este app) — sem isso, o Pydantic

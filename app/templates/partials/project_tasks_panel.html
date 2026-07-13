@@ -11,7 +11,7 @@
 <!-- Barra de progresso 3px -->
 {% if progress.total %}
 <div style="height:3px; border-radius:2px; background:var(--oriens-divider); overflow:hidden; margin-bottom:8px;">
-  <div style="height:100%; background:#4573d2; width:{{ progress.pct }}%;"></div>
+  <div style="height:100%; background:var(--oriens-table-accent); width:{{ progress.pct }}%;"></div>
 </div>
 {% endif %}
 
@@ -52,17 +52,19 @@
 </div>
 
 <!-- Tarefas sem seção. Mesma estrutura de partials/project_section.html (header
-     .group com espaçador do drag handle + chevron injetado por setupSectionCollapse)
-     para alinhar o título e as colunas com as demais seções. -->
-<div id="sem-secao-container" class="section-row">
+     .group com espaçador do drag handle + chevron Alpine) para alinhar o título
+     e as colunas com as demais seções. -->
+<div id="sem-secao-container" class="section-row" x-data="{ open: true }">
   {% if section_groups %}
   <div class="group flex items-center gap-2 mb-2" style="padding:28px 0 8px 0;">
     <span class="section-drag-handle flex-shrink-0 w-4 self-stretch mr-1"></span>
+    <span @click="open = !open" x-text="open ? '▾' : '▸'"
+          class="flex-shrink-0 text-[11px] text-oriens-secondary cursor-pointer select-none mr-0.5"></span>
     <span class="flex-1" style="font-size:14px; font-weight:600; color:var(--oriens-primary);">Sem seção</span>
   </div>
   {% endif %}
 
-  <div id="task-list-pending" class="section-task-list pl-2" data-section-id="null">
+  <div x-show="open" id="task-list-pending" class="section-task-list pl-2" data-section-id="null">
     {% for task in sem_secao_tasks %}
       {% with draggable=true,
               is_next=(next_action is defined and next_action.task and task.id == next_action.task.id) %}
@@ -71,25 +73,27 @@
     {% endfor %}
   </div>
 
-  <!-- Bloqueadas sem seção -->
-  {% set sem_secao_blocked = blocked_by_section.get(None, []) if blocked_by_section is defined else [] %}
-  {% for task in sem_secao_blocked %}
-    {% with draggable=false %}
-      {% include "partials/project_task_row.html" %}
-    {% endwith %}
-  {% endfor %}
-
-  <!-- Concluídas sem seção -->
-  {% set sem_secao_done = done_by_section.get(None, []) if done_by_section is defined else [] %}
-  {% if sem_secao_done %}
-  <div class="pl-2">
-    {% for task in sem_secao_done %}
+  <div x-show="open">
+    <!-- Bloqueadas sem seção -->
+    {% set sem_secao_blocked = blocked_by_section.get(None, []) if blocked_by_section is defined else [] %}
+    {% for task in sem_secao_blocked %}
       {% with draggable=false %}
         {% include "partials/project_task_row.html" %}
       {% endwith %}
     {% endfor %}
+
+    <!-- Concluídas sem seção -->
+    {% set sem_secao_done = done_by_section.get(None, []) if done_by_section is defined else [] %}
+    {% if sem_secao_done %}
+    <div class="pl-2">
+      {% for task in sem_secao_done %}
+        {% with draggable=false %}
+          {% include "partials/project_task_row.html" %}
+        {% endwith %}
+      {% endfor %}
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
 
   {% if done_capped %}
   <p style="color:var(--oriens-muted); font-size:12px; font-style:italic; padding:4px 4px 0;">

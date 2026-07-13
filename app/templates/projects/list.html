@@ -46,8 +46,14 @@
     {% include "partials/project_form.html" %}
   </div>
 
-  <!-- Kanban -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+  <!-- Kanban (re-renderiza via HTMX no evento refreshProjectsList — sem reload total;
+       hx-select extrai só o kanban da resposta da própria página) -->
+  <div id="projects-kanban"
+       hx-get="/projects?filter={{ cur }}"
+       hx-trigger="refreshProjectsList from:body"
+       hx-select="#projects-kanban"
+       hx-swap="outerHTML"
+       class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
     {% for status_value, label, col_projects in columns %}
     <section
       x-data="{ over: false }"
@@ -62,7 +68,9 @@
         const to = $el.dataset.status;
         if (pid && from && from !== to) {
           fetch('/api/projects/' + pid, { method: 'PATCH', body: new URLSearchParams({ status: to }) })
-            .then(() => window.location.reload());
+            .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); })
+            .catch(() => alert('Não foi possível mover o projeto. A lista será atualizada.'))
+            .finally(() => htmx.trigger(document.body, 'refreshProjectsList'));
         }
       "
       :class="over ? 'bg-oriens-card-hover' : 'bg-oriens-surface'"

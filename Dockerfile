@@ -17,6 +17,10 @@ RUN pip install --no-cache-dir --timeout 120 --retries 5 -r requirements.txt
 
 COPY . .
 
+# Versão do build (cache-busting de estáticos/PWA). O compose de prod injeta o git SHA.
+ARG APP_VERSION=prod
+ENV APP_VERSION=$APP_VERSION
+
 EXPOSE 8000
 
 # Produção: gunicorn com workers Uvicorn (multi-worker). Os loops de fundo NÃO

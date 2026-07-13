@@ -5,6 +5,11 @@ from fastapi.templating import Jinja2Templates
 templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["now"] = datetime.utcnow
 
+# Versão do app para cache-busting (?v=) de estáticos e do service worker.
+from app.config import get_settings  # noqa: E402
+
+templates.env.globals["app_version"] = get_settings().APP_VERSION
+
 
 def due_status(value):
     """Classifica uma data de prazo em relação a hoje.

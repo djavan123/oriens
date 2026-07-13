@@ -2,7 +2,11 @@
 // Estratégia: HTML network-first (evita telas desatualizadas); assets estáticos
 // cache-first COM população de cache no primeiro fetch → app funciona offline
 // depois da 1ª visita (Tailwind/HTMX/Alpine/Sortable/fonte são auto-hospedados).
-const CACHE = "oriens-static-v2";
+// A versão vem da querystring de registro (sw.js?v=APP_VERSION, ver base.html):
+// cada build gera um cache novo e o activate limpa os antigos — deploy de
+// CSS/JS chega ao cliente sem bump manual de versão aqui.
+const VERSION = new URL(self.location.href).searchParams.get("v") || "v3";
+const CACHE = "oriens-static-" + VERSION;
 const STATIC_ASSETS = [
   "/static/icon.svg",
   "/static/manifest.webmanifest",
@@ -12,7 +16,7 @@ const STATIC_ASSETS = [
   "/static/vendor/alpine.min.js",
   "/static/vendor/sortable.min.js",
   "/static/vendor/fonts/inter.css",
-];
+].map((u) => u + "?v=" + VERSION);
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(STATIC_ASSETS)));
