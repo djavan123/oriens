@@ -484,7 +484,9 @@ async def delete_decision(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    await ProjectDecisionRepository(db).delete(decision_id, current_user.id)
+    deleted = await ProjectDecisionRepository(db).delete(decision_id, current_user.id)
+    if not deleted:
+        raise HTTPException(status_code=404)
     return HTMLResponse("")
 
 

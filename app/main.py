@@ -42,6 +42,37 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Oriens", lifespan=lifespan)
 
+_access_logger = logging.getLogger("oriens.access")
+
+
+@app.middleware("http")
+async def request_logging(request: Request, call_next):
+    """Loga método, rota, status e latência de cada request (pula health/estáticos).
+
+    É a visão de latência da aplicação — o access log do gunicorn não a tem.
+    """
+    import time
+
+    path = request.url.path
+    if path == "/health" or path.startswith("/static/"):
+        return await call_next(request)
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        _access_logger.exception(
+            "%s %s -> 500 (unhandled) %.0fms",
+            request.method, path, (time.perf_counter() - start) * 1000,
+        )
+        raise
+    _access_logger.info(
+        "%s %s -> %s %.0fms",
+        request.method, path, response.status_code,
+        (time.perf_counter() - start) * 1000,
+    )
+    return response
+
+
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 app.include_router(auth_router)

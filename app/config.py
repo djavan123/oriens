@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     # de fundo: (5+5) × 4 = 40 conexões potenciais < max_connections=100 do PG.
     DB_POOL_SIZE: int = 5
     DB_MAX_OVERFLOW: int = 5
+    # LOG_JSON=true: uma linha JSON por evento de log (agregadores). Default texto.
+    LOG_JSON: bool = False
 
     # extra="ignore": o .env de produção também contém POSTGRES_PASSWORD (consumido
     # só pelo serviço `db` do docker-compose, não por este app) — sem isso, o Pydantic
