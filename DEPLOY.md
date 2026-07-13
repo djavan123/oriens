@@ -35,6 +35,19 @@ rate-limit no `/auth/login`, gzip, headers de segurança e `/static/` servido di
 > Quando houver domínio + HTTPS, as seções abaixo (nginx no host + certbot) substituem
 > este arranjo — aí remova o serviço `nginx` do compose e siga o guia original.
 
+## Migrações pesadas antes do deploy (opcional)
+
+O `init_db()` roda no boot com `lock_timeout=5s` / `statement_timeout=120s` (PG):
+uma migração que não conseguir lock falha rápido e o `restart: always` re-tenta —
+melhor do que congelar o site. Para migrações potencialmente demoradas (ex.: um
+futuro `ALTER` que reescreva uma tabela grande), rode ANTES de trocar os containers:
+
+```bash
+docker compose -f docker-compose.prod.yml run --rm app python scripts/run_migrations.py
+```
+
+Assim o boot dos containers novos vira uma passada rápida por guards idempotentes.
+
 ---
 
 ## 0. Pré-requisitos

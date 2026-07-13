@@ -60,6 +60,7 @@ class CaptureService:
         context_id: Optional[int] = None,
         importancia: Optional[float] = None,
         list_id: Optional[int] = None,
+        background_tasks=None,
     ) -> tuple[CaptureInbox, Task]:
         extra: dict = {}
         if context_id is not None:
@@ -72,12 +73,14 @@ class CaptureService:
         if list_id is not None:
             extra["list_id"] = list_id
         # Link é global à Task: qualquer conteúdo avulso com URL vira link.
-        if project_id is None:
-            url = extract_url(title)
-            if url:
-                extra["link_url"] = url
+        # O título da página é buscado em background (não bloqueia o request);
+        # sem BackgroundTasks disponível, busca inline (caminho legado/testes).
+        url = extract_url(title) if project_id is None else None
+        if url:
+            extra["link_url"] = url
+            extra["link_checked_at"] = utcnow()
+            if background_tasks is None:
                 extra["link_title"] = await fetch_link_title(url)
-                extra["link_checked_at"] = utcnow()
         task = await TaskService(self.db).create(
             user_id=user_id,
             title=title,
@@ -86,6 +89,9 @@ class CaptureService:
             is_quick_win=is_quick_win,
             **extra,
         )
+        if url and background_tasks is not None:
+            from app.services.link_title_service import fill_link_title
+            background_tasks.add_task(fill_link_title, task.id, user_id, url)
         capture = await self.repo.mark_processed(capture_id, user_id)
         return capture, task
 

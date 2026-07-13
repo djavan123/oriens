@@ -1,7 +1,7 @@
 # app/routes/api/tasks.py
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from app.templates_env import templates
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,10 +10,11 @@ from app.database import get_db
 from app.models.task import EnergyLevel
 from app.models.user import User
 from app.repositories.task_list_repo import TaskListRepository
+from app.services.link_title_service import fill_link_title
 from app.services.task_service import TaskService, TaskVerbError
 from app.services.importancia_service import importancia_from_prioridade
 from app.utils.auth import get_current_user
-from app.utils.link_meta import extract_url, fetch_link_title
+from app.utils.link_meta import extract_url
 from app.utils.time import utcnow
 
 
@@ -41,13 +42,16 @@ def _parse_list_id(v: Optional[str]) -> Optional[int]:
     return _parse_int(v)
 
 
-async def _resolve_link_fields(title: str) -> dict:
-    """Detecta URL no título e busca o título da página (PARTE 4). Nunca levanta."""
+def _link_fields_now(title: str) -> tuple[dict, Optional[str]]:
+    """Detecta URL no título (síncrono, barato). O título da página é buscado
+    depois, em BackgroundTasks (fill_link_title) — a rede não bloqueia o request.
+
+    Retorna (campos a gravar agora, url a buscar em background ou None).
+    """
     url = extract_url(title)
     if not url:
-        return {"link_url": None, "link_title": None, "link_checked_at": None}
-    link_title = await fetch_link_title(url)
-    return {"link_url": url, "link_title": link_title, "link_checked_at": utcnow()}
+        return {"link_url": None, "link_title": None, "link_checked_at": None}, None
+    return {"link_url": url, "link_title": None, "link_checked_at": utcnow()}, url
 
 
 def _parse_remind(date_str: Optional[str], time_str: Optional[str]) -> Optional[datetime]:
@@ -130,6 +134,7 @@ def _verb_error_response(exc: TaskVerbError) -> HTMLResponse:
 @router.post("", response_class=HTMLResponse)
 async def create_task(
     request: Request,
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     project_id: Optional[str] = Form(None),
     parent_id: Optional[str] = Form(None),
@@ -212,7 +217,8 @@ async def create_task(
         extra["importancia"] = importancia_from_prioridade(prioridade)
         extra["sem_nota"] = False
 
-    extra.update(await _resolve_link_fields(title))
+    link_fields, link_url = _link_fields_now(title)
+    extra.update(link_fields)
 
     service = TaskService(db)
     try:
@@ -226,6 +232,9 @@ async def create_task(
         )
     except TaskVerbError as e:
         return _verb_error_response(e)
+
+    if link_url:
+        background_tasks.add_task(fill_link_title, task.id, current_user.id, link_url)
 
     return await _task_row_response(request, db, task, current_user, is_new=True)
 
@@ -304,6 +313,7 @@ async def adiar_task(
 async def update_task(
     task_id: int,
     request: Request,
+    background_tasks: BackgroundTasks,
     title: str = Form(...),
     energy: Optional[str] = Form(None),
     is_quick_win: bool = Form(False),
@@ -372,8 +382,10 @@ async def update_task(
         kwargs["sem_nota"] = False
 
     # Metadados de link (PARTE 4): recomputa só quando o título muda.
+    link_url = None
     if title != existing.title:
-        kwargs.update(await _resolve_link_fields(title))
+        link_fields, link_url = _link_fields_now(title)
+        kwargs.update(link_fields)
 
     try:
         task = await service.update(task_id, current_user.id, **kwargs)
@@ -381,6 +393,8 @@ async def update_task(
         return _verb_error_response(e)
     if not task:
         raise HTTPException(status_code=404)
+    if link_url:
+        background_tasks.add_task(fill_link_title, task.id, current_user.id, link_url)
     return await _task_row_response(request, db, task, current_user)
 
 

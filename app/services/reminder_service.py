@@ -1,4 +1,5 @@
 # app/services/reminder_service.py
+import asyncio
 import logging
 from typing import Optional
 
@@ -12,12 +13,18 @@ from app.utils.time import now_local
 
 logger = logging.getLogger("oriens.reminders")
 
+# Lote máximo de lembretes por ciclo + pausa entre envios (Telegram limita ~30 msg/s;
+# ficamos bem abaixo para nunca tomar 429 em rajada).
+REMINDER_BATCH_LIMIT = 100
+_SEND_THROTTLE_S = 0.05
+
 
 async def send_telegram(text: str, chat_id: Optional[str] = None) -> None:
     """Envia mensagem ao Telegram. No-op se não configurado.
 
     `chat_id` = destino (chat do usuário). Se omitido, cai no TELEGRAM_CHAT_ID
     global do .env (compatibilidade single-user). O bot token é sempre global.
+    Em 429 respeita o retry_after e re-tenta UMA vez; status != 200 é logado.
     """
     settings = get_settings()
     token = settings.TELEGRAM_BOT_TOKEN
@@ -25,9 +32,25 @@ async def send_telegram(text: str, chat_id: Optional[str] = None) -> None:
     if not token or not target:
         return
     url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": target, "text": text}
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            await client.post(url, json={"chat_id": target, "text": text})
+            resp = await client.post(url, json=payload)
+            if resp.status_code == 429:
+                retry_after = 1.0
+                try:
+                    retry_after = float(
+                        (resp.json().get("parameters") or {}).get("retry_after", 1)
+                    )
+                except Exception:
+                    pass
+                await asyncio.sleep(min(retry_after, 30.0))
+                resp = await client.post(url, json=payload)
+            if resp.status_code != 200:
+                logger.warning(
+                    "Telegram sendMessage retornou %s: %s",
+                    resp.status_code, resp.text[:200],
+                )
     except Exception:
         # Lembrete não deve derrubar o loop nem o app.
         logger.exception("Falha ao enviar mensagem ao Telegram")
@@ -104,12 +127,21 @@ def _due_filter():
 
 
 async def process_due_telegram(db: AsyncSession) -> None:
-    """Envia ao Telegram os lembretes vencidos, cada um ao chat do dono da tarefa."""
+    """Envia ao Telegram os lembretes vencidos, cada um ao chat do dono da tarefa.
+
+    Limitado a REMINDER_BATCH_LIMIT por ciclo (mais antigos primeiro) com pausa
+    entre envios — um backlog grande não estoura o rate limit nem trava o loop;
+    o restante sai nos próximos ciclos (o flag reminder_telegram_sent garante
+    que nada se perde nem duplica).
+    """
     result = await db.execute(
-        select(Task).where(
+        select(Task)
+        .where(
             *_due_filter(),
             Task.reminder_telegram_sent.is_(False),
         )
+        .order_by(Task.remind_at.asc())
+        .limit(REMINDER_BATCH_LIMIT)
     )
     tasks = list(result.scalars().all())
     if not tasks:
@@ -131,6 +163,7 @@ async def process_due_telegram(db: AsyncSession) -> None:
         await send_telegram(f"🔔 Lembrete Oriens\n{task.title}\n{quando}", chat_id=chat)
         task.reminder_telegram_sent = True
         changed = True
+        await asyncio.sleep(_SEND_THROTTLE_S)
     if changed:
         await db.commit()
 

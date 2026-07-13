@@ -197,17 +197,23 @@ def _ensure_columns_postgres(conn) -> None:
     if row and row[0] is not None and row[0] < 2000:
         conn.exec_driver_sql('ALTER TABLE "tasks" ALTER COLUMN title TYPE VARCHAR(2000)')
     # Inicializa order_index para tarefas de projeto existentes (idempotente).
+    # Guard barato antes do UPDATE: sem linha pendente, pula a varredura no boot.
     try:
-        conn.exec_driver_sql("""
-            UPDATE tasks SET order_index = sub.rn
-            FROM (
-                SELECT id,
-                    (ROW_NUMBER() OVER (PARTITION BY project_id ORDER BY id ASC) - 1) AS rn
-                FROM tasks
-                WHERE project_id IS NOT NULL AND parent_id IS NULL
-            ) sub
-            WHERE tasks.id = sub.id AND tasks.order_index IS NULL
-        """)
+        pending = conn.exec_driver_sql(
+            "SELECT 1 FROM tasks WHERE project_id IS NOT NULL "
+            "AND parent_id IS NULL AND order_index IS NULL LIMIT 1"
+        ).fetchone()
+        if pending:
+            conn.exec_driver_sql("""
+                UPDATE tasks SET order_index = sub.rn
+                FROM (
+                    SELECT id,
+                        (ROW_NUMBER() OVER (PARTITION BY project_id ORDER BY id ASC) - 1) AS rn
+                    FROM tasks
+                    WHERE project_id IS NOT NULL AND parent_id IS NULL
+                ) sub
+                WHERE tasks.id = sub.id AND tasks.order_index IS NULL
+            """)
     except Exception:
         logger.exception("Falha ao inicializar order_index (PostgreSQL)")
 
@@ -249,16 +255,21 @@ def _migrate_data(conn) -> None:
     try:
         task_cols = {row[1] for row in conn.exec_driver_sql('PRAGMA table_info("tasks")')}
         if "order_index" in task_cols:
-            conn.exec_driver_sql(
-                "UPDATE tasks "
-                "SET order_index = ("
-                "  SELECT COUNT(*) FROM tasks t2"
-                "  WHERE t2.project_id = tasks.project_id"
-                "  AND t2.parent_id IS NULL"
-                "  AND t2.id < tasks.id"
-                ") "
-                "WHERE project_id IS NOT NULL AND parent_id IS NULL AND order_index IS NULL"
-            )
+            pending = conn.exec_driver_sql(
+                "SELECT 1 FROM tasks WHERE project_id IS NOT NULL "
+                "AND parent_id IS NULL AND order_index IS NULL LIMIT 1"
+            ).fetchone()
+            if pending:
+                conn.exec_driver_sql(
+                    "UPDATE tasks "
+                    "SET order_index = ("
+                    "  SELECT COUNT(*) FROM tasks t2"
+                    "  WHERE t2.project_id = tasks.project_id"
+                    "  AND t2.parent_id IS NULL"
+                    "  AND t2.id < tasks.id"
+                    ") "
+                    "WHERE project_id IS NOT NULL AND parent_id IS NULL AND order_index IS NULL"
+                )
     except Exception:
         logger.exception("Falha ao inicializar order_index (SQLite)")
 
@@ -291,6 +302,18 @@ def _acquire_migration_lock(conn) -> None:
         conn.exec_driver_sql(f"SELECT pg_advisory_xact_lock({_MIGRATION_LOCK_KEY})")
 
 
+def _set_migration_timeouts(conn) -> None:
+    """Timeouts da transação de migração (só PG; SET LOCAL morre no commit).
+
+    lock_timeout curto: um ALTER que não conseguir o lock em 5s falha em vez de
+    congelar o boot (e o site) indefinidamente — o restart do compose re-tenta.
+    statement_timeout: teto para qualquer passo pesado (ex.: reescrita de tabela).
+    """
+    if conn.dialect.name == "postgresql":
+        conn.exec_driver_sql("SET LOCAL lock_timeout = '5s'")
+        conn.exec_driver_sql("SET LOCAL statement_timeout = '120s'")
+
+
 def _ensure_indexes(conn) -> None:
     for name, table, col in _INDEXES:
         conn.exec_driver_sql(
@@ -311,13 +334,18 @@ def _seed_contexts(conn) -> None:
 
 
 async def init_db():
+    import time
+
     import app.models  # noqa: F401
+    start = time.perf_counter()
     async with engine.begin() as conn:
         # O lock cobre toda a transação (DDL + índices + seed); libera no commit.
         await conn.run_sync(_acquire_migration_lock)
+        await conn.run_sync(_set_migration_timeouts)
         await conn.run_sync(Base.metadata.create_all)
         await conn.run_sync(_ensure_columns)
         await conn.run_sync(_ensure_columns_postgres)
         await conn.run_sync(_migrate_data)
         await conn.run_sync(_ensure_indexes)
         await conn.run_sync(_seed_contexts)
+    logger.info("init_db concluído em %.1fs", time.perf_counter() - start)

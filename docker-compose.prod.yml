@@ -65,6 +65,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      # Falha se o heartbeat em app_state estiver >5 min velho (loop travado).
+      test: ["CMD", "python", "scripts/worker_health.py"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
 volumes:
   pgdata:
