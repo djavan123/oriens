@@ -45,9 +45,12 @@ services:
       retries: 3
       start_period: 20s
 
-  # Proxy reverso: rate-limit no login, gzip, headers de segurança e
-  # estáticos servidos direto do disco (sem passar pelo Python).
+  # Proxy reverso EM CONTAINER — OPT-IN (profile "nginx"): a VPS atual já roda
+  # nginx no host (sites-enabled/oriens), que ocupa a porta 80. Use este serviço
+  # apenas em ambientes SEM nginx no host:
+  #   docker compose -f docker-compose.prod.yml --profile nginx up -d
   nginx:
+    profiles: ["nginx"]
     image: nginx:1.27-alpine
     restart: always
     ports:

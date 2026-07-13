@@ -17,13 +17,17 @@ Internet ──▶ Nginx (host, :80/:443, TLS) ──▶ App (container, gunicor
 
 ---
 
-## Nginx DENTRO do compose (estado atual, sem domínio)
+## Nginx (estado atual: NO HOST, acesso por IP)
 
-Enquanto o acesso é por IP (sem domínio/HTTPS), o `docker-compose.prod.yml` já sobe um
-serviço **`nginx`** (imagem `nginx:1.27-alpine`, porta **80**) usando `nginx/oriens-docker.conf`:
-rate-limit no `/auth/login`, gzip, headers de segurança e `/static/` servido direto do disco.
+A VPS roda nginx **no host** (`/etc/nginx/sites-enabled/oriens`) com a config
+**`nginx/oriens-ip.conf`** (rate-limit no `/auth/login`, gzip, headers de segurança e
+`/static/` servido direto de `/opt/oriens/app/static/` com cache 30d — seguro porque
+as URLs de asset carregam `?v=APP_VERSION`). Atualizar a config:
 
-**Cutover em 2 deploys (sem downtime):**
+```bash
+cp /opt/oriens/nginx/oriens-ip.conf /etc/nginx/sites-available/oriens
+nginx -t && systemctl reload nginx
+```
 
 > **Deploy recomendado** (injeta o git SHA para cache-busting dos estáticos/PWA):
 > ```bash
@@ -32,15 +36,17 @@ rate-limit no `/auth/login`, gzip, headers de segurança e `/static/` servido di
 > Sem `APP_VERSION`, o build usa `prod` fixo — funciona, mas navegadores/PWA podem
 > servir CSS/JS antigos até o cache expirar.
 
-1. **Deploy 1** (este): `git pull && docker compose -f docker-compose.prod.yml up -d --build`.
-   O app continua exposto em `http://IP:8000` **e** o nginx entra em `http://IP/`.
-   Valide login, dashboard e estáticos pela porta **80**.
-2. **Deploy 2**: em `docker-compose.prod.yml`, troque a porta do serviço `app` de
-   `"8000:8000"` para `"127.0.0.1:8000:8000"` e suba de novo. A partir daí todo o
-   tráfego passa pelo nginx (rate-limit/gzip valem de verdade).
+O compose também traz um serviço `nginx` em container (`nginx/oriens-docker.conf`),
+**opt-in** via profile — só para ambientes SEM nginx no host:
+`docker compose -f docker-compose.prod.yml --profile nginx up -d`.
 
-> Quando houver domínio + HTTPS, as seções abaixo (nginx no host + certbot) substituem
-> este arranjo — aí remova o serviço `nginx` do compose e siga o guia original.
+**Fechar o acesso direto (depois de validar `http://IP/`):** em
+`docker-compose.prod.yml`, troque a porta do serviço `app` de `"8000:8000"` para
+`"127.0.0.1:8000:8000"` e suba de novo — todo o tráfego passa a ir pelo nginx
+(rate-limit/gzip valem de verdade).
+
+> Quando houver domínio + HTTPS, migre para `nginx/oriens.conf` (server_name real)
+> + certbot, conforme o guia original abaixo.
 
 ## Migrações pesadas antes do deploy (opcional)
 
