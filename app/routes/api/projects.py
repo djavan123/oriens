@@ -187,9 +187,9 @@ async def update_project(
     project = await service.update(project_id, current_user.id, **updates)
     if not project:
         raise HTTPException(status_code=404)
-    return templates.TemplateResponse(
-        request, "partials/project_card.html", {"project": project}
-    )
+    # Todos os chamadores usam hx-swap="none" ou ignoram o corpo (kanban/fetch) —
+    # o antigo partials/project_card.html (órfão) foi removido.
+    return HTMLResponse("")
 
 
 # ── Task order ────────────────────────────────────────────────────────────────

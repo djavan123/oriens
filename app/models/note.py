@@ -1,3 +1,6 @@
+# LEGADO — lido apenas por services/list_migration.py (notas antigas → Task).
+# TODO remover junto com list_migration após um ciclo de produção sem linhas
+# legadas não-migradas (a tabela `notes` fica órfã no banco; nunca é dropada).
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import Text, DateTime, ForeignKey, func

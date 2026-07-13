@@ -6,7 +6,6 @@ from app.models.capture import CaptureInbox
 from app.models.project import Project
 from app.models.task import Task, EnergyLevel
 from app.repositories.capture_repo import CaptureRepository
-from app.repositories.task_list_repo import TaskListRepository
 from app.services.project_service import ProjectService
 from app.services.task_service import TaskService
 from app.utils.link_meta import extract_url, fetch_link_title
@@ -116,35 +115,8 @@ class CaptureService:
         capture = await self.repo.mark_processed(capture_id, user_id)
         return capture, project
 
-    async def process_as_note(
-        self,
-        capture_id: int,
-        user_id: int,
-        content: str,
-        project_id: Optional[int] = None,
-    ) -> tuple[CaptureInbox, Task]:
-        # Nota é apenas uma Task na lista interna "Notas" (tudo é Task).
-        lid = await self._system_list_id(user_id, "notes")
-        return await self.process_as_task(capture_id, user_id, content, list_id=lid)
-
     async def discard(self, capture_id: int, user_id: int) -> Optional[CaptureInbox]:
         return await self.repo.mark_processed(capture_id, user_id)
 
     async def hard_delete(self, capture_id: int, user_id: int) -> None:
         await self.repo.hard_delete(capture_id, user_id)
-
-    async def process_as_repository(
-        self,
-        capture_id: int,
-        user_id: int,
-        content: str,
-    ) -> tuple[CaptureInbox, Task]:
-        # Repositório é apenas uma Task na lista interna "Repositório".
-        lid = await self._system_list_id(user_id, "repository")
-        return await self.process_as_task(capture_id, user_id, content, list_id=lid)
-
-    async def _system_list_id(self, user_id: int, system_key: str) -> Optional[int]:
-        list_repo = TaskListRepository(self.db)
-        await list_repo.ensure_system_lists(user_id)
-        task_list = await list_repo.get_system_list(user_id, system_key)
-        return task_list.id if task_list else None

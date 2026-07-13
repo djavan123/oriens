@@ -127,9 +127,6 @@ async def process_capture(
     project_priority: int = Form(2),
     project_context_id: Optional[str] = Form(None),
     project_proxima_acao: Optional[str] = Form(None),
-    # Note fields
-    note_content: Optional[str] = Form(None),
-    note_project_id: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -227,31 +224,6 @@ async def process_capture(
             context_id=_parse_int(project_context_id),
             proxima_acao=project_proxima_acao.strip() if project_proxima_acao else None,
         )
-
-    elif action == "note":
-        content = (note_content or "").strip()
-        if not content:
-            return HTMLResponse(
-                '<p class="text-oriens-alert text-sm">Conteúdo é obrigatório.</p>',
-                headers={
-                    "HX-Retarget": f"#process-note-error-{capture_id}",
-                    "HX-Reswap": "innerHTML",
-                },
-            )
-        await service.process_as_note(
-            capture_id=capture_id,
-            user_id=current_user.id,
-            content=content,
-            project_id=_parse_int(note_project_id),
-        )
-
-    elif action == "repository":
-        capture_obj = await CaptureRepository(db).get_by_id(capture_id, current_user.id)
-        content = capture_obj.content.strip() if capture_obj else ""
-        if content:
-            await service.process_as_repository(capture_id, current_user.id, content)
-        else:
-            await service.discard(capture_id, current_user.id)
 
     elif action == "discard":
         await service.discard(capture_id, current_user.id)
