@@ -58,6 +58,38 @@ Se a resposta for "mais difícil", a escolha está errada.
 
 ---
 
+## MAPA DE FUNCIONALIDADES (ESTADO ATUAL — o que o sistema faz hoje)
+
+> Esta seção descreve o **comportamento vivo** (verificado no código, não no histórico).
+> O histórico de como cada coisa chegou aqui está em "FASES DE CONSTRUÇÃO", mais abaixo.
+
+| # | Área | O que faz | Onde vive |
+|---|---|---|---|
+| 1 | **Auth** | Login/logout por JWT em cookie httpOnly (`oriens_token`, 7 dias); `/auth/setup` cria o primeiro usuário. Rate-limit de 5 req/min no login (nginx). | `routes/auth.py`, `utils/auth.py` |
+| 2 | **Contextos** | Contexto ativo (Trabalho/Casa/…) persiste em cookie e **filtra tudo**: Dashboard, Listas, Projetos. Tarefa/projeto sem contexto aparece em todos. Contextos criáveis em Configurações. Transição "Sair do trabalho" oferece capturar pendências. | `utils/context_utils.py`, `routes/api/context.py` |
+| 3 | **Dashboard** | **Foco do dia** (texto único, edição inline) · **Agora** (UMA ação dominante: próxima ação do 1º projeto executável, senão 1ª tarefa avulsa) · **Evolução** (concluídas hoje + streak de dias consecutivos) · **Projetos em foco** (ativos por prioridade, com a próxima ação de cada) · **Tarefas avulsas**. Filtro por energia (`?energy=`, cookie 8h). Blocos recarregam por evento HTMX, sem reload. | `routes/dashboard.py`, `services/dashboard_service.py`, `partials/dashboard_*.html` |
+| 4 | **Captura** | Caixa de entrada sem fricção (só conteúdo). Entradas: tela `/capture`, **atalho global `c`** (modal em qualquer tela) e **Telegram** (long polling no worker). Cada item vira: Descartar · Tarefa de projeto · Projeto · Listas (4 destinos). **Lixeira** com soft-delete (expurgo automático em 15 dias) e restauração. Edição inline do texto. Paginação "carregar mais" (50). | `routes/capture.py`, `routes/api/capture.py`, `services/capture_service.py` |
+| 5 | **Listas** | Uma área de listas de tarefas, uma lista por vez: **Tarefas avulsas** (padrão) + **Notas** + **Repositório** (internas) + **personalizadas** (criar/renomear/arquivar). Tudo é `Task` — a lista é só agrupamento (`list_id`). Tarefa com URL no título exibe o **título da página** em vez do link cru (buscado em background). Paginação (100). | `routes/lists.py`, `routes/api/lists.py`, `utils/link_meta.py` |
+| 6 | **Projetos — lista** | Kanban de 3 colunas (Em andamento / Não iniciado / Concluído) com **drag-and-drop entre colunas** para mudar status (sem reload). Filtros: Ativos / Arquivados / Todos. | `routes/projects.py`, `projects/list.html` |
+| 7 | **Projetos — detalhe** | Duas abas (aba lembrada por `localStorage`): **Visão geral** (objetivo, prazo, progresso, decisões, comentários, anexos) e **Tarefas** (seções colapsáveis, drag-and-drop de tarefas dentro/entre seções e de seções entre si, subtarefas, badge "próxima ação", bloqueadas e concluídas inline). Arquivar/desarquivar. **Cronologia** automática + auditoria de campos. | `routes/projects.py`, `projects/detail.html`, `partials/project_*.html` |
+| 8 | **Tarefas (drawer)** | Clicar no título de **qualquer** tarefa abre um painel lateral — **único fluxo de edição**: metadados (energia, prazo, responsável, etiquetas, contexto, prioridade, lista, quick win, lembrete) + **Descrição** + **Subtarefas**. Autosave por campo (sem botão salvar). | `GET /api/tasks/{id}/panel`, `partials/task_detail_panel.html` |
+| 9 | **Prioridade** | **Projeto:** Máxima/Alta/Média/Baixa (`priority` 0-3, ordena a listagem e o Dashboard). **Tarefa avulsa/lista:** Máxima/Alta/Média/Baixa (`importancia` 6/5/3/1). **Tarefa de projeto:** não tem prioridade — vale a **ordem manual** de execução. | `services/importancia_service.py` |
+| 10 | **Lembretes** | `remind_at` por tarefa (sem recorrência). Dois canais: **popup no app** (polling 60s + confirmar) e **Telegram** (worker, lote de 100/ciclo, trata 429). Roteado ao `telegram_chat_id` do dono. | `services/reminder_service.py`, `app/worker.py` |
+| 11 | **Configurações** | Tema (3 temas) · **Telegram** (chat id do usuário) · **Etiquetas** (nome + cor) · **Contextos** personalizados. | `routes/settings.py`, `settings.html` |
+| 12 | **Relatórios** | Tabela por projeto: progresso, atrasadas, riscos abertos, decisões. | `/projects/reports` |
+| 13 | **IA (opcional)** | Quebrar tarefa em subtarefas · sugerir próximas ações do projeto. **Dormente por padrão** (`AI_ENABLED=false`); providers Claude/OpenAI/Null. | `services/ai_service.py`, `routes/api/ai.py` |
+| 14 | **Aparência / PWA** | 3 temas (`dark`/`light`/`warm`) sem reload, sem flash; sidebar responsiva (off-canvas no mobile); app **instalável** (manifest) — **sem** cache offline (service worker desligado). | `static/css/theme.css`, `base.html` |
+
+**Filtro de energia** (vivo): `?energy=high|medium|low` no Dashboard (cookie de 8h) filtra as **tarefas avulsas** por nível de energia. Não afeta projetos.
+
+**Riscos de projeto:** backend completo (`/api/projects/{id}/risks`, contagem usada no relatório), **sem UI** — o bloco foi removido do detalhe.
+
+**❌ Não existe mais (mas ainda aparece em regras/fases antigas abaixo):**
+- **Anti-overload / modos overload-minimal-full**: `utils/overload_detector.py` **não existe** no código. O Dashboard atual é sempre Agora + Projetos em foco + Tarefas avulsas (a regra 2 e a regra 4 de "REGRAS DE NEGÓCIO" estão obsoletas).
+- **Aba Semana / revisão semanal**, **Marcos**, **importância por critérios**, **service worker/PWA offline**, **validação de verbo no título**.
+
+---
+
 ## ESTRUTURA DE PASTAS (ESTADO ATUAL — PÓS AUDITORIA)
 
 ```
@@ -167,7 +199,7 @@ C:\Projetos\Sistema tarefas\
 │   └── utils/
 │       ├── auth.py                    # cookie: oriens_token; datetime via utils/time.utcnow() — AUDITORIA
 │       ├── time.py                    # NOVO (AUDITORIA): utcnow() (naive UTC, convenção única) / now_local() (lembretes)
-│       ├── overload_detector.py       # score = (proj*2) + tasks
+│       # overload_detector.py NÃO EXISTE (anti-overload removido — ver MAPA DE FUNCIONALIDADES)
 │       └── context_utils.py           # resolve_active_context() — SCRIPT 3
 │   # verb_validator.py REMOVIDO na AUDITORIA (import morto desde o SCRIPT 12)
 ├── tests/                              # SUÍTE REESCRITA na AUDITORIA (legado mission/POS removido) — ver seção TESTES
@@ -242,12 +274,9 @@ C:\Projetos\Sistema tarefas\
 ## REGRAS DE NEGÓCIO
 
 1. ~~**Título de tarefa:** deve começar com verbo~~ — **REVOGADA pela regra 29** (SCRIPT 12: validação desativada). O helper `verb_validator.py` foi **removido** na AUDITORIA (import morto). Qualquer título não vazio é aceito.
-2. **Anti-overload:** score = `(projetos_em_andamento * 2) + tarefas_pendentes`. Threshold = 15. Se score > 15 → modo overload: 3 tarefas + banner de alerta.
+2. ~~**Anti-overload:** score = `(projetos_em_andamento * 2) + tarefas_pendentes`, threshold 15 → modo overload~~ — **OBSOLETA**: `utils/overload_detector.py` não existe mais e o Dashboard não tem modo overload (ver MAPA DE FUNCIONALIDADES).
 3. **Captura sem fricção:** `POST /api/capture` exige apenas `content`. Zero outros campos obrigatórios.
-4. **Energia como filtro:** Dashboard adapta visibilidade por energia da sessão:
-   - `low` → modo minimal (só quick wins)
-   - `medium` → modo reduced (3 tarefas prioritárias)
-   - `high` → modo full (5 tarefas prioritárias)
+4. ~~**Energia como filtro:** modos minimal/reduced/full~~ — **OBSOLETA na forma descrita**. O que vale hoje: `?energy=high|medium|low` (cookie 8h) filtra **as tarefas avulsas** do Dashboard por energia; não há modos nem corte de quantidade.
 5. **Priority score de tarefas:** calculado em `task_service._calc_score()` com 5 métricas: financial_impact, operational_risk, strategic_impact, task_urgency, effort.
 6. **Auditoria de projetos:** campos auditados: `status, priority, name, deadline, objective, scope, notes, proxima_acao`. Cada mudança grava em `project_audit`.
 7. **Contexto de trabalho:** cookie `oriens_context` persiste o contexto ativo. Transição work→recovery exibe painel com itens pendentes para captura.
