@@ -13,7 +13,7 @@
   --oriens-table-warn:    #e08050;
   --oriens-table-today:   #EF9F27;
   /* TEMPORÁRIO — sonda do teste de cache (invisível). Removida no commit seguinte. */
-  --oriens-deploy-probe: probe-1;
+  --oriens-deploy-probe: probe-2;
 }
 
 /* ───────────────────────── DARK (padrão) ───────────────────────── */
