@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from app.logging_setup import configure_logging, check_production_secrets
+from app.logging_setup import configure_logging, check_asset_version, check_production_secrets
 
 configure_logging()
 logger = logging.getLogger("oriens.main")
@@ -32,6 +32,8 @@ async def lifespan(app: FastAPI):
     # Os loops de fundo (lembretes/Telegram) rodam no processo `app.worker`, não aqui,
     # para que o web possa escalar com múltiplos workers sem duplicar envios.
     check_production_secrets()
+    # Só o web: o worker não renderiza templates e builda sem o build-arg APP_VERSION.
+    check_asset_version()
     from app.database import init_db, AsyncSessionLocal
     await init_db()  # migração + seed de contextos, guardados por advisory lock
     from app.services.list_migration import migrate_notes_and_repository_to_tasks
@@ -70,6 +72,28 @@ async def request_logging(request: Request, call_next):
         request.method, path, response.status_code,
         (time.perf_counter() - start) * 1000,
     )
+    return response
+
+
+# HTML/fragmentos HTMX/API nunca podem ser reusados do cache do navegador: sem isso
+# o browser reaproveita um HTML antigo (que aponta para assets sem ?v=) e o usuário
+# fica vendo a versão anterior do app até dar Ctrl+F5.
+_NO_STORE = "no-store, no-cache, must-revalidate, max-age=0"
+
+
+@app.middleware("http")
+async def cache_control(request: Request, call_next):
+    response = await call_next(request)
+    # Rota que define a própria política manda (escotilha por rota).
+    if "cache-control" in response.headers:
+        return response
+    if request.url.path.startswith("/static/"):
+        # Em produção o nginx serve /static direto (nem chega aqui). Em dev é o
+        # StaticFiles: no-cache = revalida via ETag (304 barato) em vez de servir
+        # CSS editado do cache heurístico.
+        response.headers["Cache-Control"] = "no-cache"
+    else:
+        response.headers["Cache-Control"] = _NO_STORE
     return response
 
 

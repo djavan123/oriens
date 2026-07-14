@@ -221,13 +221,20 @@
   {% block body %}{% endblock %}
 
   <script>
-    // Registro do service worker (PWA). Só em contexto seguro (HTTPS ou localhost).
+    // Service worker DESLIGADO. O registro antigo apontava para /static/sw.js sem
+    // `scope`, então seu escopo era /static/ — ele nunca controlou as páginas e o
+    // "PWA offline" nunca existiu de fato. Aqui só limpamos o legado que ficou nos
+    // navegadores: desregistra o SW órfão e apaga os caches que ele criou.
+    // O app segue instalável (manifest), agora sem cache offline.
     if ("serviceWorker" in navigator) {
-      window.addEventListener("load", function () {
-        // ?v= muda a URL do SW a cada build → o browser re-instala e o cache antigo
-        // é limpo no activate (cache-busting sem bump manual de versão no sw.js).
-        navigator.serviceWorker.register("/static/sw.js?v={{ app_version }}").catch(function () {});
-      });
+      navigator.serviceWorker.getRegistrations()
+        .then(function (rs) { rs.forEach(function (r) { r.unregister(); }); })
+        .catch(function () {});
+    }
+    if (window.caches && caches.keys) {
+      caches.keys().then(function (ks) {
+        ks.forEach(function (k) { if (k.indexOf("oriens-static") === 0) caches.delete(k); });
+      }).catch(function () {});
     }
   </script>
 </body>

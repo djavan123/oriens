@@ -29,12 +29,20 @@ cp /opt/oriens/nginx/oriens-ip.conf /etc/nginx/sites-available/oriens
 nginx -t && systemctl reload nginx
 ```
 
-> **Deploy recomendado** (injeta o git SHA para cache-busting dos estáticos/PWA):
+> **Deploy (a ordem importa):**
 > ```bash
-> git pull && APP_VERSION=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build
+> cd /opt/oriens
+> git pull                                   # 1) atualiza os ASSETS que o nginx do host serve
+> cp nginx/oriens-ip.conf /etc/nginx/sites-available/oriens && nginx -t && systemctl reload nginx   # se o conf mudou
+> APP_VERSION=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build # 2) templates com ?v= novo
 > ```
-> Sem `APP_VERSION`, o build usa `prod` fixo — funciona, mas navegadores/PWA podem
-> servir CSS/JS antigos até o cache expirar.
+> **O `git pull` vem ANTES do rebuild**: o nginx serve `/static/` do disco do host
+> (`/opt/oriens/app/static/`), enquanto o HTML (com `?v=<sha>`) vem do container. Se o
+> HTML pedir `?v=NOVO` e o disco ainda tiver o asset velho, ele congela no navegador.
+>
+> **`APP_VERSION` é obrigatório em produção:** o app **aborta o boot** se `DEBUG=false` e
+> `APP_VERSION` for o fallback (`dev`/`prod`) — sem o SHA, dois builds compartilham a mesma
+> URL de asset (`?v=prod`) e o navegador serve CSS/JS antigo.
 
 O compose também traz um serviço `nginx` em container (`nginx/oriens-docker.conf`),
 **opt-in** via profile — só para ambientes SEM nginx no host:

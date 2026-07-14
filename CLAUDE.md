@@ -160,7 +160,9 @@ C:\Projetos\Sistema tarefas\
 │   │   # dashboard_task.html, criterio_selector.html.
 │   ├── static/
 │   │   ├── vendor/                    # NOVO (AUDITORIA): Tailwind, HTMX, Alpine, SortableJS + fonte Inter (woff2) auto-hospedados — sem CDN
-│   │   ├── sw.js                      # v2 (AUDITORIA): pré-cacheia + cacheia-no-fetch os assets de /static (PWA offline de verdade)
+│   │   # sw.js REMOVIDO — service worker desligado (ver "FIX — site servindo versão antiga"): era
+│   │   # registrado em /static/sw.js SEM `scope`, logo escopo /static/ → nunca controlou as páginas
+│   │   # e o "PWA offline" nunca existiu. base.html agora só desregistra o órfão e limpa os caches.
 │   │   └── manifest.webmanifest, icon.svg, css/theme.css (3 temas — SCRIPT 6)
 │   └── utils/
 │       ├── auth.py                    # cookie: oriens_token; datetime via utils/time.utcnow() — AUDITORIA
@@ -496,7 +498,7 @@ Remoção completa do módulo Mission; renomeação para Oriens (tokens, cookies
 - **PostgreSQL:** driver `asyncpg`; `_ensure_columns()`/`_migrate_data()` com guard só-SQLite; `init_db()` roda sempre no lifespan (corrige tabelas não criadas com `DEBUG=false`).
 - **`COOKIE_SECURE`** (config) aplicado em todos os `set_cookie` (login, setup, contexto, energia).
 - **Docker:** `Dockerfile` de produção (sem `--reload`); `docker-compose.yml` (dev) com `--reload`; `docker-compose.prod.yml` (app + PostgreSQL + volumes `pgdata`/`appdata`).
-- **PWA:** `manifest.webmanifest`, `sw.js`, `icon.svg` + meta tags e registro do service worker em `base.html`.
+- **PWA:** `manifest.webmanifest`, `icon.svg` + meta tags (app instalável). O `sw.js`/registro do service worker foi **removido** — nunca funcionou (escopo `/static/`); ver "FIX — site servindo versão antiga".
 - **Responsividade:** sidebar off-canvas (hambúrguer) no mobile; grids do dashboard/projetos/detalhe adaptativos.
 - **Infra/docs:** `nginx/oriens.conf`, `scripts/backup.sh`, `scripts/migrate_to_postgres.py`, `.dockerignore`, `.gitignore`, `DEPLOY.md`.
 
@@ -721,7 +723,7 @@ Revisão completa do projeto em 5 fases (branch `refactor/producao-limpeza-bugs`
 - **Pool de conexões** (Postgres): `pool_size=10`, `max_overflow=20`, `pool_pre_ping=True`, `pool_recycle=1800`.
 - **`/health` com ping real** no banco (503 se cair); `healthcheck` do serviço `app` no `docker-compose.prod.yml`.
 - **Telegram por usuário:** `users.telegram_chat_id` (nullable). Captura e lembretes roteados ao dono do chat; fallback ao `TELEGRAM_CHAT_ID` global do `.env` preserva o comportamento single-user existente sem exigir configuração. UI em `/settings` → seção "Telegram".
-- **Front sem CDN:** Tailwind, HTMX, Alpine.js, SortableJS e a fonte Inter auto-hospedados em `app/static/vendor/` (mesmos bytes das versões usadas — sem mudança visual). `sw.js` (v2) pré-cacheia e cacheia-no-fetch → PWA funciona offline de verdade.
+- **Front sem CDN:** Tailwind, HTMX, Alpine.js, SortableJS e a fonte Inter auto-hospedados em `app/static/vendor/` (mesmos bytes das versões usadas — sem mudança visual). ~~`sw.js` (v2) pré-cacheia e cacheia-no-fetch → PWA funciona offline de verdade~~ — **falso**: o SW nunca teve escopo `/`, nunca controlou as páginas; foi **removido** (ver "FIX — site servindo versão antiga").
 - **nginx:** `limit_req` no `/auth/login` (5 req/min por IP) + `location /static/` servindo os arquivos direto (tira o Python do caminho dos assets).
 - **Dependências:** `python-multipart` 0.0.12→0.0.18 (corrige CVE-2024-53981), `jinja2` 3.1.4→3.1.6, `anthropic`/`openai` pinados (eram `>=`), `gunicorn` adicionado.
 
@@ -841,11 +843,28 @@ Preparação completa para rodar liso em escala, em 6 commits isolados (aditivo,
 - **Drag-drop com tratamento de erro:** falha no PATCH → aviso + `refreshProjectTasks` (re-render do banco = reversão). **Kanban de /projects sem reload:** drop dispara `refreshProjectsList` e o kanban se re-renderiza via `hx-select` na própria página. Branch `reload_on_done` removido (nenhum chamador).
 - **BUGFIX (achado no smoke):** `hx-on::after-request` usava `$el.reset()`, mas htmx não define `$el` — o reset dos forms falhava silenciosamente com erro JS em todo submit. → `this.reset()` em 6 templates.
 - **Cores hardcoded do SCRIPT 17 tokenizadas:** `--oriens-table-accent/success/warn/today` em `theme.css` (`:root`, mesmo valor nos 3 temas — **zero mudança visual**, preserva o 17B).
-- **PWA com cache-busting por build:** `APP_VERSION` (config + `ARG` no Dockerfile + build-arg no compose com git SHA), `?v=` em todos os assets e no registro do SW; `sw.js` deriva o nome do cache da versão — **deploy de CSS/JS chega ao cliente sem bump manual**. Cache de estáticos do nginx: 30d immutable.
+- **Cache-busting por build:** `APP_VERSION` (config + `ARG` no Dockerfile + build-arg no compose com git SHA) e `?v=` em todos os assets — **deploy de CSS/JS chega ao cliente sem bump manual**. ⚠️ O cache do nginx aplicado aqui (30d immutable **sem checar `?v=`**) causou o bug corrigido em "FIX — site servindo versão antiga" logo abaixo.
 
 **Fase 6 — Código morto removido:** `process.html`, `partials/process_item.html`, `partials/repo_item.html`, `partials/project_card.html` (órfão; `PATCH /api/projects/{id}` agora responde vazio — todos os chamadores usam `hx-swap="none"`), endpoints `POST/DELETE /api/repository`, ramos `action=note/repository` + `process_as_note/process_as_repository` (Caixa de Entrada só tem 4 destinos desde o script "4 destinos"), `note_repo.py`/`repository_repo.py`, bloco `{% if false %}` de riscos em `detail.html` (backend de riscos mantido — reports usa `count_open`), **`alembic/` + `alembic.ini` + dep `alembic`** (abandonados; schema real vem de `_ensure_columns`). Models `Note`/`RepositoryItem` + `list_migration` mantidos por 1 ciclo com `# TODO remover`.
 
-> **Config novas (.env, todas opcionais):** `DB_POOL_SIZE=5`, `DB_MAX_OVERFLOW=5`, `LOG_JSON=false`, `APP_VERSION` (via build-arg). **Deploy recomendado:** `APP_VERSION=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build` (4 serviços: db, app, worker, nginx).
+> **Config novas (.env, todas opcionais):** `DB_POOL_SIZE=5`, `DB_MAX_OVERFLOW=5`, `LOG_JSON=false`, `APP_VERSION` (via build-arg). **Deploy recomendado:** `APP_VERSION=$(git rev-parse --short HEAD) docker compose -f docker-compose.prod.yml up -d --build`.
+
+### ✅ FIX — Site servindo versão antiga (cache do navegador) + service worker desligado
+
+Após o deploy do script de larga escala, o app continuava mostrando **CSS/JS/comportamento antigos até um Ctrl+F5**. Causa raiz (medida com `curl` na VPS, não suposta):
+
+1. **HTML sem nenhum header de cache** — `GET /auth/login` voltava `200` só com `Vary`; sem `Cache-Control`, `ETag` ou `Last-Modified`. O navegador reusava HTML antigo, que referencia assets **sem** `?v=`.
+2. **Regressão do próprio script de larga escala:** o `location /static/` do nginx aplicava `expires 30d` + `immutable` a **qualquer** URL sob `/static/`, **inclusive sem `?v=`** → o asset antigo em URL estável ficava **congelado 30 dias** no navegador (e o `Cache-Control` saía **duplicado**: um do `expires`, outro do `add_header`).
+3. **O service worker nunca controlou as páginas:** `base.html` registrava `/static/sw.js` **sem `scope`** → escopo `/static/` → o `fetch` handler jamais rodou em `/dashboard` etc. O "PWA offline de verdade" documentado era **ficção** (assim desde o primeiro commit).
+
+**Correções:**
+- **`app/main.py` — middleware `cache_control`:** `Cache-Control: no-store, no-cache, must-revalidate, max-age=0` em tudo que **não** é `/static/` (HTML, fragmentos HTMX, API, redirects de auth); `/static/` servido pelo app (dev) → `no-cache` (revalida por ETag). Rota que define a própria política tem precedência (escotilha via `if "cache-control" in response.headers`). Mata também o bug clássico do HTMX (browser cacheando resposta de `hx-get` e servindo o fragmento numa navegação normal). Efeito colateral **desejado**: `no-store` tira a página do bfcache — o botão voltar passa a buscar HTML fresco.
+- **nginx (`oriens-ip.conf` **e** `oriens-docker.conf`) — cache por `map $arg_v`:** `?v=<sha>` → `public, max-age=31536000, immutable`; **sem** `?v=` → `no-cache`. `expires off` + **um único** `add_header ... always` elimina o header duplicado. (`map`, não `if` — `add_header` dentro de `if` tem herança traiçoeira no nginx.)
+- **Service worker DESLIGADO:** `app/static/sw.js` **removido**; `base.html` não registra mais nada — só **desregistra os SWs órfãos** (`getRegistrations()`) e **apaga os caches legados** (`oriens-static-*`) nos navegadores dos usuários. `location = /static/sw.js` responde **404 com `no-store`** — e um 404 no script é o que faz o navegador descartar o registro antigo sozinho. O app **segue instalável** (manifest), agora sem cache offline.
+- **Guard de `APP_VERSION`** (`logging_setup.check_asset_version`, chamado só no lifespan do web): aborta o boot se `DEBUG=false` e `APP_VERSION` for o fallback (`dev`/`prod`). É o que torna o `immutable` seguro — sem SHA, dois builds compartilhariam `?v=prod` e congelariam o asset antigo por um ano. Mesmo padrão do guard de `SECRET_KEY`.
+- **`tests/test_cache_headers.py`** (7 testes) trava os invariantes: `no-store` em HTML/fragmento/redirect, `/static` nunca `immutable` pelo app, `/static/sw.js` → 404, e o guard de `APP_VERSION`. Suíte: **94 verdes**.
+
+> **Limite honesto:** uma resposta **já gravada** no navegador como `immutable, max-age=30d` **não pode ser invalidada pelo servidor** — nenhum header futuro a desaloja. O HTML novo simplesmente deixa de apontar para ela. Por isso **um único `Ctrl+Shift+R` após este deploy** deixa o estado determinístico; a partir daí os deploys chegam sozinhos.
 
 ---
 

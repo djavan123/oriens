@@ -61,4 +61,26 @@ def check_production_secrets() -> None:
         )
 
 
+# Fallbacks de APP_VERSION (config.py e o ARG do Dockerfile). Em produção eles são
+# valores fixos: dois builds diferentes compartilhariam a mesma URL de asset (?v=prod)
+# e o cache longo do nginx congelaria o CSS/JS antigo por um ano.
+_APP_VERSION_FALLBACKS = {"dev", "prod", ""}
+
+
+def check_asset_version() -> None:
+    """Aborta o boot (web) se em produção o APP_VERSION for o fallback fixo.
+
+    O cache `immutable` dos estáticos só é seguro porque a URL carrega ?v=<git SHA>.
+    """
+    settings = get_settings()
+    if not settings.DEBUG and settings.APP_VERSION.strip() in _APP_VERSION_FALLBACKS:
+        raise RuntimeError(
+            f"APP_VERSION={settings.APP_VERSION!r} com DEBUG=false. Os estáticos são "
+            "cacheados por URL (?v=APP_VERSION); um valor fixo faz o navegador servir "
+            "CSS/JS antigos após o deploy. Suba com o SHA do commit:\n"
+            "  APP_VERSION=$(git rev-parse --short HEAD) docker compose "
+            "-f docker-compose.prod.yml up -d --build"
+        )
+
+
 logger = logging.getLogger("oriens")
