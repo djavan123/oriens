@@ -48,7 +48,7 @@ class DashboardService:
         user_id: int,
         energy: Optional[EnergyLevel] = None,
         context_id: Optional[int] = None,
-        limit: int = 3,
+        limit: int = 5,
     ) -> list[Task]:
         """Tarefas avulsas (project_id nulo) ordenadas pelas regras de prioridade."""
         return await self.tasks.get_priority_pending(
