@@ -1,4 +1,8 @@
-# Deploy do Oriens em produção (VPS Hostinger · Ubuntu 24.04)
+# Deploy do Oriens em produção (VPS Contabo · Ubuntu 24.04)
+
+> **Estado atual:** roda na Contabo (`vmi3445799`, `169.58.30.41`), acesso por **HTTP no IP**, sem
+> domínio/TLS. Migrado da Hostinger em 16/07/2026 (ver `CHANGELOG.md`). As seções 7/8 abaixo
+> (domínio + certbot) seguem **pendentes** — descrevem o alvo, não o que está no ar.
 
 Arquitetura mais simples que funciona:
 
@@ -73,7 +77,7 @@ Assim o boot dos containers novos vira uma passada rápida por guards idempotent
 
 ## 0. Pré-requisitos
 
-- VPS Hostinger com Ubuntu 24.04 e acesso `root` (ou usuário com `sudo`).
+- VPS Contabo com Ubuntu 24.04 e acesso `root` (ou usuário com `sudo`).
 - Um domínio. No painel DNS, crie 2 registros **A** apontando para o IP da VPS:
   - `seudominio.com.br`     → `IP_DA_VPS`
   - `www.seudominio.com.br` → `IP_DA_VPS`
@@ -231,13 +235,25 @@ cd /opt/oriens
 bash scripts/backup.sh
 ```
 
-Agendar diariamente às 03:00 (cron do root):
+**Já agendado** na VPS atual, diariamente às 03:00 no cron do root (conferir com `crontab -l`):
 
 ```bash
-crontab -e
-# adicione a linha:
 0 3 * * * cd /opt/oriens && bash scripts/backup.sh >> /var/log/oriens-backup.log 2>&1
 ```
+
+Para reinstalar numa VPS nova (não use `crontab -l | grep -v ... | crontab -` dentro de um script
+com `set -e`: sem crontab prévio o `grep` sai com código 1, o shell aborta antes do `echo` e você
+instala um crontab **vazio** sem perceber):
+
+```bash
+printf '0 3 * * * cd /opt/oriens && bash scripts/backup.sh >> /var/log/oriens-backup.log 2>&1\n' | crontab -
+crontab -l                      # confirme que a linha está lá
+bash scripts/backup.sh          # e que o script roda de verdade (exit 0)
+```
+
+> ⚠️ **A retenção apaga por padrão de nome**, não por idade só: `find -name 'oriens_*.gz' -mtime +7
+> -delete`. Um backup que deva ser permanente (snapshot de migração, marco antes de mudança grande)
+> precisa de um nome que **não** case com `oriens_*.gz` — ex.: `SNAPSHOT-*`.
 
 **Restaurar o banco** a partir de um dump:
 

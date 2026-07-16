@@ -135,3 +135,30 @@ O motivador original — os `Enum` nativos do PG que quebravam com `ALTER TYPE` 
 
 **Esboço:** novo `docker-compose.dev.yml` (Postgres + app, volumes próprios `pgdata_dev`/`appdata_dev` — nunca os de prod); `.env` de dev com `DATABASE_URL` apontando ao PG do container e `POSTGRES_PASSWORD` de dev; `docker-compose.yml` atual mantido como rollback SQLite; `config.py` mantém default SQLite por segurança. Testes seguem em SQLite in-memory; paridade real só apareceria rodando a suíte (ou um smoke) contra PG — opção futura de serviço PG efêmero no CI.
 ---
+
+## ✅ MIGRAÇÃO DE VPS — Hostinger → Contabo (16/07/2026)
+
+Mudança de hospedagem, sem mudança de código. O Oriens saiu de `187.77.61.67` (Hostinger, 3.8 Gi RAM / 48G) para **`169.58.30.41`** (Contabo `vmi3445799`, 7.8 Gi / 96G). Ambos Ubuntu 24.04.
+
+**Migrado no commit `211dd47`** — o mesmo que já estava no ar, deliberadamente. Migração e upgrade de código são variáveis separadas: se algo quebrasse depois da virada, misturar as duas tornaria o diagnóstico ambíguo. Atualizar para `main` ficou como passo seguinte e independente.
+
+**Método (virada seca, ~4 min de downtime):** tudo que não dependia dos dados foi feito com a Hostinger ainda no ar — Docker/nginx/UFW instalados, repo clonado, `.env` copiado, **imagens buildadas e `postgres:16-alpine` puxada**. O downtime cobriu só: parar `app`+`worker` → `pg_dump` + tar do volume `appdata` → transferir ~12 MB (checksums conferidos nas três pontas) → restaurar → subir. Conferência final por contagem contra a origem: `users=1, projects=13, tasks=190, capture=194`, anexos 1.7M/5 arquivos.
+
+**Anexos com o app parado:** o `backup.sh` lê os anexos via `exec -T app`, o que não funciona durante a virada (o app está parado de propósito). Contorno: ler o volume por container efêmero — `docker run --rm -v oriens_appdata:/data alpine tar czf - .`.
+
+**Backup automático passou a existir.** Na Hostinger o cron **nunca havia sido agendado** (`crontab` vazio; dumps só manuais, o último com 3 dias). Na Contabo ficou agendado às 03:00 e foi testado rodando de fato, não só instalado.
+
+**Dois problemas encontrados, ambos por conferir em vez de supor:**
+
+1. **Crontab instalado vazio, em silêncio.** `( crontab -l | grep -v X ; echo Y ) | crontab -` dentro de `set -e`: sem crontab prévio, o `grep` não casa nada e sai com 1 → o shell aborta o subshell antes do `echo` → `crontab -` recebe entrada vazia. O `crontab -l` de verificação é o que revelou. Documentado em `DEPLOY.md`.
+2. **A retenção do `backup.sh` apagaria o snapshot da migração.** `find -name 'oriens_*.gz' -mtime +7 -delete` casa por *nome*: o snapshot criado como `oriens_db_pre-migracao-*.gz` sumiria em 7 dias. Renomeado para `SNAPSHOT-pre-migracao-hostinger_*`, fora do glob.
+
+**A VPS da Hostinger NÃO pode ser cancelada:** ela também hospeda o `rd-financas` (frontend + backend + db), alheio ao Oriens e no ar. Consequência prática: `systemctl disable docker` naquela VPS é **proibido** — derrubaria o `rd-financas` no próximo reboot. Para impedir que o Oriens velho ressuscite sozinho (segunda cópia com escrita, invisível), a medida correta é por container: `docker update --restart=no oriens-app-1 oriens-db-1 oriens-worker-1`, deixando o `restart=unless-stopped` do `rd-financas` intacto.
+
+**Rollback** (Hostinger parada, volumes `pgdata`/`appdata` intactos, sem `down -v`):
+```bash
+cd /opt/oriens && docker compose -f docker-compose.prod.yml up -d
+```
+Snapshot pré-virada guardado na Contabo em `backups/SNAPSHOT-pre-migracao-hostinger_{db.sql.gz,data.tar.gz}`.
+
+**Herdado, não resolvido:** segue HTTP por IP, sem domínio/TLS (`COOKIE_SECURE=false`). A migração trocou o endereço e quebrou o PWA instalado — reforço de que o domínio + HTTPS pendente é o que tira o app da dependência de IP.

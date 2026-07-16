@@ -323,7 +323,7 @@ oriens/
 
 ## PRODUÇÃO E OPERAÇÃO (VPS)
 
-**Local na VPS:** `/opt/oriens` · **Repo:** github.com/djavan123/oriens
+**VPS:** Contabo (`vmi3445799`, Ubuntu 24.04) · **Acesso:** `http://169.58.30.41` (HTTP por IP, sem domínio) · **Local na VPS:** `/opt/oriens` · **Repo:** github.com/djavan123/oriens
 
 **Serviços:** `db` (PostgreSQL) + `app` (web, gunicorn, workers via `WEB_CONCURRENCY`) + `worker` (lembretes + Telegram, com heartbeat) + `nginx` (porta 80: rate-limit no login, gzip, estáticos com cache). Se o `worker` cair, lembretes/Telegram param, mas o resto do app funciona.
 
@@ -340,7 +340,9 @@ git pull && APP_VERSION=$(git rev-parse --short HEAD) docker compose -f docker-c
 
 **Antes de cada deploy:** guardar o commit atual para rollback trivial (`git rev-parse HEAD | tee .last_good_commit`). O código é compatível para trás (migração é aditiva) — rollback é `git checkout` + `up -d --build`.
 
-**Persistência:** banco em `pgdata`; anexos em `appdata`. **Backup:** `bash scripts/backup.sh` (pg_dump + anexos, retém 7 dias). Cron sugerido: `0 3 * * * cd /opt/oriens && bash scripts/backup.sh >> /var/log/oriens-backup.log 2>&1`.
+**Persistência:** banco em `pgdata`; anexos em `appdata`. **Backup:** `bash scripts/backup.sh` (pg_dump + anexos, retém 7 dias). **Cron ativo** no root da VPS: `0 3 * * * cd /opt/oriens && bash scripts/backup.sh >> /var/log/oriens-backup.log 2>&1`.
+
+> A retenção do `backup.sh` é `find -name 'oriens_*.gz' -mtime +7 -delete`. Backup que precise sobreviver a isso **não pode se chamar `oriens_*.gz`** — é por isso que o snapshot da migração está como `backups/SNAPSHOT-pre-migracao-hostinger_*`.
 
 **Pendente (futuro):** domínio + HTTPS (Nginx + Certbot); ao ativar, reverter a porta para `127.0.0.1:8000:8000` e `COOKIE_SECURE=true` (ver `DEPLOY.md`).
 
