@@ -93,7 +93,7 @@ Você é um Senior Python Engineer trabalhando comigo no Oriens.
 | **IA (opcional)** | Quebrar tarefa em subtarefas · sugerir próximas ações do projeto. Dormente por padrão (`AI_ENABLED=false`); providers Claude/OpenAI/Null. | `services/ai_service.py`, `routes/api/ai.py` |
 | **Aparência / PWA** | 3 temas (`dark`/`light`/`warm`) sem reload e sem flash; sidebar responsiva (off-canvas no mobile); app instalável (manifest). **Sem cache offline** — não há service worker. | `static/css/theme.css`, `base.html` |
 
-**Riscos de projeto:** o backend existe (`/api/projects/{id}/risks`, contagem usada no relatório), mas **não há UI** — o bloco foi retirado do detalhe.
+**Riscos de projeto:** o backend existe (`/api/projects/{id}/risks`, contagem usada no relatório), mas **não há UI** — o bloco foi retirado do detalhe e `partials/project_risk.html` ficou órfã. O detalhe do projeto **não lê mais** riscos, auditoria nem cronologia: eram consultados e passados ao template sem nunca serem renderizados, 45 ms de banco por abertura.
 
 ---
 
@@ -370,5 +370,5 @@ Itens que o sistema carrega mas ainda não foram limpos. Nada aqui quebra nada h
 - **Tabelas legadas órfãs no banco** (nunca dropadas por segurança — migração é sempre não-destrutiva): `criterio_contexto`, `tarefa_criterio_valor`, `project_milestones`, `weekly_directives`, `notes`, `repository_items`. Nenhuma tem leitor vivo no código. Dropar exige um passo destrutivo consciente (com backup antes).
 - **Models `Note` e `RepositoryItem`** + o serviço `list_migration` seguem no código marcados para remoção, mantidos por um ciclo de segurança enquanto a migração de dados legados se estabiliza. Quando não houver mais nada a reconciliar, remover.
 - **Endpoints legados** `POST/DELETE /api/repository` existem mas não são usados pela UI atual.
-- **Riscos de projeto:** backend completo, sem UI. Decidir se ganha interface ou se o backend também sai.
+- **Riscos de projeto:** backend completo, sem UI, e `partials/project_risk.html` órfã. Decidir se ganha interface ou se o backend também sai. A leitura morta no detalhe já foi removida — hoje o único consumidor vivo é a contagem do relatório.
 - **Sugestão de processo:** ao começar uma faxina, cruzar esta lista com o código real (`grep` pelos nomes) antes de remover — confirmar que segue sem leitor vivo.

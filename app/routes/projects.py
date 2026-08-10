@@ -142,9 +142,8 @@ async def _build_tasks_panel_context(
     tarefas, badge de próxima ação). Reaproveitado pelo render inicial da página
     (project_detail) e pelo endpoint de refresh via HTMX (project_tasks_panel)."""
     service = ProjectService(db)
-    next_action = await service.get_project_next_action(project.id, current_user.id)
-
     task_repo = TaskRepository(db)
+
     # Pendentes/bloqueadas inteiras; concluídas limitadas às 50 mais recentes
     # (projeto antigo acumula centenas — o total real vem do progresso agregado).
     open_tasks = await task_repo.get_all_by_user(
@@ -152,6 +151,25 @@ async def _build_tasks_panel_context(
     )
     pending_tasks = [t for t in open_tasks if t.status == TaskStatus.pending]
     blocked_tasks = [t for t in open_tasks if t.status == TaskStatus.blocked]
+
+    # A próxima ação sai daqui, sem ida extra ao banco (eram 28 ms por abertura,
+    # a query mais cara da rota). É o mesmo resultado por construção:
+    # `get_project_next_task` e `get_all_by_user(project_id=…)` usam a MESMA
+    # ordenação (`_project_task_order`: seção → order_index → criação) e os
+    # mesmos filtros (dono, não arquivada, tarefa de topo). A única diferença é
+    # o status — `pending` lá, `!= done` aqui — então a primeira pendente desta
+    # lista é exatamente o que aquela query devolveria.
+    #
+    # Exceção: `get_all_by_user` corta em limit=500. Acima disso a lista pode
+    # não conter a 1ª pendente real, e aí vale a query dedicada.
+    if len(open_tasks) < 500:
+        next_action = {
+            "task": pending_tasks[0] if pending_tasks else None,
+            "proxima_acao": None,
+            "executable": bool(pending_tasks),
+        }
+    else:
+        next_action = await service.get_project_next_action(project.id, current_user.id)
     done_tasks = await task_repo.get_project_done_tasks(
         current_user.id, project.id, limit=50
     )
