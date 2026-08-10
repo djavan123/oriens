@@ -20,8 +20,11 @@
 .pj-card-label { font-size:11px; font-weight:600; letter-spacing:0.08em; color:var(--oriens-secondary); text-transform:uppercase; margin-bottom:10px; }
 .pj-chip { display:inline-flex; align-items:center; padding:2px 8px; border-radius:4px; font-size:12px; font-weight:500; white-space:nowrap; }
 .pj-tab { padding:10px 16px; background:none; border:none; border-bottom:2px solid transparent; font-size:14px; cursor:pointer; color:var(--oriens-secondary); margin-bottom:-1px; transition:color .12s; }
-.pj-tab.active { color:var(--oriens-primary); border-bottom-color:var(--oriens-table-accent); }
-.pj-btn-primary { background:var(--oriens-table-accent); color:#fff; border:none; border-radius:6px; padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; transition:opacity .12s; }
+.pj-tab.active { color:var(--oriens-primary); border-bottom-color:var(--oriens-btn); }
+/* Usa o mesmo par de tokens do .btn-primary global. Antes era o azul
+   --oriens-table-accent (#4573d2), que não pertence a nenhum dos 3 temas e
+   colidia com o roxo da sidebar na mesma tela. */
+.pj-btn-primary { background:var(--oriens-btn); color:var(--oriens-btn-text); border:none; border-radius:6px; padding:7px 14px; font-size:13px; font-weight:600; cursor:pointer; transition:opacity .12s; }
 .pj-btn-primary:hover { opacity:0.85; }
 .pj-btn-secondary { background:var(--oriens-surface); border:1px solid var(--oriens-border); color:var(--oriens-primary); border-radius:6px; padding:7px 14px; font-size:13px; cursor:pointer; transition:background .12s; }
 .pj-btn-secondary:hover { background:var(--oriens-card-hover); }
@@ -189,12 +192,12 @@
           {% if project.objective %}
           <p style="color:var(--oriens-primary); font-size:14px; line-height:1.6; margin:0 0 8px;">{{ project.objective }}</p>
           <button @click="editingObj=true"
-            style="color:var(--oriens-table-accent); font-size:12px; background:none; border:none; cursor:pointer; padding:0;">
+            style="color:var(--oriens-link); font-size:12px; background:none; border:none; cursor:pointer; padding:0;">
             Editar
           </button>
           {% else %}
           <button @click="editingObj=true"
-            style="color:var(--oriens-table-accent); font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
+            style="color:var(--oriens-link); font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
             + definir objetivo claro para esse projeto
           </button>
           {% endif %}
@@ -242,12 +245,12 @@
               <p style="color:var(--oriens-secondary); font-size:13px; margin:4px 0 0;">{{ project.deadline.strftime('%d/%m/%Y') }}</p>
             {% endif %}
             <button type="button" @click="editingDeadline=true"
-              style="color:var(--oriens-table-accent); font-size:12px; background:none; border:none; cursor:pointer; padding:0; margin-top:10px; display:block;">
+              style="color:var(--oriens-link); font-size:12px; background:none; border:none; cursor:pointer; padding:0; margin-top:10px; display:block;">
               Editar →
             </button>
           {% else %}
           <button type="button" @click="editingDeadline=true"
-            style="color:var(--oriens-table-accent); font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
+            style="color:var(--oriens-link); font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
             + definir prazo
           </button>
           {% endif %}
@@ -275,7 +278,7 @@
           {{ progress.pct }}<span style="font-size:14px; color:var(--oriens-secondary); font-weight:400;">%</span>
         </p>
         <div style="height:6px; border-radius:3px; background:var(--oriens-divider); overflow:hidden; margin-bottom:6px;">
-          <div style="height:100%; border-radius:3px; background:{% if progress.pct == 100 %}var(--oriens-table-success){% else %}var(--oriens-table-accent){% endif %}; width:{{ progress.pct }}%;"></div>
+          <div style="height:100%; border-radius:3px; background:{% if progress.pct == 100 %}var(--oriens-success){% else %}var(--oriens-btn){% endif %}; width:{{ progress.pct }}%;"></div>
         </div>
         <p style="color:var(--oriens-secondary); font-size:13px; margin:0;">{{ progress.done }} de {{ progress.total }} tarefas concluídas</p>
         {% else %}
@@ -296,14 +299,14 @@
             class="pj-input" style="flex:1;">
           <button type="submit" class="pj-btn-secondary">Adicionar</button>
         </form>
+        {# O estado vazio era um link "+ registrar primeira decisão" que só dava
+           foco no campo logo acima — duas portas visíveis ao mesmo tempo para a
+           mesma ação. O campo já está aberto; aqui basta dizer que não há nada. #}
         <div id="decisions-list">
           {% for d in decisions %}
             {% include "partials/project_decision.html" %}
           {% else %}
-          <button type="button" onclick="document.getElementById('decision-input').focus()"
-            style="color:var(--oriens-table-accent); font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
-            + registrar primeira decisão
-          </button>
+          <p class="text-empty" style="font-size:13px; margin:0;">Nenhuma decisão registrada.</p>
           {% endfor %}
         </div>
       </div>
@@ -366,7 +369,7 @@
         hx-target="#ai-project-suggestions"
         hx-swap="innerHTML"
         hx-indicator="#ai-project-spinner"
-        style="color:var(--oriens-table-accent); font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
+        style="color:var(--oriens-link); font-size:14px; background:none; border:none; cursor:pointer; padding:0;">
         Sugerir próximas ações →
       </button>
       <span id="ai-project-spinner" class="htmx-indicator" style="color:var(--oriens-muted); font-size:12px; margin-left:8px;">...</span>

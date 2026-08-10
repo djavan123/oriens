@@ -4,12 +4,12 @@
    que mapeia cada cor 'oriens-x' para var(--oriens-x). Assim, todas as classes
    utilitárias (bg-oriens-*, text-oriens-*, border-oriens-*) re-tematizam de uma vez. */
 
-/* Tokens locais da lista/detalhe de projetos (SCRIPT 17). Valores idênticos nos
-   3 temas de propósito — preservam o visual hardcoded original (#4573d2 etc.)
-   enquanto centralizam a cor num único lugar. */
+/* Tokens locais da lista/detalhe de projetos.
+   --oriens-table-accent (#4573d2) e --oriens-table-success foram removidos: o
+   azul não pertencia a nenhum dos 3 temas e aparecia junto do roxo da sidebar
+   na mesma tela. O detalhe do projeto agora usa --oriens-link (links),
+   --oriens-btn (barras/abas) e --oriens-success, como o resto do sistema. */
 :root {
-  --oriens-table-accent:  #4573d2;
-  --oriens-table-success: #5DCAA5;
   --oriens-table-warn:    #e08050;
   --oriens-table-today:   #EF9F27;
 }
@@ -31,8 +31,14 @@
   --oriens-accent:        #ffffff;
   --oriens-accent-hover:  #e0e0e0;
   --oriens-link:          #9A93E8;
-  --oriens-btn:           #7F77DD;
-  --oriens-accent-text:   #EEEDFE;
+  /* Roxo do botão escurecido de #7F77DD para bater 4,5:1 com texto branco
+     (era 3,76:1). Mesmo matiz e saturação — só a luminosidade desceu. */
+  --oriens-btn:           #7067D9;
+  --oriens-btn-hover:     #554AD2;
+  --oriens-btn-text:      #FFFFFF;
+  /* Texto POR CIMA de --oriens-accent (que aqui é branco) — precisa ser escuro.
+     Estava #EEEDFE, o que dava contraste 1,07:1 no .btn-primary. */
+  --oriens-accent-text:   #15151A;
   --oriens-urgent:        #E24B4A;
   --oriens-alert:         #E24B4A;
   --oriens-today:         #EF9F27;
@@ -59,6 +65,8 @@
   --oriens-accent-hover:  #443C9E;
   --oriens-link:          #534AB7;
   --oriens-btn:           #534AB7;
+  --oriens-btn-hover:     #443C9E;
+  --oriens-btn-text:      #FFFFFF;
   --oriens-accent-text:   #FFFFFF;
   --oriens-urgent:        #A32D2D;
   --oriens-alert:         #A32D2D;
@@ -85,8 +93,13 @@
   --oriens-accent:        #D85A30;
   --oriens-accent-hover:  #C24E28;
   --oriens-link:          #E8794F;
-  --oriens-btn:           #D85A30;
-  --oriens-accent-text:   #FAECE7;
+  /* Mesmo ajuste do dark: o laranja do botão tinha 3,87:1 com texto branco.
+     Só o botão mudou — --oriens-accent segue #D85A30, então o realce da
+     identidade do tema warm continua igual. */
+  --oriens-btn:           #CA4F26;
+  --oriens-btn-hover:     #AC4320;
+  --oriens-btn-text:      #FFFFFF;
+  --oriens-accent-text:   #FFFFFF;
   --oriens-urgent:        #E24B4A;
   --oriens-alert:         #E24B4A;
   --oriens-today:         #EF9F27;
@@ -112,8 +125,10 @@
   --oriens-accent:        #ffffff;
   --oriens-accent-hover:  #e0e0e0;
   --oriens-link:          #9A93E8;
-  --oriens-btn:           #7F77DD;
-  --oriens-accent-text:   #EEEDFE;
+  --oriens-btn:           #7067D9;
+  --oriens-btn-hover:     #554AD2;
+  --oriens-btn-text:      #FFFFFF;
+  --oriens-accent-text:   #15151A;
   --oriens-urgent:        #E24B4A;
   --oriens-alert:         #E24B4A;
   --oriens-today:         #EF9F27;

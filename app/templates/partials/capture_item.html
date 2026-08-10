@@ -1,4 +1,10 @@
+{# Item da Caixa de Entrada.
+   A hierarquia estava invertida: clicar no texto entrava em modo RENOMEAR (ação
+   rara) e "Decidir" — o verbo da tela, o que efetivamente esvazia o inbox — era
+   um link cinza que só aparecia no hover. Agora clicar no item decide, e
+   renomear virou ação secundária explícita. #}
 <div id="capture-{{ capture.id }}"
+     x-data="{ editing: false }"
      class="group flex items-center gap-3 px-3 py-2.5 border-b border-oriens-divider last:border-b-0 hover:bg-oriens-card-hover transition-colors">
 
   <!-- Checkbox de resolução -->
@@ -9,14 +15,15 @@
     title="Marcar como resolvido"
     class="flex-shrink-0 w-4 h-4 rounded-full border border-oriens-border hover:border-oriens-accent transition-colors bg-transparent cursor-pointer"></button>
 
-  <!-- Texto (editável inline) -->
-  <span id="capture-content-{{ capture.id }}"
-        x-data="{ editing: false }"
-        class="flex-1 min-w-0">
-    <span x-show="!editing"
-          @click="editing = true; $nextTick(() => $refs.inp{{ capture.id }}.select())"
-          class="text-sm text-oriens-primary leading-snug cursor-text">{{ capture.content }}</span>
-    <form x-show="editing"
+  <!-- Texto: clicar abre a decisão. Renomear fica no botão "renomear". -->
+  <span id="capture-content-{{ capture.id }}" class="flex-1 min-w-0">
+    <button type="button" x-show="!editing"
+            hx-get="/api/capture/{{ capture.id }}/decide"
+            hx-target="#capture-{{ capture.id }}"
+            hx-swap="outerHTML"
+            title="Decidir o destino deste item"
+            class="block w-full text-left text-sm text-oriens-primary leading-snug cursor-pointer hover:text-oriens-accent transition-colors">{{ capture.content }}</button>
+    <form x-show="editing" style="display:none"
           hx-patch="/api/capture/{{ capture.id }}"
           hx-target="#capture-content-{{ capture.id }}"
           hx-swap="outerHTML"
@@ -33,8 +40,9 @@
   <!-- Data -->
   <span class="flex-shrink-0 text-[11px] text-oriens-muted">{{ capture.created_at.strftime('%d/%m %H:%M') }}</span>
 
-  <!-- Ações (hover) -->
-  <div class="flex items-center gap-3 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+  <!-- Ações. "Decidir" fica sempre visível: é a ação principal da tela e ficar
+       escondida no hover era o que fazia a caixa acumular. -->
+  <div class="flex items-center gap-3 flex-shrink-0">
     <button
       hx-get="/api/capture/{{ capture.id }}/decide"
       hx-target="#capture-{{ capture.id }}"
@@ -42,12 +50,17 @@
       class="text-[11px] text-oriens-accent hover:opacity-70 transition-opacity whitespace-nowrap">
       Decidir
     </button>
+    <button type="button"
+      @click="editing = true; $nextTick(() => $refs.inp{{ capture.id }}.select())"
+      class="text-[11px] text-oriens-secondary hover:text-oriens-primary transition-colors opacity-0 group-hover:opacity-100 duration-150">
+      renomear
+    </button>
     <button
       hx-patch="/api/capture/{{ capture.id }}/discard"
       hx-target="#capture-{{ capture.id }}"
       hx-swap="outerHTML"
       title="Mover para lixeira"
-      class="text-[11px] text-oriens-secondary hover:text-oriens-urgent transition-colors cursor-pointer">
+      class="text-[11px] text-oriens-secondary hover:text-oriens-urgent transition-colors cursor-pointer opacity-0 group-hover:opacity-100 duration-150">
       lixeira
     </button>
   </div>

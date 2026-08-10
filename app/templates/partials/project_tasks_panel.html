@@ -11,7 +11,7 @@
 <!-- Barra de progresso 3px -->
 {% if progress.total %}
 <div style="height:3px; border-radius:2px; background:var(--oriens-divider); overflow:hidden; margin-bottom:8px;">
-  <div style="height:100%; background:var(--oriens-table-accent); width:{{ progress.pct }}%;"></div>
+  <div style="height:100%; background:var(--oriens-btn); width:{{ progress.pct }}%;"></div>
 </div>
 {% endif %}
 
@@ -23,6 +23,10 @@
 </div>
 
 <!-- Cabeçalho de colunas com resizable-th -->
+{# Responsável só faz sentido com mais de um usuário — é a mesma regra que o
+   select de responsável já segue. Com um usuário só, a coluna ocupava 110px
+   vazios em todas as linhas. #}
+{% set mostra_responsavel = users is defined and users | length > 1 %}
 <table style="width:100%; table-layout:fixed; border-collapse:collapse; margin-bottom:2px;">
   <colgroup>
     <col style="width:24px">
@@ -30,7 +34,7 @@
     <col>
     <col style="width:90px">
     <col style="width:100px">
-    <col style="width:110px">
+    {% if mostra_responsavel %}<col style="width:110px">{% endif %}
   </colgroup>
   <thead>
     <tr>
@@ -39,7 +43,7 @@
       <th class="resizable-th tasks-th">Nome</th>
       <th class="resizable-th tasks-th">Energia</th>
       <th class="resizable-th tasks-th">Prazo</th>
-      <th class="resizable-th tasks-th">Responsável</th>
+      {% if mostra_responsavel %}<th class="resizable-th tasks-th">Responsável</th>{% endif %}
     </tr>
   </thead>
 </table>
@@ -54,8 +58,15 @@
 <!-- Tarefas sem seção. Mesma estrutura de partials/project_section.html (header
      .group com espaçador do drag handle + chevron Alpine) para alinhar o título
      e as colunas com as demais seções. -->
+{# O cabeçalho "Sem seção" só aparece se houver mesmo tarefa fora de seção.
+   Como toda tarefa de projeto nasce numa seção (regra 10), na prática ele
+   ficava sempre vazio — um título e um "Adicionar tarefa..." a mais em todo
+   projeto. O formulário de criação abaixo continua sempre disponível. #}
+{% set sem_secao_blocked_h = blocked_by_section.get(None, []) if blocked_by_section is defined else [] %}
+{% set sem_secao_done_h = done_by_section.get(None, []) if done_by_section is defined else [] %}
+{% set tem_sem_secao = sem_secao_tasks or sem_secao_blocked_h or sem_secao_done_h %}
 <div id="sem-secao-container" class="section-row" x-data="{ open: true }">
-  {% if section_groups %}
+  {% if section_groups and tem_sem_secao %}
   <div class="group flex items-center gap-2 mb-2" style="padding:28px 0 8px 0;">
     <span class="section-drag-handle flex-shrink-0 w-4 self-stretch mr-1"></span>
     <span @click="open = !open" x-text="open ? '▾' : '▸'"

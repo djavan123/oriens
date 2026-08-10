@@ -22,6 +22,7 @@ async def lists_page(
     request: Request,
     list: Optional[str] = Query(None),
     offset: int = Query(0, ge=0),
+    fragment: bool = Query(False),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -68,8 +69,10 @@ async def lists_page(
     tasks = raw[:PAGE_SIZE]
     next_offset = offset + PAGE_SIZE
 
-    # Fragmento HTMX do "carregar mais": só os itens + próximo botão.
-    if offset and request.headers.get("HX-Request"):
+    # Fragmento HTMX: "carregar mais" (offset > 0) e o resync após o autosave do
+    # drawer (fragment=1, disparado pelo evento refreshLists). Em ambos os casos
+    # só os itens + o próximo botão.
+    if (offset or fragment) and request.headers.get("HX-Request"):
         return templates.TemplateResponse(
             request,
             "partials/list_tasks_page.html",

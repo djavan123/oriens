@@ -41,7 +41,7 @@ Você é um Senior Python Engineer trabalhando comigo no Oriens.
 | Frontend JS | HTMX | 1.9.12 (auto-hospedado em `static/vendor/`) |
 | Frontend JS | Alpine.js | 3.14.1 (auto-hospedado) |
 | Frontend JS | SortableJS | 1.15.2 (auto-hospedado) |
-| CSS | TailwindCSS | auto-hospedado (`static/vendor/tailwind.js`) |
+| CSS | TailwindCSS | 3.4.17, **compilado no build** (`npm run build:css`) |
 | Fonte | Inter | auto-hospedada (`static/vendor/fonts/`) |
 | Templates | Jinja2 | 3.1.6 |
 | Auth | PyJWT + bcrypt (via passlib) | 2.9.0 + 4.2.0 |
@@ -50,7 +50,15 @@ Você é um Senior Python Engineer trabalhando comigo no Oriens.
 | IA (opcional) | Anthropic / OpenAI | 0.40.0 / 1.50.0 (pinados) |
 | Deploy | Docker Compose | VPS Ubuntu 24.04 |
 
-**Zero dependências de CDN** — todo o front (Tailwind, HTMX, Alpine, Sortable, Inter) é auto-hospedado em `app/static/vendor/`.
+**Zero dependências de CDN** — HTMX, Alpine, Sortable e a fonte Inter são auto-hospedados em `app/static/vendor/`.
+
+**O CSS é gerado no build, nunca no navegador.** `tailwind.src.css` + `tailwind.config.js` → `app/static/css/tailwind.css` (~24 KB), via estágio `node` do Dockerfile. Em dev, rode `npm run build:css` (ou `npm run watch:css`) **sempre que mexer em classe de template** — o arquivo gerado é versionado.
+
+> Até 08/2026 o front carregava `static/vendor/tailwind.js`: o build *Play CDN* do Tailwind, 407 KB síncronos no `<head>`, que varria o DOM e gerava a folha de estilo em tempo de execução. Custava ~3 s de tela sem estilo por carga (medido: `domComplete` 938 ms, primeira pintura 4.116 ms) e recompilava tudo a cada swap do HTMX, via `MutationObserver`. Era a causa principal do sistema parecer travado. `tests/test_assets.py` impede a volta.
+
+**Cores com opacidade:** as cores `oriens-*` do Tailwind são funções que usam `color-mix()` (ver `tailwind.config.js`). Sem isso, `bg-oriens-accent/20` e afins não geram CSS nenhum — o Tailwind não sabe abrir um `var()` em canais. Eram 24 usos silenciosamente sem efeito.
+
+**Navegação:** o menu usa `hx-boost` — o clique troca só o `<body>` por AJAX, com barra de progresso (`.nav-progress`). A troca de contexto responde `HX-Location` (re-render da mesma tela), não `HX-Refresh`.
 
 **Banco único, dois ambientes:** o mesmo código roda em SQLite no dev e PostgreSQL na produção, controlado só pela `DATABASE_URL`.
 
@@ -72,12 +80,12 @@ Você é um Senior Python Engineer trabalhando comigo no Oriens.
 |---|---|---|
 | **Auth** | Login/logout por JWT em cookie httpOnly (`oriens_token`, 7 dias). `/auth/setup` cria o primeiro usuário. Rate-limit de 5 req/min no login (nginx). | `routes/auth.py`, `utils/auth.py` |
 | **Contextos** | Contexto ativo (Trabalho/Casa/…) persiste em cookie (`oriens_context`, guarda `context_id` inteiro) e **filtra tudo**: Dashboard, Listas, Projetos. Item sem contexto aparece em todos. Criáveis em Configurações. A transição "Sair do trabalho" oferece capturar pendências. | `utils/context_utils.py`, `routes/api/context.py` |
-| **Dashboard** | **Foco do dia** (texto único, edição inline) · **Agora** (UMA ação dominante) · **Evolução** (concluídas hoje + streak) · **Projetos em foco** (ativos por prioridade, cada um com sua próxima ação) · **Tarefas avulsas**. Filtro por energia (`?energy=`, cookie 8h). Blocos recarregam por evento HTMX, sem reload de página. | `routes/dashboard.py`, `services/dashboard_service.py`, `partials/dashboard_*.html` |
-| **Captura** | Caixa de entrada sem fricção (só conteúdo). Entradas: tela `/capture`, **atalho global `c`** (modal em qualquer tela) e **Telegram** (long polling no worker). Cada item vira um de 4 destinos: Descartar · Tarefa de projeto · Projeto · Listas. Lixeira com soft-delete (expurgo em 15 dias) e restauração. Edição inline do texto. Paginação (50). | `routes/capture.py`, `routes/api/capture.py`, `services/capture_service.py` |
+| **Dashboard** | **Evolução** (concluídas hoje + streak) · **Projetos em foco** (ativos por prioridade, cada um com sua próxima ação) · **Tarefas avulsas**. Filtro por energia (`?energy=`, cookie 8h). Blocos recarregam por evento HTMX, sem reload de página. **Não há mais os blocos "Agora" e "Foco do dia"** — removidos da tela no redesign de 07/07/2026 (commit `84f02ff`); a rota `/dashboard/now`, o campo `users.foco_do_dia` e `PATCH /dashboard/foco` continuam existindo, sem UI. | `routes/dashboard.py`, `services/dashboard_service.py`, `partials/dashboard_*.html` |
+| **Captura** | Caixa de entrada sem fricção (só conteúdo). Entradas: tela `/capture`, **atalho global `c`** (modal em qualquer tela; não abre por cima de outro overlay) e **Telegram** (long polling no worker). **Clicar no item abre a decisão**, e "Decidir" fica sempre visível — renomear virou ação secundária no hover. Os 4 destinos têm **atalhos 1–4**: Descartar · Tarefa de projeto · Projeto · Listas. Lixeira com soft-delete (expurgo em 15 dias) e restauração. Paginação (50). | `routes/capture.py`, `routes/api/capture.py`, `services/capture_service.py` |
 | **Listas** | Uma área de listas de tarefas, uma por vez: **Tarefas avulsas** (padrão) + **Notas** + **Repositório** (internas) + **personalizadas** (criar/renomear/arquivar). Tudo é `Task`; a lista é só agrupamento (`list_id`). Tarefa com URL no título exibe o **título da página** em vez do link cru (buscado em background). Paginação (100). | `routes/lists.py`, `routes/api/lists.py`, `utils/link_meta.py` |
 | **Projetos — lista** | Tabela com seções colapsáveis (Em andamento / Não iniciado / Concluído), drag-and-drop entre colunas para mudar status (sem reload). Filtros: Ativos / Arquivados / Todos. | `routes/projects.py`, `projects/list.html` |
 | **Projetos — detalhe** | Duas abas (lembradas por `localStorage`): **Visão geral** (objetivo, prazo, progresso, decisões, comentários, anexos) e **Tarefas** (seções colapsáveis, drag-and-drop dentro/entre seções e de seções entre si, subtarefas, badge "próxima ação", bloqueadas e concluídas inline). Arquivar/desarquivar. Cronologia automática + auditoria de campos. | `routes/projects.py`, `projects/detail.html`, `partials/project_*.html` |
-| **Tarefas (drawer)** | Clicar no título de qualquer tarefa abre um painel lateral — **único fluxo de edição**. Metadados (energia, prazo, responsável, etiquetas, contexto, prioridade, lista, quick win, lembrete) + Descrição + Subtarefas. Autosave por campo (sem botão salvar). | `GET /api/tasks/{id}/panel`, `partials/task_detail_panel.html` |
+| **Tarefas (drawer)** | Clicar no título de qualquer tarefa abre um painel lateral — **único fluxo de edição**. Metadados (energia, prazo, responsável, etiquetas, contexto, prioridade, lista, quick win, lembrete) + Descrição + Subtarefas. Autosave por campo, com selo **salvando… / salvo** no cabeçalho. O `PATCH` devolve **204 + `HX-Trigger`** (`refreshProjectsFocus, refreshPriorities, refreshLists[, refreshProjectTasks]`) em vez de trocar a linha: o alvo `#task-{id}` não existe em toda tela e, quando existe, está atrás do próprio drawer. | `GET /api/tasks/{id}/panel`, `partials/task_detail_panel.html` |
 | **Prioridade** | **Projeto:** Máxima/Alta/Média/Baixa (`priority` 0-3, menor = mais prioritário). **Tarefa avulsa/lista:** Máxima/Alta/Média/Baixa (`importancia` 6/5/3/1, maior = mais prioritário). **Tarefa de projeto:** não tem prioridade — vale a **ordem manual** (`order_index`) de execução. | `services/importancia_service.py` |
 | **Lembretes** | `remind_at` por tarefa (sem recorrência). Dois canais: **popup no app** (polling 60s + confirmar) e **Telegram** (worker, lote de 100/ciclo, trata 429). Roteado ao `telegram_chat_id` do dono, com fallback ao chat global do `.env`. | `services/reminder_service.py`, `app/worker.py` |
 | **Configurações** | Tema (3 temas) · Telegram (chat id do usuário) · Etiquetas (nome + cor) · Contextos personalizados. | `routes/settings.py`, `settings.html` |
@@ -156,7 +164,7 @@ Você é um Senior Python Engineer trabalhando comigo no Oriens.
 19. **Etiquetas:** CRUD em `/settings`. Campo `tasks.tags` (texto, vírgula). Chips no drawer preenchem o campo; badges de contexto e tags no `task_item`.
 20. **Lembretes:** `remind_at` (sem recorrência). Telegram via worker (60s, roteado ao dono, fallback ao global); popup no app via polling de `GET /api/reminders/due` (60s) + `POST /api/reminders/{id}/ack`. Editar o lembrete reseta ambos os flags. Hora local depende de `TZ=America/Sao_Paulo`.
 21. **Detecção de link:** tarefa avulsa de topo com URL no título recebe `link_url`/`link_title` (buscado em background, nunca na renderização). O helper `utils/link_meta.py` bloqueia SSRF (localhost, IPs privados/reservados, valida cada redirect por DNS antes do request) e nunca levanta exceção — falha ⇒ `None`.
-22. **Ownership em tudo:** toda operação valida que o recurso pertence ao usuário logado; acesso de terceiro retorna 404, nunca 200 silencioso.
+22. **Ownership em tudo:** toda operação valida que o recurso pertence ao usuário logado; acesso de terceiro retorna 404, nunca 200 silencioso. Inclui `POST /api/context/switch` e `/transition`, que até 08/2026 não exigiam sessão nem validavam dono.
 
 ---
 
@@ -176,8 +184,15 @@ Três temas (`dark` padrão, `light`, `warm`), trocáveis sem reload.
 | `--oriens-bg` | `#15151A` | `#FAF9F6` | `#1A1815` |
 | `--oriens-surface` | `#21212B` | `#FFFFFF` | `#2A2622` |
 | `--oriens-primary` (texto) | `#F2F1ED` | `#1F1E1B` | `#F0EBE3` |
-| `--oriens-accent` | `#FFFFFF` (dark) | `#534AB7` | `#D85A30` |
+| `--oriens-accent` (realce) | `#FFFFFF` | `#534AB7` | `#D85A30` |
+| `--oriens-btn` / `--oriens-btn-text` (botão) | `#7067D9`/`#FFFFFF` | `#534AB7`/`#FFFFFF` | `#CA4F26`/`#FFFFFF` |
 | `--oriens-urgent`/`today`/`ok` | `#E24B4A`/`#EF9F27`/`#5DCAA5` | `#A32D2D`/`#854F0B`/`#0F6E56` | `#E24B4A`/`#EF9F27`/`#1D9E75` |
+
+**Um único botão primário.** `.btn-primary`, `.capture-btn` e `.pj-btn-primary` usam o mesmo par `--oriens-btn` / `--oriens-btn-text`. Antes eram três cores concorrentes na mesma tela: roxo na sidebar, branco nos modais e azul `#4573d2` (fora de tema) no detalhe do projeto.
+
+⚠️ **`--oriens-accent` é fundo de realce, não cor de botão.** No tema dark ele é branco; usá-lo como fundo de botão com `--oriens-accent-text` por cima dava contraste 1,07:1 — texto invisível. Para ação primária, use sempre `--oriens-btn`.
+
+**`--oriens-btn` passa em 4,5:1 (WCAG AA, texto normal) com `--oriens-btn-text` nos 3 temas** — 4,53 no dark, 6,93 no light, 4,51 no warm. Os valores do dark e do warm foram escurecidos a partir de `#7F77DD`/`#D85A30` (que davam 3,76 e 3,87), preservando matiz e saturação. `--oriens-accent` **não** mudou, então o realce e a identidade de cada tema seguem iguais. `tests/test_assets.py` calcula a razão a partir do próprio `theme.css` e falha se algum tema cair abaixo de 4,5 — ou se um `--oriens-btn-hover` ficar mais claro que o repouso.
 
 ---
 

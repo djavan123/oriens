@@ -37,3 +37,6 @@ laudesettings.json
 *.docx
 *.rtf
 *.png
+
+# Deps de build do CSS (o tailwind.css gerado É versionado)
+node_modules/

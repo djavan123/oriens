@@ -4,31 +4,43 @@
 {% set pop = 'absolute left-0 z-30 mt-1 w-56 max-h-72 overflow-y-auto rounded-md border border-oriens-border bg-oriens-surface py-1 shadow-lg' %}
 {% set row = 'block w-full truncate px-3 py-1.5 text-left text-sm text-oriens-primary hover:bg-oriens-card-hover transition-colors' %}
 
+{# Atalhos 1-4 para os quatro destinos. Triar 167 itens no mouse é o que faz a
+   caixa virar arquivo morto; com o teclado, decidir vira uma tecla. Os handlers
+   ficam no container e ignoram digitação em campos (os formulários de Projeto e
+   Listas abrem aqui dentro). #}
 <div id="capture-{{ capture.id }}"
      x-data="{ dest: null }"
-     class="px-3 py-3 border-b border-oriens-divider">
+     x-init="$nextTick(() => $el.focus())"
+     tabindex="-1"
+     @keydown="if(dest === null && !/^(input|textarea|select)$/i.test(($event.target.tagName||''))){
+       if($event.key === '1'){ $event.preventDefault(); $refs.btDescartar.click() }
+       else if($event.key === '2'){ $event.preventDefault(); $refs.btTarefa.click() }
+       else if($event.key === '3'){ $event.preventDefault(); dest = 'project' }
+       else if($event.key === '4'){ $event.preventDefault(); dest = 'lists' }
+     }"
+     class="px-3 py-3 border-b border-oriens-divider focus:outline-none">
 
   <!-- Conteúdo original -->
   <p class="text-sm text-oriens-primary leading-snug mb-3">{{ capture.content }}</p>
 
   <!-- Escolha de destino -->
   <div x-show="dest === null">
-    <p class="text-[11px] text-oriens-muted uppercase tracking-wider mb-2">Decidir como</p>
+    <p class="text-[11px] text-oriens-muted uppercase tracking-wider mb-2">Decidir como <span class="normal-case tracking-normal text-oriens-empty">— use 1 a 4</span></p>
     <div class="flex flex-wrap items-start gap-1.5">
 
       <!-- Descartar -->
-      <button
+      <button x-ref="btDescartar"
         hx-post="/api/process/{{ capture.id }}"
         hx-vals='{"action": "discard"}'
         hx-target="#capture-{{ capture.id }}"
         hx-swap="outerHTML"
         class="px-3 py-1.5 border border-oriens-border rounded-md text-xs text-oriens-secondary hover:border-oriens-urgent hover:text-oriens-urgent transition-colors">
-        Descartar
+        <span class="text-oriens-empty mr-1">1</span>Descartar
       </button>
 
       <!-- Tarefa de projeto (popover com projetos ativos) -->
       <div class="relative" x-data="{ open: false }" @keydown.escape.window="open = false">
-        <button type="button" @click="open = !open" class="{{ chip }}">Tarefa de projeto</button>
+        <button type="button" x-ref="btTarefa" @click="open = !open" class="{{ chip }}"><span class="text-oriens-empty mr-1">2</span>Tarefa de projeto</button>
         <div x-show="open" style="display:none" @click.outside="open = false" class="{{ pop }}">
           {% for p in active_projects %}
           <button type="button"
@@ -44,10 +56,10 @@
       </div>
 
       <!-- Projeto (formulário inline) -->
-      <button type="button" @click="dest = 'project'" class="{{ chip }}">Projeto</button>
+      <button type="button" @click="dest = 'project'" class="{{ chip }}"><span class="text-oriens-empty mr-1">3</span>Projeto</button>
 
       <!-- Listas (formulário inline: contexto + energia + prioridade obrigatórios) -->
-      <button type="button" @click="dest = 'lists'" class="{{ chip }}">Listas</button>
+      <button type="button" @click="dest = 'lists'" class="{{ chip }}"><span class="text-oriens-empty mr-1">4</span>Listas</button>
 
     </div>
 
@@ -129,7 +141,7 @@
         ← Voltar
       </button>
       <button type="submit"
-              class="bg-oriens-btn hover:bg-oriens-accent-hover text-oriens-accent-text rounded-md px-4 py-2 text-sm font-semibold transition-colors">
+              class="bg-oriens-btn hover:bg-oriens-btn-hover text-oriens-btn-text rounded-md px-4 py-2 text-sm font-semibold transition-colors">
         Criar tarefa
       </button>
     </div>
@@ -191,7 +203,7 @@
         ← Voltar
       </button>
       <button type="submit"
-              class="bg-oriens-btn hover:bg-oriens-accent-hover text-oriens-accent-text rounded-md px-4 py-2 text-sm font-semibold transition-colors">
+              class="bg-oriens-btn hover:bg-oriens-btn-hover text-oriens-btn-text rounded-md px-4 py-2 text-sm font-semibold transition-colors">
         Criar projeto
       </button>
     </div>

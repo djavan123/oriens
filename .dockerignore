@@ -1,5 +1,7 @@
 .git
 .gitignore
+# O CSS é compilado no estágio `css` da imagem; as deps de build ficam lá.
+node_modules
 .venv
 venv
 __pycache__

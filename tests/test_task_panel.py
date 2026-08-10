@@ -57,7 +57,9 @@ async def test_patch_persists_description(client, db, test_user):
         data={"title": "Escrever proposta", "context_id": str(ctx.id),
               "prioridade": "alta", "description": "  detalhes da proposta  "},
     )
-    assert r.status_code == 200
+    # 204: o autosave do drawer não devolve mais a linha para trocar no lugar —
+    # avisa por HX-Trigger e cada tela resincroniza o bloco que tem.
+    assert r.status_code == 204
     refreshed = await TaskService(db).get_by_id(t.id, test_user.id)
     assert refreshed.description == "detalhes da proposta"
 
@@ -73,7 +75,7 @@ async def test_patch_without_description_field_keeps_existing(client, db, test_u
         f"/api/tasks/{t.id}",
         data={"title": "Tarefa", "context_id": str(ctx.id), "prioridade": "alta"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 204
     refreshed = await TaskService(db).get_by_id(t.id, test_user.id)
     assert refreshed.description == "mantida"
 
@@ -91,7 +93,7 @@ async def test_panel_patch_preserves_maxima(client, db, test_user):
         data={"title": "Crítica", "context_id": str(ctx.id),
               "prioridade": "maxima", "description": "nota", "energy": "high"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 204
     refreshed = await TaskService(db).get_by_id(t.id, test_user.id)
     assert refreshed.importancia == 6.0
 

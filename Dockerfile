@@ -1,4 +1,18 @@
 # Dockerfile — imagem de produção do Oriens
+
+# ── Estágio 1: CSS ──────────────────────────────────────────────────────────
+# O Tailwind roda AQUI, no build, e some da imagem final. Antes ele ia junto
+# para o navegador (static/vendor/tailwind.js, 407 KB) e compilava a folha de
+# estilo a cada carga de página. Só o .css gerado é copiado adiante.
+FROM node:22-alpine AS css
+WORKDIR /build
+COPY package.json package-lock.json tailwind.config.js ./
+RUN npm ci --omit=optional
+COPY app/templates ./app/templates
+COPY app/static/css/tailwind.src.css ./app/static/css/tailwind.src.css
+RUN npm run build:css
+
+# ── Estágio 2: aplicação ────────────────────────────────────────────────────
 FROM python:3.12-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -16,6 +30,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --timeout 120 --retries 5 -r requirements.txt
 
 COPY . .
+
+# O CSS gerado no estágio anterior sobrescreve o que veio do repo — assim a
+# imagem nunca sai com um tailwind.css desatualizado em relação aos templates.
+COPY --from=css /build/app/static/css/tailwind.css ./app/static/css/tailwind.css
 
 # Versão do build (cache-busting de estáticos/PWA). O compose de prod injeta o git SHA.
 ARG APP_VERSION=prod

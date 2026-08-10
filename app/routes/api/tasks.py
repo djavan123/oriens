@@ -395,7 +395,19 @@ async def update_task(
         raise HTTPException(status_code=404)
     if link_url:
         background_tasks.add_task(fill_link_title, task.id, current_user.id, link_url)
-    return await _task_row_response(request, db, task, current_user)
+
+    # O autosave do drawer não troca a linha diretamente: o alvo `#task-{id}`
+    # não existe em toda tela (nos cards de "Projetos em foco" do Dashboard,
+    # por exemplo, nunca existiu) e, quando existe, está atrás do próprio
+    # drawer. O resultado era um salvamento sem nenhum eco na tela.
+    #
+    # Em vez disso, avisamos por evento: cada página resincroniza o bloco que
+    # de fato tem. É o mesmo padrão que uma tarefa de topo de projeto já usava.
+    # O selo "Salvo" no drawer vem do 204 (ver task_detail_panel.html).
+    eventos = "refreshProjectsFocus, refreshPriorities, refreshLists"
+    if task.project_id is not None:
+        eventos += ", refreshProjectTasks"
+    return HTMLResponse("", status_code=204, headers={"HX-Trigger": eventos})
 
 
 @router.get("/{task_id}/panel", response_class=HTMLResponse)

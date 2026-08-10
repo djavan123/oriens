@@ -1,32 +1,23 @@
 {% extends "base.html" %}
 
 {% block body %}
-<style>
-.capture-btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 8px 12px;
-  background: var(--oriens-btn);
-  color: #ffffff;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-.capture-btn:hover { opacity: 0.85; }
-.capture-btn kbd {
-  font-size: 11px;
-  font-family: inherit;
-  opacity: 0.7;
-  font-weight: 400;
-}
-</style>
+
+<!-- Barra de progresso da navegação. Com hx-boost o clique não recarrega a
+     página; sem isto não haveria nenhum sinal de que algo está acontecendo. -->
+<div class="nav-progress" aria-hidden="true"></div>
+
+<!-- Atalho global "c" (captura rápida) e Esc.
+     Dois cuidados que faltavam:
+     · "c" não empilha sobre um overlay já aberto — antes, com o drawer de
+       tarefa aberto, ele abria o modal de captura por cima dele;
+     · Esc fecha UM overlay, o de cima. Antes cada overlay tinha seu próprio
+       @keydown.escape.window, então um único Esc fechava os dois de uma vez e
+       levava junto o drawer que estava sendo editado.
+     As expressões precisam começar com `if` — é assim que o Alpine detecta que
+     são statements, e não uma expressão para envolver em `return`. -->
 <div class="flex min-h-screen" x-data="{ sidebarOpen: false, quickCapture: false, taskDrawerOpen: false }"
-     @keydown.window="if($event.key==='c' && !$event.metaKey && !$event.ctrlKey && !$event.altKey && !/^(input|textarea|select)$/i.test(($event.target.tagName||'')) && !$event.target.isContentEditable){ quickCapture=true; $event.preventDefault(); $nextTick(()=>{ var i=document.getElementById('quick-capture-input'); if(i) i.focus(); }); }">
+     @keydown.window="if($event.key==='c' && !$event.metaKey && !$event.ctrlKey && !$event.altKey && !quickCapture && !taskDrawerOpen && !/^(input|textarea|select)$/i.test(($event.target.tagName||'')) && !$event.target.isContentEditable){ quickCapture=true; $event.preventDefault(); $nextTick(()=>{ var i=document.getElementById('quick-capture-input'); if(i) i.focus(); }) }"
+     @keydown.escape.window="if(quickCapture){ quickCapture=false } else if(taskDrawerOpen){ taskDrawerOpen=false }">
 
   <!-- Top bar (somente mobile) -->
   <header class="md:hidden fixed top-0 left-0 right-0 h-14 z-20 flex items-center gap-3 px-4"
@@ -69,8 +60,13 @@
       </button>
     </div>
 
-    <!-- Nav -->
-    <nav class="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto">
+    <!-- Nav
+         hx-boost: o clique busca a página por AJAX e troca só o <body>, em vez
+         de descarregar e reconstruir o documento inteiro (parse do <head>,
+         fontes, htmx, Alpine). O htmx também atualiza o <title> e o histórico,
+         então voltar/avançar continuam funcionando. -->
+    <nav class="flex-1 px-2 py-4 space-y-0.5 overflow-y-auto"
+         hx-boost="true" hx-indicator=".nav-progress">
       {% set path = request.url.path %}
 
       {% macro nav_link(href, label, active_check) %}
@@ -198,7 +194,6 @@
 
   <!-- Captura rápida (modal global): campo único → /api/capture -->
   <div x-show="quickCapture" x-transition.opacity
-       @keydown.escape.window="quickCapture = false"
        class="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4"
        style="display: none;">
     <div class="absolute inset-0 bg-black/70" @click="quickCapture = false"></div>
@@ -230,7 +225,6 @@
 
   <!-- Painel de detalhe da tarefa (drawer): título de qualquer tarefa → /api/tasks/{id}/panel -->
   <div x-show="taskDrawerOpen" x-transition.opacity
-       @keydown.escape.window="taskDrawerOpen = false"
        class="fixed inset-0 z-50 flex justify-end" style="display: none;">
     <div class="absolute inset-0 bg-black/70" @click="taskDrawerOpen = false"></div>
     <div class="relative w-full max-w-md h-full overflow-y-auto shadow-2xl px-6 py-6"
@@ -246,11 +240,15 @@
     </div>
   </div>
 
-  <!-- Lembretes (popup): verifica vencidos a cada 60s -->
+  <!-- Lembretes (popup): verifica vencidos a cada 60s.
+       O modificador [document.visibilityState==='visible'] impede o polling
+       enquanto a aba está em segundo plano — antes eram 60 requisições por hora
+       por aba aberta, mesmo sem ninguém olhando. Ao voltar para a aba, o
+       primeiro tick seguinte já traz o que venceu no intervalo. -->
   <div id="reminder-popups"
        class="fixed bottom-4 right-4 z-50 flex flex-col gap-2"
        hx-get="/api/reminders/due"
-       hx-trigger="load, every 60s"
+       hx-trigger="load, every 60s [document.visibilityState==='visible']"
        hx-swap="innerHTML"></div>
 
 </div>

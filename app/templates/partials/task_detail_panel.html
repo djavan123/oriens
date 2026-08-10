@@ -10,20 +10,33 @@
 
   <form
     hx-patch="/api/tasks/{{ task.id }}"
-    hx-target="#task-{{ task.id }}"
-    hx-swap="outerHTML"
+    hx-swap="none"
     hx-trigger="change"
+    x-data="{ estado: '', marcar(ok){ this.estado = ok ? 'saved' : 'error'; if(ok) setTimeout(() => { if(this.estado === 'saved') this.estado = '' }, 1800) } }"
+    @htmx:before-request="estado = 'saving'"
+    @htmx:after-request="marcar($event.detail.successful)"
     class="space-y-5">
 
-    <!-- Título -->
-    <textarea name="title" required rows="2"
-      class="w-full bg-transparent text-oriens-primary text-lg font-semibold leading-snug focus:outline-none resize-none border-b border-transparent focus:border-oriens-accent transition-colors"
+    <!-- Título
+         É editável (sempre foi), mas com fundo transparente e sem borda parecia
+         texto estático — ninguém descobria. A borda inferior discreta e o label
+         acima resolvem isso sem virar um campo pesado. -->
+    <div class="flex items-end justify-between gap-3">
+      <label for="task-title-{{ task.id }}"
+             class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase">Tarefa</label>
+      <span class="save-badge" :data-state="estado"
+            x-text="estado === 'saving' ? 'salvando…' : (estado === 'error' ? 'erro ao salvar' : 'salvo')"></span>
+    </div>
+    <textarea name="title" required rows="2" id="task-title-{{ task.id }}"
+      class="w-full -mt-3 bg-transparent text-oriens-primary text-lg font-semibold leading-snug focus:outline-none resize-none border-b border-oriens-border focus:border-oriens-accent transition-colors"
       >{{ task.title }}</textarea>
 
     <!-- Metadados -->
     <div class="grid grid-cols-2 gap-4">
 
-      {% if users %}
+      {# Só com mais de um usuário. Com um usuário só, o campo aparecia sempre
+         com "—" e sem alternativa nenhuma para escolher. #}
+      {% if users | length > 1 %}
       <div>
         <label class="block text-oriens-secondary text-[11px] font-bold tracking-wide uppercase mb-1">Responsável</label>
         <select name="responsavel_id"

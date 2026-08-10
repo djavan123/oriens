@@ -160,6 +160,13 @@ docker compose -f docker-compose.prod.yml logs -f app worker  # "Application sta
 
 O serviço `app` roda com **gunicorn + 3 workers Uvicorn** (escala melhor que um único processo). O serviço `worker` é um processo único e separado que cuida dos lembretes e da captura por Telegram — **não escale esse serviço** (mais de 1 réplica duplicaria envios/updates).
 
+> **O build agora tem dois estágios.** O primeiro (`node:22-alpine`) compila o CSS
+> com o Tailwind e some da imagem final; o segundo é a aplicação Python de sempre.
+> Nada muda no comando de deploy, mas o primeiro `--build` depois desta mudança
+> baixa a imagem do Node e roda um `npm ci` — conte alguns minutos a mais. O
+> `tailwind.css` gerado no estágio de CSS sobrescreve o que veio do repositório,
+> então a imagem nunca sai com CSS defasado em relação aos templates.
+
 Teste local na VPS:
 
 ```bash

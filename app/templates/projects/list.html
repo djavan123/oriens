@@ -23,7 +23,7 @@
       </a>
       <button
         onclick="document.getElementById('project-form-wrapper').classList.toggle('hidden')"
-        class="px-3.5 py-2 bg-oriens-btn hover:bg-oriens-accent-hover text-white text-sm font-semibold rounded-md transition-colors">
+        class="px-3.5 py-2 bg-oriens-btn hover:bg-oriens-btn-hover text-oriens-btn-text text-sm font-semibold rounded-md transition-colors">
         + Novo projeto
       </button>
     </div>
@@ -85,7 +85,10 @@
         {% for project in col_projects %}
           {% include "partials/project_kanban_card.html" %}
         {% else %}
-        <p class="text-sm text-oriens-muted">Nenhum projeto.</p>
+        {# A coluna vazia continua existindo: ela é o alvo de drop para mudar o
+           status. Mas o texto vira dica de arrastar, em vez de um "Nenhum
+           projeto." do mesmo peso de um card. #}
+        <p class="text-[11px] text-oriens-empty italic py-1">arraste um projeto para cá</p>
         {% endfor %}
       </div>
 

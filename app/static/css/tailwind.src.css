@@ -1,0 +1,298 @@
+/* app/static/css/tailwind.src.css
+ *
+ * Fonte do CSS do Oriens. Compilado por `npm run build:css` para
+ * app/static/css/tailwind.css — que é o arquivo realmente servido.
+ * NÃO edite tailwind.css à mão: ele é gerado.
+ *
+ * As cores vêm de theme.css (tokens --oriens-*, trocados por data-theme).
+ * Aqui só existem forma, espaçamento e composição.
+ */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-base: "Inter", ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Ubuntu, "Helvetica Neue", sans-serif;
+
+    /* RAIOS (as cores vêm de theme.css, por data-theme) */
+    --radius-card: 10px;
+    --radius-col: 12px;
+  }
+
+  body {
+    font-family: var(--font-base);
+    background: var(--bg-app);
+    color: var(--text-primary);
+    font-size: 14px;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  /* Os controles nativos (date/time/select) seguem o tema, senão o calendário
+     e o relógio do Chrome abrem em branco no dark e em preto no light. */
+  :root[data-theme="dark"],
+  :root[data-theme="warm"],
+  :root:not([data-theme]) {
+    color-scheme: dark;
+  }
+
+  :root[data-theme="light"] {
+    color-scheme: light;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--bg-app);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--oriens-border);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--accent);
+  }
+}
+
+@layer components {
+  .htmx-indicator {
+    display: none;
+  }
+
+  .htmx-request .htmx-indicator {
+    display: inline;
+  }
+
+  .htmx-request.htmx-indicator {
+    display: inline;
+  }
+
+  /* BARRA DE PROGRESSO DE NAVEGAÇÃO
+     Com hx-boost, o clique não recarrega a página — sem isto não haveria
+     nenhum sinal de que algo está acontecendo. Aparece assim que a requisição
+     sai e some quando o conteúdo entra. */
+  .nav-progress {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 2px;
+    width: 100%;
+    z-index: 60;
+    transform: scaleX(0);
+    transform-origin: 0 50%;
+    background: var(--oriens-btn);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /* O htmx marca com .htmx-request o elemento apontado por hx-indicator —
+     aqui, a própria barra. */
+  .nav-progress.htmx-request {
+    opacity: 1;
+    animation: nav-progress-run 1.4s ease-out forwards;
+  }
+
+  @keyframes nav-progress-run {
+    0% { transform: scaleX(0); }
+    40% { transform: scaleX(0.55); }
+    100% { transform: scaleX(0.92); }
+  }
+
+  /* CARTÃO */
+  .card {
+    background: var(--bg-card);
+    border: var(--border-default);
+    border-radius: var(--radius-card);
+    padding: 12px 14px;
+    transition: border-color 0.15s, background 0.15s;
+  }
+
+  .card:hover {
+    background: var(--bg-card-hover);
+    border: var(--border-hover);
+  }
+
+  .card-title {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1.4;
+  }
+
+  .card-meta {
+    color: var(--text-tertiary);
+    font-size: 12px;
+  }
+
+  /* COLUNA KANBAN */
+  .column {
+    background: var(--bg-card);
+    border-radius: var(--radius-col);
+    padding: 10px 8px;
+  }
+
+  .column-title {
+    color: var(--text-primary);
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  /* SIDEBAR */
+  .sidebar {
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--oriens-border);
+  }
+
+  /* NAV ITEMS */
+  .nav-item {
+    display: flex;
+    align-items: center;
+    color: var(--text-tertiary);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font-size: 14px;
+    text-decoration: none;
+    transition: background 0.12s, color 0.12s;
+  }
+
+  .nav-item:hover {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+  }
+
+  .nav-item.active {
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    font-weight: 500;
+  }
+
+  /* BOTÃO PRIMÁRIO — ÚNICO NO SISTEMA
+     Antes havia três: .btn-primary (usava --accent, que no dark é #ffffff, e
+     dava texto branco sobre fundo branco), .capture-btn (roxo --oriens-btn) e
+     .pj-btn-primary (azul #4573d2 hardcoded, fora de qualquer tema). Agora os
+     três usam o mesmo par de tokens: --oriens-btn / --oriens-btn-text. */
+  .btn-primary {
+    background: var(--oriens-btn);
+    color: var(--oriens-btn-text);
+    border: none;
+    border-radius: 7px;
+    padding: 9px 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+    font-size: 14px;
+  }
+
+  .btn-primary:hover {
+    opacity: 0.85;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* Variante do botão de captura na sidebar: mesmo par de cores, largura
+     total e o atalho alinhado à direita. */
+  .capture-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 8px 12px;
+    background: var(--oriens-btn);
+    color: var(--oriens-btn-text);
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.15s;
+  }
+
+  .capture-btn:hover {
+    opacity: 0.85;
+  }
+
+  .capture-btn kbd {
+    font-size: 11px;
+    font-family: inherit;
+    opacity: 0.7;
+    font-weight: 400;
+  }
+
+  /* LABEL DE SEÇÃO (ex: "MARCOS", "RISCOS", "ANEXOS", "TAREFAS") */
+  .section-label {
+    color: var(--text-secondary);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+  }
+
+  /* TEXTO NEUTRO AUXILIAR (ex: "Criado em", "Nenhum arquivo selecionado") */
+  .text-neutral {
+    color: var(--text-tertiary);
+  }
+
+  /* LINK / AÇÃO REAL (ex: "active", "Editar →", "+ registrar risco") */
+  .text-link {
+    color: var(--link);
+    cursor: pointer;
+  }
+
+  /* ESTADO VAZIO (ex: "Nenhuma decisão registrada.") */
+  .text-empty {
+    color: var(--text-empty);
+    font-style: italic;
+  }
+
+  /* TAREFA SENDO CONCLUÍDA — feedback de fade + strikethrough antes de sair da lista */
+  .task-completing {
+    opacity: .35;
+    transition: opacity .4s ease;
+  }
+
+  .task-completing p {
+    text-decoration: line-through;
+  }
+
+  /* SELO "SALVO" DO DRAWER
+     O drawer salva por campo, sem botão. Sem este selo o autosave era
+     invisível: o campo mudava, o PATCH ia, e nada na tela confirmava. */
+  .save-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--oriens-ok);
+    opacity: 0;
+    transition: opacity .18s ease;
+  }
+
+  .save-badge[data-state="saving"] {
+    color: var(--text-tertiary);
+    opacity: 1;
+  }
+
+  .save-badge[data-state="saved"] {
+    opacity: 1;
+  }
+
+  .save-badge[data-state="error"] {
+    color: var(--oriens-urgent);
+    opacity: 1;
+  }
+}

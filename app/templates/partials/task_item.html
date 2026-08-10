@@ -106,7 +106,11 @@
       <span class="text-[11px] text-oriens-success font-medium">quick win</span>
       {% endif %}
 
-      {% if context_labels is defined and task.context_id and context_labels.get(task.context_id) %}
+      {# O badge de contexto não aparece nas subtarefas do drawer (hide_actions):
+         a subtarefa herda o contexto da tarefa-mãe, que já está no cabeçalho do
+         painel — repeti-lo dava sete "Trabalho" idênticos empilhados. #}
+      {% if context_labels is defined and task.context_id and context_labels.get(task.context_id)
+            and not (hide_actions is defined and hide_actions) %}
       <span class="text-[11px] px-1.5 py-0.5 rounded bg-oriens-surface border border-oriens-border text-oriens-secondary">{{ context_labels[task.context_id] }}</span>
       {% endif %}
 

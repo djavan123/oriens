@@ -95,12 +95,15 @@
     {% endif %}
   </div>
 
-  <!-- Responsável (desktop) -->
+  <!-- Responsável (desktop). Some quando só há um usuário — sem coluna no
+       cabeçalho, a célula viraria 80px de recuo sem conteúdo. -->
+  {% if users is defined and users | length > 1 %}
   <div class="hidden md:flex flex-shrink-0 w-20 items-center">
     {% if responsavel_map is defined and task.responsavel_id and responsavel_map.get(task.responsavel_id) %}
     <span class="text-[11px] text-oriens-muted truncate">{{ responsavel_map[task.responsavel_id] }}</span>
     {% endif %}
   </div>
+  {% endif %}
 
   <!-- Botão ··· abre o painel de ações (visível no hover da linha via CSS .pj-ellipsis-btn) -->
   <button type="button" class="pj-ellipsis-btn" @click.stop="menu = !menu"
