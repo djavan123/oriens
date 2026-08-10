@@ -3,7 +3,12 @@
 {% block title %}{{ project.name }} — Oriens{% endblock %}
 
 {% block head %}
-<script src="/static/vendor/sortable.min.js?v={{ app_version }}"></script>
+{# `defer` porque este script bloqueava o parse do HTML: medido em produção,
+   ele segurava a renderizacao de 886 ms a 1314 ms — 428 ms de tela parada só
+   para carregar o drag-and-drop, que só é usado depois da página pronta.
+   O init lá embaixo roda em DOMContentLoaded, que dispara DEPOIS dos scripts
+   com defer, entao `Sortable` ja esta definido quando init() chama. #}
+<script defer src="/static/vendor/sortable.min.js?v={{ app_version }}"></script>
 {% endblock %}
 
 {% set status_label = {

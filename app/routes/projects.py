@@ -15,8 +15,6 @@ from app.repositories.project_comment_repo import ProjectCommentRepository
 from app.repositories.project_attachment_repo import ProjectAttachmentRepository
 from app.repositories.project_decision_repo import ProjectDecisionRepository
 from app.repositories.project_risk_repo import ProjectRiskRepository
-from app.repositories.project_audit_repo import ProjectAuditRepository
-from app.repositories.project_timeline_repo import ProjectTimelineRepository
 from app.repositories.label_repo import LabelRepository
 from app.repositories.project_section_repo import ProjectSectionRepository
 from app.services.project_service import ProjectService
@@ -237,10 +235,14 @@ async def project_detail(
     comments = await ProjectCommentRepository(db).get_by_project(project_id)
     attachments = await ProjectAttachmentRepository(db).get_by_project(project_id)
     decisions = await ProjectDecisionRepository(db).get_by_project(project_id)
-    risks = await ProjectRiskRepository(db).get_by_project(project_id)
 
-    audit = await ProjectAuditRepository(db).get_by_project(project_id)
-    timeline = await ProjectTimelineRepository(db).get_by_project(project_id)
+    # `risks`, `audit` e `timeline` eram buscados aqui e passados ao template,
+    # mas nenhum dos três é renderizado (o bloco de riscos saiu do detalhe e a
+    # partial project_risk.html ficou órfã). Medido em produção no projeto 13:
+    # 9,0 + 12,2 + 23,7 = 45 ms de query por abertura de projeto, jogados fora —
+    # um terço do tempo total de banco da rota.
+    # Os repositórios e as rotas de API continuam existindo; só a leitura morta
+    # na renderização foi removida.
 
     return templates.TemplateResponse(
         request,
@@ -257,9 +259,6 @@ async def project_detail(
             "attachments": attachments,
             "fmt_size": _fmt_size,
             "decisions": decisions,
-            "risks": risks,
-            "audit": audit,
-            "timeline": timeline,
             **panel_ctx,
         },
     )
