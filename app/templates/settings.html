@@ -79,9 +79,17 @@
     <p class="text-oriens-muted text-xs uppercase tracking-wider mb-2">Padrão</p>
     <div class="mb-5">
       {% for ctx in default_contexts %}
-      <div class="flex items-center gap-3 py-2.5 border-b border-oriens-divider last:border-0">
+      <div id="ctx-{{ ctx.id }}" class="flex items-center gap-3 py-2.5 border-b border-oriens-divider last:border-0">
         <span class="text-oriens-primary text-sm flex-1">{{ ctx.name }}</span>
         <span class="text-oriens-empty text-xs">padrão</span>
+        <button
+          hx-delete="/api/settings/contexts/{{ ctx.id }}"
+          hx-target="#ctx-{{ ctx.id }}"
+          hx-swap="outerHTML"
+          hx-confirm="Excluir contexto padrão '{{ ctx.name }}'? Ele é compartilhado — tarefas, projetos e listas nele voltam a ficar sem contexto."
+          class="text-oriens-secondary text-xs hover:text-oriens-alert transition-colors">
+          excluir
+        </button>
       </div>
       {% endfor %}
     </div>

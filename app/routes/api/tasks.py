@@ -178,6 +178,9 @@ async def create_task(
     else:
         cid = _parse_int(context_id)
         # list_id só vale para tarefa avulsa de topo (nunca subtarefa/projeto).
+        # Herança de contexto: tarefa dentro de uma lista herda o contexto DELA
+        # (travado), igual à herança de projeto — a lista agora é filha de um
+        # contexto, então sobrescreve o que veio do form.
         lid = None
         if pid is None:
             lid_raw = _parse_list_id(list_id)
@@ -185,8 +188,8 @@ async def create_task(
                 owned = await TaskListRepository(db).get_by_id(lid_raw, current_user.id)
                 if owned is not None:
                     lid = owned.id
+                    cid = owned.context_id
         # Tarefa avulsa de topo (em qualquer lista): contexto é obrigatório.
-        # A lista é só agrupamento — uma task numa lista funciona como uma avulsa.
         if cid is None and pid is None:
             return HTMLResponse(
                 '<p class="text-oriens-alert text-sm">Escolha um contexto.</p>',
@@ -348,9 +351,6 @@ async def update_task(
     rid = _parse_int(responsavel_id)
     if rid is not None:
         kwargs["responsavel_id"] = rid
-    # Contexto: tarefa de projeto herda do projeto (travado) → ignora o que vier.
-    if existing.project_id is None and context_id is not None:
-        kwargs["context_id"] = _parse_int(context_id)
     if tags is not None:
         kwargs["tags"] = tags.strip() or None
     # Lembrete: ao mudar, reseta os flags para poder disparar de novo.
@@ -366,14 +366,26 @@ async def update_task(
     # Lista (PARTE 6): mover entre listas só para tarefa avulsa de topo. Campo ausente
     # no form → não mexe. "Tarefas avulsas" → NULL. Lista com ownership válido → id.
     new_list_id = existing.list_id
+    new_list_context_id: Optional[int] = None
     if is_standalone_top and list_id is not None:
         lid = _parse_list_id(list_id)
         if lid is None:
             new_list_id = None
         else:
             owned = await TaskListRepository(db).get_by_id(lid, current_user.id)
-            new_list_id = owned.id if owned is not None else existing.list_id
+            if owned is not None:
+                new_list_id = owned.id
+                new_list_context_id = owned.context_id
+            else:
+                new_list_id = existing.list_id
         kwargs["list_id"] = new_list_id
+
+    # Contexto: tarefa de projeto ou de lista herda do dono (travado) → ignora o
+    # que vier no form. Lista sempre vence quando presente nesta requisição.
+    if new_list_context_id is not None:
+        kwargs["context_id"] = new_list_context_id
+    elif existing.project_id is None and new_list_id is None and context_id is not None:
+        kwargs["context_id"] = _parse_int(context_id)
 
     # Importância (SCRIPT 13): toda tarefa avulsa de topo recebe nota Alta/Média/Baixa,
     # em qualquer lista (a lista é só agrupamento).
@@ -440,13 +452,14 @@ async def task_panel(
 
     is_standalone_top = task.parent_id is None and task.project_id is None
     is_project_task = task.project_id is not None
+    is_list_task = task.list_id is not None
     prioridade = faixa_importancia(task.importancia, task.sem_nota) or "media"
 
     # Lista (PARTE 6): seletor só para tarefa avulsa de topo (nunca projeto/subtarefa).
     notes_list = repo_list = None
     custom_lists: list = []
-    if is_standalone_top:
-        all_lists = await TaskListRepository(db).get_active_by_user(current_user.id)
+    if is_standalone_top and task.context_id is not None:
+        all_lists = await TaskListRepository(db).get_active_by_user(current_user.id, task.context_id)
         notes_list = next((l for l in all_lists if l.system_key == "notes"), None)
         repo_list = next((l for l in all_lists if l.system_key == "repository"), None)
         custom_lists = [l for l in all_lists if l.system_key is None]
@@ -462,6 +475,7 @@ async def task_panel(
         {"task": task, "contexts": contexts, "context_labels": context_labels,
          "user_labels": user_labels, "users": users,
          "show_prioridade": is_standalone_top, "is_project_task": is_project_task,
+         "is_list_task": is_list_task,
          "prioridade": prioridade, "is_standalone_top": is_standalone_top,
          "notes_list": notes_list, "repo_list": repo_list, "custom_lists": custom_lists,
          "subtasks": subtasks},

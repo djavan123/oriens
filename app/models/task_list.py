@@ -12,6 +12,10 @@ class TaskList(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    # Nullable no banco (mesmo padrão de Task/Project.context_id); obrigatório é
+    # imposto na camada de aplicação, não por NOT NULL (SQLite não permite ALTER
+    # TABLE ADD COLUMN NOT NULL sem default para linhas existentes).
+    context_id: Mapped[Optional[int]] = mapped_column(ForeignKey("contexts.id", ondelete="SET NULL"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     order_index: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

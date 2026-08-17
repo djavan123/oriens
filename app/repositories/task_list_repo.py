@@ -17,10 +17,14 @@ class TaskListRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_active_by_user(self, user_id: int) -> list[TaskList]:
+    async def get_active_by_user(self, user_id: int, context_id: int) -> list[TaskList]:
         result = await self.db.execute(
             select(TaskList)
-            .where(TaskList.user_id == user_id, TaskList.archived.is_(False))
+            .where(
+                TaskList.user_id == user_id,
+                TaskList.archived.is_(False),
+                TaskList.context_id == context_id,
+            )
             .order_by(TaskList.order_index.asc())
         )
         return list(result.scalars().all())
@@ -31,10 +35,12 @@ class TaskListRepository:
         )
         return result.scalar_one_or_none()
 
-    async def get_system_list(self, user_id: int, system_key: str) -> Optional[TaskList]:
+    async def get_system_list(self, user_id: int, context_id: int, system_key: str) -> Optional[TaskList]:
         result = await self.db.execute(
             select(TaskList).where(
-                TaskList.user_id == user_id, TaskList.system_key == system_key
+                TaskList.user_id == user_id,
+                TaskList.context_id == context_id,
+                TaskList.system_key == system_key,
             )
         )
         return result.scalar_one_or_none()
@@ -46,14 +52,17 @@ class TaskListRepository:
         max_idx = result.scalar_one_or_none()
         return (max_idx + 1) if max_idx is not None else 0
 
-    async def ensure_system_lists(self, user_id: int) -> None:
-        """Garante as listas internas (Notas/Repositório) do usuário. Idempotente.
+    async def ensure_system_lists(self, user_id: int, context_id: int) -> None:
+        """Garante as listas internas (Notas/Repositório) do usuário nesse contexto.
 
-        Se a lista já existir (mesmo arquivada), não recria nem duplica.
+        Idempotente. Se a lista já existir (mesmo arquivada), não recria nem duplica.
+        Notas/Repositório são 1 par por (usuário, contexto), não 1 por usuário.
         """
         existing = await self.db.execute(
             select(TaskList.system_key).where(
-                TaskList.user_id == user_id, TaskList.system_key.is_not(None)
+                TaskList.user_id == user_id,
+                TaskList.context_id == context_id,
+                TaskList.system_key.is_not(None),
             )
         )
         have = {row[0] for row in existing.all()}
@@ -62,16 +71,19 @@ class TaskListRepository:
             return
         next_idx = await self._next_order_index(user_id)
         for key, name in missing:
-            self.db.add(TaskList(user_id=user_id, name=name, system_key=key, order_index=next_idx))
+            self.db.add(TaskList(
+                user_id=user_id, name=name, system_key=key,
+                context_id=context_id, order_index=next_idx,
+            ))
             next_idx += 1
         await self.db.commit()
 
-    async def create(self, user_id: int, name: str) -> Optional[TaskList]:
+    async def create(self, user_id: int, name: str, context_id: int) -> Optional[TaskList]:
         name = (name or "").strip()
         if not name:
             return None
         next_idx = await self._next_order_index(user_id)
-        task_list = TaskList(user_id=user_id, name=name, order_index=next_idx)
+        task_list = TaskList(user_id=user_id, name=name, context_id=context_id, order_index=next_idx)
         self.db.add(task_list)
         await self.db.commit()
         await self.db.refresh(task_list)
@@ -95,8 +107,11 @@ class TaskListRepository:
         if not task_list:
             return False
         task_list.archived = True
+        # Tarefas herdam context_id da lista (travado) — ao arquivar, soltam os dois
+        # campos junto, senão ficam com um context_id órfão sem lista nenhuma.
         await self.db.execute(
-            update(Task).where(Task.list_id == list_id, Task.user_id == user_id).values(list_id=None)
+            update(Task).where(Task.list_id == list_id, Task.user_id == user_id)
+            .values(list_id=None, context_id=None)
         )
         await self.db.commit()
         return True

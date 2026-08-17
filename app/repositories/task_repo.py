@@ -206,17 +206,17 @@ class TaskRepository:
         result = await self.db.execute(q)
         return list(result.scalars().all())
 
-    async def count_standalone_default(self, user_id: int) -> int:
+    async def count_standalone_default(self, user_id: int, context_id: Optional[int] = None) -> int:
         """Nº de tarefas pendentes na lista padrão "Tarefas avulsas" (list_id IS NULL)."""
-        result = await self.db.execute(
-            select(func.count()).select_from(Task).where(
-                Task.user_id == user_id,
-                Task.project_id.is_(None),
-                Task.list_id.is_(None),
-                Task.status == TaskStatus.pending,
-                Task.archived.is_(False),
-            )
+        q = select(func.count()).select_from(Task).where(
+            Task.user_id == user_id,
+            Task.project_id.is_(None),
+            Task.list_id.is_(None),
+            Task.status == TaskStatus.pending,
+            Task.archived.is_(False),
         )
+        q = self._apply_context(q, context_id)
+        result = await self.db.execute(q)
         return result.scalar_one()
 
     async def count_by_list(self, user_id: int) -> dict[int, int]:

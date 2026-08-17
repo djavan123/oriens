@@ -33,9 +33,25 @@ async def lists_page(
     list_repo = TaskListRepository(db)
     task_repo = TaskRepository(db)
 
-    # Garante Notas/Repositório (idempotente; cobre usuários criados após o boot).
-    await list_repo.ensure_system_lists(current_user.id)
-    all_lists = await list_repo.get_active_by_user(current_user.id)
+    # Listas são filhas obrigatórias de um contexto — sem contexto ativo, não há
+    # o que listar (a tela mostra um convite pra escolher um no cabeçalho).
+    if context_id is None:
+        return templates.TemplateResponse(
+            request,
+            "lists.html",
+            {
+                "user": current_user,
+                "no_context": True,
+                "active_context_obj": active_context_obj,
+                "all_contexts": all_contexts,
+                "active_context_id": context_id,
+            },
+        )
+
+    # Garante Notas/Repositório do contexto ativo (idempotente; cobre usuários/
+    # contextos novos criados após o boot).
+    await list_repo.ensure_system_lists(current_user.id, context_id)
+    all_lists = await list_repo.get_active_by_user(current_user.id, context_id)
     notes_list = next((l for l in all_lists if l.system_key == "notes"), None)
     repo_list = next((l for l in all_lists if l.system_key == "repository"), None)
     custom_lists = [l for l in all_lists if l.system_key is None]
@@ -84,7 +100,7 @@ async def lists_page(
             },
         )
 
-    count_default = await task_repo.count_standalone_default(current_user.id)
+    count_default = await task_repo.count_standalone_default(current_user.id, context_id)
     counts_by_list = await task_repo.count_by_list(current_user.id)
 
     return templates.TemplateResponse(

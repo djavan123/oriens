@@ -78,6 +78,7 @@ async def test_lists_serve_fragmento_para_o_refresh(client, db, test_user):
     await TaskService(db).create(
         test_user.id, "Item da lista", context_id=ctx.id, importancia=5.0, sem_nota=False,
     )
+    client.cookies.set("oriens_context", str(ctx.id))
 
     r = await client.get("/lists?fragment=1", headers={"HX-Request": "true"})
 

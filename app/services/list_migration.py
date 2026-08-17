@@ -16,6 +16,7 @@ from app.models.note import Note
 from app.models.repository import RepositoryItem
 from app.models.task import Task, TaskStatus, EnergyLevel
 from app.models.user import User
+from app.repositories.context_repo import ContextRepository
 from app.repositories.task_list_repo import TaskListRepository
 from app.utils.link_meta import extract_url, fetch_link_title
 from app.utils.time import utcnow
@@ -54,16 +55,25 @@ async def migrate_notes_and_repository_to_tasks(db: AsyncSession) -> None:
         await db.execute(text(f"SELECT pg_advisory_xact_lock({_MIGRATION_LOCK_KEY})"))
 
     list_repo = TaskListRepository(db)
+    context_repo = ContextRepository(db)
     user_ids = (await db.execute(select(User.id))).scalars().all()
+    # Notas/Repositório agora são por contexto — dados legados migram pro contexto
+    # de menor id visível a cada usuário (mesmo critério do backfill em database.py).
+    user_context_map: dict[int, int] = {}
     for user_id in user_ids:
-        await list_repo.ensure_system_lists(user_id)
+        contexts = await context_repo.get_all_by_user(user_id)
+        if not contexts:
+            continue
+        context_id = min(c.id for c in contexts)
+        user_context_map[user_id] = context_id
+        await list_repo.ensure_system_lists(user_id, context_id)
 
     try:
-        await _migrate_notes(db, list_repo)
+        await _migrate_notes(db, list_repo, user_context_map)
     except Exception:
         logger.exception("Falha ao migrar notas antigas para tasks")
     try:
-        await _migrate_repository_items(db, list_repo)
+        await _migrate_repository_items(db, list_repo, user_context_map)
     except Exception:
         logger.exception("Falha ao migrar itens de repositório antigos para tasks")
 
@@ -80,7 +90,7 @@ async def _already_migrated(db: AsyncSession, user_id: int, list_id: int, title:
     return result.scalar_one_or_none() is not None
 
 
-async def _migrate_notes(db: AsyncSession, list_repo: TaskListRepository) -> None:
+async def _migrate_notes(db: AsyncSession, list_repo: TaskListRepository, user_context_map: dict[int, int]) -> None:
     notes = (
         await db.execute(select(Note).where(Note.project_id.is_(None)))
     ).scalars().all()
@@ -91,7 +101,10 @@ async def _migrate_notes(db: AsyncSession, list_repo: TaskListRepository) -> Non
     for note in notes:
         list_id = list_id_cache.get(note.user_id)
         if list_id is None:
-            tl = await list_repo.get_system_list(note.user_id, "notes")
+            context_id = user_context_map.get(note.user_id)
+            if context_id is None:
+                continue
+            tl = await list_repo.get_system_list(note.user_id, context_id, "notes")
             if tl is None:
                 continue
             list_id = tl.id
@@ -115,7 +128,7 @@ async def _migrate_notes(db: AsyncSession, list_repo: TaskListRepository) -> Non
         await db.commit()
 
 
-async def _migrate_repository_items(db: AsyncSession, list_repo: TaskListRepository) -> None:
+async def _migrate_repository_items(db: AsyncSession, list_repo: TaskListRepository, user_context_map: dict[int, int]) -> None:
     items = (await db.execute(select(RepositoryItem))).scalars().all()
     if not items:
         return
@@ -126,7 +139,10 @@ async def _migrate_repository_items(db: AsyncSession, list_repo: TaskListReposit
     for item in items:
         list_id = list_id_cache.get(item.user_id)
         if list_id is None:
-            tl = await list_repo.get_system_list(item.user_id, "repository")
+            context_id = user_context_map.get(item.user_id)
+            if context_id is None:
+                continue
+            tl = await list_repo.get_system_list(item.user_id, context_id, "repository")
             if tl is None:
                 continue
             list_id = tl.id

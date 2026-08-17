@@ -1,9 +1,12 @@
 # app/repositories/context_repo.py
 from typing import Optional
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.context import Context, ContextType
+from app.models.project import Project
+from app.models.task import Task
+from app.models.task_list import TaskList
 
 
 class ContextRepository:
@@ -40,12 +43,33 @@ class ContextRepository:
         return ctx
 
     async def delete(self, context_id: int, user_id: int) -> bool:
+        # Contexto próprio OU padrão (user_id NULL, compartilhado) — o padrão nunca
+        # bate em "== user_id", então sem o OR nenhum usuário conseguia excluí-lo.
         result = await self.db.execute(
-            select(Context).where(Context.id == context_id, Context.user_id == user_id)
+            select(Context).where(
+                Context.id == context_id,
+                or_(Context.user_id.is_(None), Context.user_id == user_id),
+            )
         )
         ctx = result.scalar_one_or_none()
         if not ctx:
             return False
+
+        # SQLite não roda com PRAGMA foreign_keys=ON neste projeto, então o
+        # ondelete="SET NULL" dos models não é garantido em runtime — limpeza
+        # manual, mesmo padrão defensivo que TaskListRepository.archive() já usa.
+        lists = await self.db.execute(
+            select(TaskList.id).where(TaskList.context_id == context_id, TaskList.archived.is_(False))
+        )
+        list_ids = [row[0] for row in lists.all()]
+        for list_id in list_ids:
+            await self.db.execute(update(TaskList).where(TaskList.id == list_id).values(archived=True))
+            await self.db.execute(
+                update(Task).where(Task.list_id == list_id).values(list_id=None, context_id=None)
+            )
+        await self.db.execute(update(Task).where(Task.context_id == context_id).values(context_id=None))
+        await self.db.execute(update(Project).where(Project.context_id == context_id).values(context_id=None))
+
         await self.db.delete(ctx)
         await self.db.commit()
         return True

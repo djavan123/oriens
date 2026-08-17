@@ -13,6 +13,7 @@ from app.database import get_db
 from app.models.project import ProjectStatus
 from app.models.user import User
 from app.repositories.capture_repo import CaptureRepository
+from app.repositories.context_repo import ContextRepository
 from app.repositories.label_repo import LabelRepository
 from app.repositories.project_decision_repo import ProjectDecisionRepository
 from app.repositories.project_repo import ProjectRepository
@@ -145,7 +146,8 @@ async def test_label_cross_user(client, other_client, db, test_user):
 
 @pytest.mark.asyncio
 async def test_list_cross_user(client, other_client, db, test_user):
-    task_list = await TaskListRepository(db).create(test_user.id, "minha lista")
+    ctx = await ContextRepository(db).create(user_id=test_user.id, name="Trabalho")
+    task_list = await TaskListRepository(db).create(test_user.id, "minha lista", ctx.id)
 
     r = await other_client.patch(f"/api/lists/{task_list.id}", data={"name": "de B"})
     assert r.status_code in FORBIDDEN

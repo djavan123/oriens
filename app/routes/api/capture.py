@@ -65,16 +65,20 @@ async def decide_capture(
     )
     active_projects = await ProjectRepository(db).get_active_by_user(current_user.id)
 
-    # Listas para o popover "Listas" (padrão avulsas + Notas/Repositório + personalizadas).
-    list_repo = TaskListRepository(db)
-    await list_repo.ensure_system_lists(current_user.id)
-    all_lists = await list_repo.get_active_by_user(current_user.id)
-    notes_list = next((l for l in all_lists if l.system_key == "notes"), None)
-    repo_list = next((l for l in all_lists if l.system_key == "repository"), None)
-    custom_lists = [l for l in all_lists if l.system_key is None]
-
     # Contexto usado ao criar Task via popover (um clique): ativo → 1º disponível.
     default_context_id = active_context_id or (all_contexts[0].id if all_contexts else None)
+
+    # Listas para o popover "Listas" (padrão avulsas + Notas/Repositório + personalizadas),
+    # escopadas ao mesmo contexto que a Task vai herdar ao ser criada.
+    notes_list = repo_list = None
+    custom_lists: list = []
+    if default_context_id is not None:
+        list_repo = TaskListRepository(db)
+        await list_repo.ensure_system_lists(current_user.id, default_context_id)
+        all_lists = await list_repo.get_active_by_user(current_user.id, default_context_id)
+        notes_list = next((l for l in all_lists if l.system_key == "notes"), None)
+        repo_list = next((l for l in all_lists if l.system_key == "repository"), None)
+        custom_lists = [l for l in all_lists if l.system_key is None]
 
     return templates.TemplateResponse(
         request,
@@ -175,12 +179,16 @@ async def process_capture(
             if proj:
                 ctx_id = proj.context_id
         # list_id só vale para tarefa avulsa de topo; valida ownership.
+        # Tarefa numa lista herda o contexto da lista (travado) — sobrescreve o
+        # que veio do select de contexto, mesmo padrão de POST /api/tasks.
         lid = None
         if proj_id is None:
             lid_candidate = _parse_int(list_id)
             if lid_candidate is not None:
                 owned = await TaskListRepository(db).get_by_id(lid_candidate, current_user.id)
-                lid = owned.id if owned is not None else None
+                if owned is not None:
+                    lid = owned.id
+                    ctx_id = owned.context_id
         if proj_id is None and ctx_id is None:
             return HTMLResponse(
                 '<p class="text-oriens-alert text-sm">Escolha um contexto.</p>',

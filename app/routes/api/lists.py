@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
+from app.repositories.context_repo import ContextRepository
 from app.repositories.task_list_repo import TaskListRepository
 from app.utils.auth import get_current_user
 
@@ -17,10 +18,22 @@ router = APIRouter(prefix="/api", tags=["api:lists"])
 @router.post("/lists", response_class=HTMLResponse)
 async def create_list(
     name: str = Form(...),
+    context_id: str = Form(...),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    task_list = await TaskListRepository(db).create(current_user.id, name)
+    try:
+        cid = int(context_id)
+    except (ValueError, TypeError):
+        cid = None
+    owned_contexts = await ContextRepository(db).get_all_by_user(current_user.id)
+    ctx = next((c for c in owned_contexts if c.id == cid), None)
+    if ctx is None:
+        return HTMLResponse(
+            '<p class="text-oriens-alert text-xs">Escolha um contexto válido.</p>',
+            headers={"HX-Retarget": "#new-list-error", "HX-Reswap": "innerHTML"},
+        )
+    task_list = await TaskListRepository(db).create(current_user.id, name, ctx.id)
     if task_list is None:
         return HTMLResponse(
             '<p class="text-oriens-alert text-xs">Nome não pode ser vazio.</p>',

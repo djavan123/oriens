@@ -82,6 +82,9 @@ _ENSURE_COLUMNS: dict[str, list[tuple[str, str]]] = {
     "contexts": [
         ("user_id", "INTEGER"),
     ],
+    "task_lists": [
+        ("context_id", "INTEGER"),
+    ],
     "project_timeline": [
         ("description", "VARCHAR(255)"),
     ],
@@ -149,6 +152,9 @@ _ENSURE_COLUMNS_PG: dict[str, list[tuple[str, str]]] = {
     ],
     "contexts": [
         ("user_id", "INTEGER"),
+    ],
+    "task_lists": [
+        ("context_id", "INTEGER"),
     ],
     "project_timeline": [
         ("description", "VARCHAR(255)"),
@@ -286,6 +292,7 @@ _INDEXES: list[tuple[str, str, str]] = [
     ("ix_tasks_archived", "tasks", "archived"),
     ("ix_tasks_section_id", "tasks", "section_id"),
     ("ix_tasks_list_id", "tasks", "list_id"),
+    ("ix_task_lists_context_id", "task_lists", "context_id"),
     ("ix_capture_inbox_processed", "capture_inbox", "processed"),
     # Índices compostos para os padrões reais de filtro (quase toda query de
     # tarefa filtra user+status+archived; o detalhe do projeto, user+project+parent).
@@ -333,6 +340,23 @@ def _seed_contexts(conn) -> None:
     )
 
 
+def _backfill_task_list_context(conn) -> None:
+    """Atribui um contexto às listas que nasceram antes de context_id existir.
+
+    Usa o contexto de menor id visível ao dono da lista (global ou próprio) —
+    não-destrutivo, idempotente (só mexe em context_id IS NULL). SQL portável
+    entre SQLite e Postgres, roda incondicionalmente.
+    """
+    conn.exec_driver_sql("""
+        UPDATE task_lists
+        SET context_id = (
+            SELECT MIN(c.id) FROM contexts c
+            WHERE c.user_id IS NULL OR c.user_id = task_lists.user_id
+        )
+        WHERE context_id IS NULL
+    """)
+
+
 async def init_db():
     import time
 
@@ -348,4 +372,5 @@ async def init_db():
         await conn.run_sync(_migrate_data)
         await conn.run_sync(_ensure_indexes)
         await conn.run_sync(_seed_contexts)
+        await conn.run_sync(_backfill_task_list_context)
     logger.info("init_db concluído em %.1fs", time.perf_counter() - start)
